@@ -83,7 +83,7 @@ func (n *NebulaStateStore) Set(ctx context.Context, req *state.SetRequest) error
 			data = str
 		}
 	}
-	
+
 	query := fmt.Sprintf("USE %s; INSERT VERTEX state(data) VALUES '%s':('%s')",
 		n.config.Space, req.Key, data)
 
