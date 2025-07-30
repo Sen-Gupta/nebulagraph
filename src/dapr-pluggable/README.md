@@ -220,13 +220,13 @@ Build and run locally for development:
 # Install dependencies
 go mod download
 
-# Build the component
-go build -o nebulagraph-component .
+# Build the component (creates 'nebulagraph' binary)
+go build
 
 # Run locally (requires NebulaGraph running)
 export DAPR_COMPONENT_SOCKETS_FOLDER=/tmp/dapr-components-sockets
 mkdir -p $DAPR_COMPONENT_SOCKETS_FOLDER
-./nebulagraph-component
+./nebulagraph
 ```
 
 ### Testing Changes
