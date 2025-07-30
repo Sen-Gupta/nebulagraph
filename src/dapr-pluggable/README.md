@@ -329,6 +329,53 @@ curl -X GET http://localhost:3500/v1.0/state/nebulagraph-state/mykey
 
 Or use the Dapr SDK in your preferred programming language.
 
+## 🌐 NebulaGraph Studio (Web Interface)
+
+NebulaGraph Studio provides a powerful web-based management interface for exploring and managing your graph data.
+
+### Starting Studio
+
+```bash
+# Start Studio along with dependencies
+docker-compose -f docker-compose.dependencies.yml --profile studio up -d
+
+# Or start Studio separately if dependencies are already running
+docker-compose -f docker-compose.dependencies.yml --profile studio up -d nebula-studio
+```
+
+### Accessing Studio
+
+1. Open your browser and navigate to: http://localhost:7001
+2. Configure the connection:
+   - **Host**: `nebula-graphd` (or `localhost` if accessing from browser)
+   - **Port**: `9669`
+   - **Username**: `root`
+   - **Password**: `nebula`
+
+### Studio Features
+
+- **Visual Graph Exploration**: Interactive graph visualization
+- **Query Interface**: Execute nGQL queries with syntax highlighting
+- **Schema Management**: Visual schema design and management
+- **Performance Monitoring**: Real-time query performance metrics
+- **Data Import/Export**: Import data from CSV files or export results
+- **Multi-Space Support**: Manage multiple graph spaces
+
+### Using Studio with Dapr State Data
+
+After running your Dapr component tests, you can visualize the stored state data:
+
+```sql
+-- Switch to the dapr_state space
+USE dapr_state;
+
+-- View all state vertices
+MATCH (v:state) RETURN v LIMIT 50;
+
+-- Explore data with filters
+MATCH (v:state) WHERE v.state.data CONTAINS "test" RETURN v;
+```
+
 ## 📖 Additional Resources
 
 - [Dapr State Store API](https://docs.dapr.io/reference/api/state_api/)

@@ -97,11 +97,29 @@ services:
     tty: true
     command: ["nebula-console", "-addr", "nebula-graphd", "-port", "9669", "-u", "root", "-p", "nebula"]
 
+  # NebulaGraph Studio (web-based management interface)
+  nebula-studio:
+    image: vesoft/nebula-graph-studio:v3.8.0
+    container_name: nebula-studio
+    environment:
+      - USER=root
+    networks:
+      - nebula-net
+    ports:
+      - "7001:7001"
+    depends_on:
+      - nebula-graphd
+    profiles:
+      - studio
+    volumes:
+      - nebula-studio-data:/root/nebula-graph-studio/db
+
 volumes:
   nebula-data:
   nebula-meta:
   nebula-storage:
   nebula-logs:
+  nebula-studio-data:
 
 networks:
   nebula-net:
