@@ -1,0 +1,48 @@
+version: '3.8'
+
+services:
+  nebulagraph-test-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: nebulagraph-test-api
+    ports:
+      - "5000:8080"
+      - "5001:8081"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:8080;https://+:8081
+      - ASPNETCORE_HTTPS_PORT=8081
+      - DAPR_HTTP_ENDPOINT=http://host.docker.internal:3500
+      - DAPR_GRPC_ENDPOINT=http://host.docker.internal:50001
+    networks:
+      - nebula-net
+    depends_on:
+      - dapr-nebulagraph-test
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  # Dapr sidecar for the test API
+  dapr-nebulagraph-test:
+    image: daprio/daprd:latest
+    container_name: dapr-nebulagraph-test
+    command: [
+      "./daprd",
+      "--app-id", "nebulagraph-test-api",
+      "--app-port", "8080",
+      "--dapr-http-port", "3500",
+      "--dapr-grpc-port", "50001",
+      "--log-level", "debug",
+      "--components-path", "/components"
+    ]
+    volumes:
+      - ../dapr-pluggable/components:/components:ro
+    networks:
+      - nebula-net
+    depends_on:
+      - nebulagraph-test-api
+
+networks:
+  nebula-net:
+    external: true
+    name: nebula-net
