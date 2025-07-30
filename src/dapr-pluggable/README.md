@@ -6,6 +6,7 @@ A Dapr pluggable component that provides state store functionality using NebulaG
 
 ```
 nebulagraph/
+├── .gitignore                        # Git ignore rules
 ├── src/
 │   └── dapr-pluggable/               # Dapr pluggable component implementation
 │       ├── main.go                   # Component entry point  
@@ -22,8 +23,7 @@ nebulagraph/
 │       ├── setup_dev.sh              # One-stop development setup
 │       ├── test_component.sh         # Comprehensive test suite
 │       ├── README.md                 # Main documentation
-│       ├── README_DEV.md             # Development setup guide
-│       └── .gitignore                # Git ignore rules
+│       └── README_DEV.md             # Development setup guide
 └── (other potential components/tools in the future)
 ```
 
@@ -31,12 +31,13 @@ nebulagraph/
 
 The project follows a hierarchical, modular structure:
 
+- **Repository root** (`nebulagraph/`): Contains Git configuration and repository-wide files
 - **`src/dapr-pluggable/`**: Contains the complete Dapr pluggable component implementation
 - **`main.go`**: Entry point that registers the NebulaGraph state store with Dapr
 - **`stores/`**: Contains all state store implementations (designed for future extensibility)
 - **`components/`**: Dapr component configuration files
 - **`go.mod`**: Defines the `nebulagraph` module with clean internal imports
-- **Root level**: Docker configuration, documentation, and utility scripts
+- **Component level**: Docker configuration, documentation, and utility scripts
 
 This structure allows for:
 - Easy extension with additional store types within the same component
@@ -170,8 +171,7 @@ curl -X POST http://localhost:3500/v1.0/state/nebulagraph-state/bulk \
 ├── setup_dev.sh                     # One-stop development setup
 ├── test_component.sh                # Comprehensive test suite
 ├── README.md                        # Main documentation (this file)
-├── README_DEV.md                    # Development setup guide
-└── .gitignore                       # Git ignore rules
+└── README_DEV.md                    # Development setup guide
 ```
 
 ### Script Files Overview
