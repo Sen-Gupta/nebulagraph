@@ -18,8 +18,8 @@ type NebulaStateStore struct {
 }
 
 type NebulaConfig struct {
-	Hosts    string `json:"hosts"`    // Changed to string for comma-separated values
-	Port     string `json:"port"`     // Changed to string to handle Dapr metadata
+	Hosts    string `json:"hosts"` // Changed to string for comma-separated values
+	Port     string `json:"port"`  // Changed to string to handle Dapr metadata
 	Username string `json:"username"`
 	Password string `json:"password"`
 	Space    string `json:"space"`
