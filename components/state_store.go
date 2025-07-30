@@ -130,7 +130,7 @@ func (store *NebulaStateStore) Set(ctx context.Context, req *state.SetRequest) e
 	return nil
 }
 
-func (store *NebulaStateStore) BulkGet(ctx context.Context, req []state.GetRequest) (bool, []state.BulkGetResponse, error) {
+func (store *NebulaStateStore) BulkGet(ctx context.Context, req []state.GetRequest, opts state.BulkGetOpts) ([]state.BulkGetResponse, error) {
 	responses := make([]state.BulkGetResponse, len(req))
 
 	for i, getReq := range req {
@@ -146,10 +146,10 @@ func (store *NebulaStateStore) BulkGet(ctx context.Context, req []state.GetReque
 		responses[i] = response
 	}
 
-	return true, responses, nil
+	return responses, nil
 }
 
-func (store *NebulaStateStore) BulkDelete(ctx context.Context, req []state.DeleteRequest) error {
+func (store *NebulaStateStore) BulkDelete(ctx context.Context, req []state.DeleteRequest, opts state.BulkStoreOpts) error {
 	for _, delReq := range req {
 		if err := store.Delete(ctx, &delReq); err != nil {
 			return err
@@ -158,7 +158,7 @@ func (store *NebulaStateStore) BulkDelete(ctx context.Context, req []state.Delet
 	return nil
 }
 
-func (store *NebulaStateStore) BulkSet(ctx context.Context, req []state.SetRequest) error {
+func (store *NebulaStateStore) BulkSet(ctx context.Context, req []state.SetRequest, opts state.BulkStoreOpts) error {
 	for _, setReq := range req {
 		if err := store.Set(ctx, &setReq); err != nil {
 			return err
