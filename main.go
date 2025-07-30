@@ -1,7 +1,7 @@
 package main
 
 import (
-	"nebulagraph/components"
+	"nebulagraph/stores"
 
 	dapr "github.com/dapr-sandbox/components-go-sdk"
 	"github.com/dapr-sandbox/components-go-sdk/state/v1"
@@ -9,7 +9,7 @@ import (
 
 func main() {
 	dapr.Register("nebulagraph-state", dapr.WithStateStore(func() state.Store {
-		return &components.NebulaStateStore{}
+		return &stores.NebulaStateStore{}
 	}))
 
 	dapr.MustRun()
