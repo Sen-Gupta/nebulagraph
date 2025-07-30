@@ -66,4 +66,4 @@ volumes:
 networks:
   nebula-net:
     external: true
-    name: nebulagraph_nebula-net
+    name: nebula-net

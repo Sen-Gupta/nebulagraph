@@ -106,3 +106,4 @@ volumes:
 networks:
   nebula-net:
     driver: bridge
+    name: nebula-net
