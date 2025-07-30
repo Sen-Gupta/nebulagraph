@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
+	"strings"
 
 	"github.com/dapr/components-contrib/state"
 	nebula "github.com/vesoft-inc/nebula-go/v3"
@@ -16,11 +18,11 @@ type NebulaStateStore struct {
 }
 
 type NebulaConfig struct {
-	Hosts    []string `json:"hosts"`
-	Port     int      `json:"port"`
-	Username string   `json:"username"`
-	Password string   `json:"password"`
-	Space    string   `json:"space"`
+	Hosts    string `json:"hosts"`    // Changed to string for comma-separated values
+	Port     string `json:"port"`     // Changed to string to handle Dapr metadata
+	Username string `json:"username"`
+	Password string `json:"password"`
+	Space    string `json:"space"`
 }
 
 func (store *NebulaStateStore) Init(ctx context.Context, metadata state.Metadata) error {
@@ -30,10 +32,22 @@ func (store *NebulaStateStore) Init(ctx context.Context, metadata state.Metadata
 		return fmt.Errorf("failed to parse configuration: %w", err)
 	}
 
+	// Parse hosts string into slice
+	hosts := strings.Split(store.config.Hosts, ",")
+	for i := range hosts {
+		hosts[i] = strings.TrimSpace(hosts[i])
+	}
+
+	// Convert port string to int
+	port, err := strconv.Atoi(store.config.Port)
+	if err != nil {
+		return fmt.Errorf("invalid port number: %w", err)
+	}
+
 	// Initialize NebulaGraph connection pool
-	hostList := make([]nebula.HostAddress, len(store.config.Hosts))
-	for i, host := range store.config.Hosts {
-		hostList[i] = nebula.HostAddress{Host: host, Port: store.config.Port}
+	hostList := make([]nebula.HostAddress, len(hosts))
+	for i, host := range hosts {
+		hostList[i] = nebula.HostAddress{Host: host, Port: port}
 	}
 
 	poolConfig := nebula.GetDefaultConf()
