@@ -8,7 +8,7 @@ import (
 )
 
 func main() {
-	dapr.Register("state.nebulagraph-state", dapr.WithStateStore(func() state.Store {
+	dapr.Register("nebulagraph-state", dapr.WithStateStore(func() state.Store {
 		return &components.NebulaStateStore{}
 	}))
 
