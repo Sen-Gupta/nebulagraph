@@ -1,0 +1,67 @@
+syntax = "proto3";
+
+option csharp_namespace = "NebulaGraphTestApi.Protos";
+
+package nebulagraph;
+
+// The NebulaGraph state store testing service
+service NebulaGraphService {
+  // Get a value by key
+  rpc GetValue (GetValueRequest) returns (GetValueResponse);
+  
+  // Set a key-value pair
+  rpc SetValue (SetValueRequest) returns (SetValueResponse);
+  
+  // Delete a key
+  rpc DeleteValue (DeleteValueRequest) returns (DeleteValueResponse);
+  
+  // List all keys with prefix
+  rpc ListKeys (ListKeysRequest) returns (ListKeysResponse);
+}
+
+// Request to get a value
+message GetValueRequest {
+  string key = 1;
+}
+
+// Response with the value
+message GetValueResponse {
+  string value = 1;
+  bool found = 2;
+  string error = 3;
+}
+
+// Request to set a value
+message SetValueRequest {
+  string key = 1;
+  string value = 2;
+}
+
+// Response for set operation
+message SetValueResponse {
+  bool success = 1;
+  string error = 2;
+}
+
+// Request to delete a value
+message DeleteValueRequest {
+  string key = 1;
+}
+
+// Response for delete operation
+message DeleteValueResponse {
+  bool success = 1;
+  string error = 2;
+}
+
+// Request to list keys
+message ListKeysRequest {
+  string prefix = 1;
+  int32 limit = 2;
+}
+
+// Response with list of keys
+message ListKeysResponse {
+  repeated string keys = 1;
+  string error = 2;
+}

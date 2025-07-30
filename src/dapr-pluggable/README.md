@@ -33,6 +33,8 @@ The project follows a hierarchical, modular structure:
 
 - **Repository root** (`nebulagraph/`): Contains Git configuration and repository-wide files
 - **`src/dapr-pluggable/`**: Contains the complete Dapr pluggable component implementation
+- **`src/NebulaGraphTestApi/`**: .NET 9 test API for validating the component (HTTP + gRPC)
+- **`src/dapr/`**: Dapr component configuration for testing
 - **`main.go`**: Entry point that registers the NebulaGraph state store with Dapr
 - **`stores/`**: Contains all state store implementations (designed for future extensibility)
 - **`components/`**: Dapr component configuration files
