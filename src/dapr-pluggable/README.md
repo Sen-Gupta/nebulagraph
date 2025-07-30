@@ -15,10 +15,15 @@ nebulagraph/
 │       │   └── component.yml         # Dapr component configuration
 │       ├── go.mod                    # Go module definition (module: nebulagraph)
 │       ├── Dockerfile                # Component container
+│       ├── Dockerfile.test           # Test container (optional)
 │       ├── docker-compose.yml        # Main Dapr component services
 │       ├── docker-compose.dependencies.yml  # NebulaGraph dependencies
-│       ├── test_component.sh         # Test script for verification
-│       └── README.md                 # This file
+│       ├── init_nebula.sh            # NebulaGraph cluster initialization
+│       ├── setup_dev.sh              # One-stop development setup
+│       ├── test_component.sh         # Comprehensive test suite
+│       ├── README.md                 # Main documentation
+│       ├── README_DEV.md             # Development setup guide
+│       └── .gitignore                # Git ignore rules
 └── (other potential components/tools in the future)
 ```
 
@@ -51,6 +56,23 @@ This structure allows for:
 - NebulaGraph v3.8.0+ cluster
 - Dapr runtime v1.15.8+
 
+### Option 1: Automated Setup (Recommended)
+
+For new developers or complete setup:
+
+```bash
+# 1. Start NebulaGraph dependencies
+docker-compose -f docker-compose.dependencies.yml up -d
+
+# 2. One-command development setup (runs initialization + tests)
+./setup_dev.sh
+
+# 3. Start your Dapr component
+docker-compose up -d
+```
+
+### Option 2: Manual Step-by-Step Setup
+
 ### 1. Start NebulaGraph Dependencies
 
 First, start the NebulaGraph cluster:
@@ -64,7 +86,18 @@ docker-compose -f docker-compose.dependencies.yml up -d
 docker-compose -f docker-compose.dependencies.yml ps
 ```
 
-### 2. Build and Start the Dapr Component
+### 2. Initialize NebulaGraph Cluster (Development Only)
+
+**Important**: NebulaGraph requires cluster initialization for development:
+
+```bash
+# Initialize the cluster (required once per environment)
+./init_nebula.sh
+```
+
+### 3. Build and Start the Dapr Component
+
+### 3. Build and Start the Dapr Component
 
 Build and start the NebulaGraph Dapr component:
 
@@ -79,29 +112,26 @@ docker-compose up -d
 docker-compose ps
 ```
 
-### 3. Verify Component Registration
-
-Check that the component is properly registered with Dapr:
-
-```bash
-# Check component logs
-docker logs nebulagraph-dapr-component
-
-# Check Dapr runtime logs (should show successful initialization)
-docker logs daprd-nebulagraph
-```
-
 ### 4. Test the Component
 
 Run the comprehensive test script:
 
 ```bash
-# Make the test script executable
-chmod +x test_component.sh
-
-# Run all tests
+# Run all tests (includes automatic schema setup)
 ./test_component.sh
 ```
+
+**Note**: The test script automatically creates the required `dapr_state` space and schema if they don't exist.
+
+## 📖 Development Guide
+
+For detailed development setup, testing, and troubleshooting, see [README_DEV.md](README_DEV.md).
+
+The development guide includes:
+- Detailed explanation of all 3 shell scripts
+- Multiple development workflows
+- NebulaGraph console access and commands
+- Comprehensive troubleshooting guide
 
 Or test manually with individual operations:
 
@@ -128,15 +158,27 @@ curl -X POST http://localhost:3500/v1.0/state/nebulagraph-state/bulk \
 ```
 .
 ├── main.go                           # Component entry point
+├── stores/
+│   └── nebulagraph_store.go         # NebulaGraph state store implementation
 ├── components/
-│   ├── state_store.go               # NebulaGraph state store implementation
 │   └── component.yml                # Dapr component configuration
 ├── Dockerfile                       # Component container
+├── Dockerfile.test                  # Test container (optional)
 ├── docker-compose.yml               # Main Dapr component services
 ├── docker-compose.dependencies.yml  # NebulaGraph dependencies
-├── test_component.sh                # Test script for verification
-└── README.md                        # This file
+├── init_nebula.sh                   # NebulaGraph cluster initialization
+├── setup_dev.sh                     # One-stop development setup
+├── test_component.sh                # Comprehensive test suite
+├── README.md                        # Main documentation (this file)
+├── README_DEV.md                    # Development setup guide
+└── .gitignore                       # Git ignore rules
 ```
+
+### Script Files Overview
+
+- **`setup_dev.sh`**: Complete development environment setup (calls other scripts)
+- **`init_nebula.sh`**: NebulaGraph cluster initialization (required for development)
+- **`test_component.sh`**: Comprehensive test suite with automatic schema setup
 
 ## ⚙️ Component Configuration
 
@@ -169,12 +211,12 @@ spec:
 
 ## 🔧 Troubleshooting
 
-### Common Issues
+### Quick Fixes
 
-1. **Component not found**: Ensure socket names match between component registration and Dapr configuration
-2. **Connection refused**: Verify NebulaGraph services are running and accessible
-3. **Network issues**: Ensure both component and NebulaGraph are on the same Docker network
-4. **Permission issues**: Check that socket volumes are properly mounted
+1. **"Space not found" errors**: Run `./init_nebula.sh` to initialize the cluster
+2. **Component won't start**: Ensure dependencies are running and cluster is initialized
+3. **Network issues**: Verify all services are on the same Docker network
+4. **Test failures**: The test script handles schema creation automatically
 
 ### Debug Commands
 
@@ -191,9 +233,14 @@ docker logs nebula-graphd
 # Test network connectivity
 docker exec nebulagraph-dapr-component ping nebula-graphd
 
-# Check socket files
-docker exec daprd-nebulagraph ls -la /var/run/
+# Check NebulaGraph cluster status
+./init_nebula.sh
+
+# Run tests
+./test_component.sh
 ```
+
+For detailed troubleshooting, see [README_DEV.md](README_DEV.md).
 
 ## 🧹 Cleanup
 
@@ -214,7 +261,9 @@ docker network rm nebulagraph_nebula-net
 
 ### Local Development
 
-Build and run locally for development:
+For detailed development setup, see [README_DEV.md](README_DEV.md).
+
+Quick local development:
 
 ```bash
 # Install dependencies
@@ -223,7 +272,7 @@ go mod download
 # Build the component (creates 'nebulagraph' binary)
 go build
 
-# Run locally (requires NebulaGraph running)
+# Run locally (requires NebulaGraph running and initialized)
 export DAPR_COMPONENT_SOCKETS_FOLDER=/tmp/dapr-components-sockets
 mkdir -p $DAPR_COMPONENT_SOCKETS_FOLDER
 ./nebulagraph
@@ -240,6 +289,18 @@ docker-compose down && docker-compose up -d
 
 # Run tests
 ./test_component.sh
+```
+
+### Development Workflow
+
+```bash
+# Fresh environment setup
+docker-compose -f docker-compose.dependencies.yml up -d
+./setup_dev.sh
+
+# Daily development
+docker-compose up -d
+./test_component.sh  # Run when making changes
 ```
 
 ## 📋 Requirements
