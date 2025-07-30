@@ -117,9 +117,8 @@ docker-compose -f docker-compose.dependencies.yml up -d
 # Access NebulaGraph console directly
 docker exec -it nebula-console nebula-console -addr nebula-graphd -port 9669 -u root -p nebula
 
-# Start NebulaGraph Studio for visual debugging
-docker-compose -f docker-compose.dependencies.yml --profile studio up -d nebula-studio
-# Then open http://localhost:7001 in your browser
+# NebulaGraph Studio is automatically available at http://localhost:7001
+# (starts automatically with dependencies)
 ```
 
 ## NebulaGraph Console Access
@@ -151,8 +150,8 @@ MATCH (v:state) RETURN v LIMIT 10;
 For visual graph exploration and easier management:
 
 ```bash
-# Start Studio
-docker-compose -f docker-compose.dependencies.yml --profile studio up -d nebula-studio
+# Start Studio (automatically included with dependencies)
+docker-compose -f docker-compose.dependencies.yml up -d
 
 # Access via browser: http://localhost:7001
 # Connection: nebula-graphd:9669, root/nebula
@@ -215,7 +214,7 @@ All tests validate that data is properly persisted in NebulaGraph using the corr
 # Check all containers are running
 docker ps
 
-# Check NebulaGraph cluster status
+# Check NebulaGraph cluster status (console now always available)
 docker exec nebula-console nebula-console -addr nebula-graphd -port 9669 -u root -p nebula -e "SHOW HOSTS"
 
 # Check component logs

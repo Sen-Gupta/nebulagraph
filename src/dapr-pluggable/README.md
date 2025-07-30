@@ -335,12 +335,11 @@ NebulaGraph Studio provides a powerful web-based management interface for explor
 
 ### Starting Studio
 
-```bash
-# Start Studio along with dependencies
-docker-compose -f docker-compose.dependencies.yml --profile studio up -d
+Studio is now automatically included when you start the dependencies:
 
-# Or start Studio separately if dependencies are already running
-docker-compose -f docker-compose.dependencies.yml --profile studio up -d nebula-studio
+```bash
+# Studio starts automatically with all other services
+docker-compose -f docker-compose.dependencies.yml up -d
 ```
 
 ### Accessing Studio
