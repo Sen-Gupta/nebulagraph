@@ -11,13 +11,17 @@
 # Output of the go coverage tool, specifically when used with LiteIDE
 *.out
 
+# Dependency directories (remove the comment below to include it)
+# vendor/
+
 # Go workspace file
 go.work
 
-# Binary output
+# Compiled binary
 nebulagraph
+nebulagraph-component
 
-# .NET build artifacts
+# .NET Core build artifacts
 bin/
 obj/
 *.user
@@ -26,8 +30,6 @@ obj/
 *.docstates
 *.log
 *.tmp
-*.dll
-*.exe
 *.pdb
 *.deps.json
 *.runtimeconfig.json
@@ -50,14 +52,14 @@ artifacts/
 .vs/
 .vscode/
 *.rsuser
-*.suo
-*.user
 *.userosscache
 *.sln.docstates
 
-# IDE files
-.vscode/
+# JetBrains Rider
 .idea/
+*.sln.iml
+
+# IDE files
 *.swp
 *.swo
 
@@ -69,14 +71,6 @@ artifacts/
 .Trashes
 ehthumbs.db
 Thumbs.db
-nebulagraph-component
-
-# Rider IDE
-.idea/
-
-# JetBrains Rider
-.idea/
-*.sln.iml
 
 # ASP.NET Scaffolding
 ScaffoldingReadMe.txt
@@ -125,3 +119,15 @@ MigrationBackup/
 
 # Ionide (cross platform F# VS Code tools) working folder
 .ionide/
+
+# Logs
+logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Docker
+.env
+
+# Temporary files
+*.temp

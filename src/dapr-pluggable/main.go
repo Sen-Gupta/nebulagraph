@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"nebulagraph/stores"
 
 	dapr "github.com/dapr-sandbox/components-go-sdk"
@@ -8,9 +9,15 @@ import (
 )
 
 func main() {
+	fmt.Println("DEBUG: Starting Dapr component registration")
+
 	dapr.Register("nebulagraph-state", dapr.WithStateStore(func() state.Store {
-		return &stores.NebulaStateStore{}
+		fmt.Println("DEBUG: Factory function called - creating new NebulaStateStore instance")
+		store := &stores.NebulaStateStore{}
+		fmt.Printf("DEBUG: Created store instance: %p\n", store)
+		return store
 	}))
 
+	fmt.Println("DEBUG: Registration complete, starting Dapr runtime")
 	dapr.MustRun()
 }
