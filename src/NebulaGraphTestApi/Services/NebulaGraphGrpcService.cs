@@ -8,7 +8,7 @@ public class NebulaGraphGrpcService : NebulaGraphService.NebulaGraphServiceBase
 {
     private readonly DaprClient _daprClient;
     private readonly ILogger<NebulaGraphGrpcService> _logger;
-    private const string StoreName = "nebulagraph-store";
+    private const string StoreName = "nebulagraph-state";
 
     public NebulaGraphGrpcService(DaprClient daprClient, ILogger<NebulaGraphGrpcService> logger)
     {

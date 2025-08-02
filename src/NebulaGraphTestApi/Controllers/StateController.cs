@@ -9,7 +9,7 @@ public class StateController : ControllerBase
 {
     private readonly DaprClient _daprClient;
     private readonly ILogger<StateController> _logger;
-    private const string StoreName = "nebulagraph-store";
+    private const string StoreName = "nebulagraph-state";
 
     public StateController(DaprClient daprClient, ILogger<StateController> logger)
     {

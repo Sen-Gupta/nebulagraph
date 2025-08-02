@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Test script for NebulaGraph Dapr component via .NET API
-BASE_URL="http://localhost:5000"
+BASE_URL="http://    cur    curl -X DELETE "${DAPR_URL}/v1.0/state/nebulagraph-state/dapr-test" \ -X GET "${DAPR_URL}/v1.0/state/nebulagraph-state/dapr-test" \ocalhost:5000"
 DAPR_URL="http://localhost:3500"
 
 echo "=== Testing NebulaGraph Dapr Component via .NET API ==="
@@ -77,7 +77,7 @@ test_dapr_api() {
     
     # Test SET via Dapr
     echo "1. Testing SET via Dapr..."
-    curl -X POST "${DAPR_URL}/v1.0/state/nebulagraph-store" \
+    curl -X POST "${DAPR_URL}/v1.0/state/nebulagraph-state" \
          -H "Content-Type: application/json" \
          -d '[{"key":"dapr-test", "value":"dapr-value-789"}]' \
          -w "\nStatus: %{http_code}\n\n"
