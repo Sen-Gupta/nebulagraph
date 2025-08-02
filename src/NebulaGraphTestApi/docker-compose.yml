@@ -30,7 +30,7 @@ services:
       "--log-level", "debug"
     ]
     volumes:
-      - "./dapr:/components"
+      - "../components:/components"
       - "./config:/config"
     ports:
       - "3501:3501"  # Different port from our pluggable component

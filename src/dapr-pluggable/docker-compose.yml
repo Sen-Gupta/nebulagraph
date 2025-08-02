@@ -40,7 +40,7 @@ services:
       - "50001:50001"  # Dapr gRPC API
     volumes:
       - socket:/var/run
-      - ./components:/components
+      - ../components:/components
     networks:
       - nebula-net
 

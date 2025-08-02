@@ -117,8 +117,8 @@ docker-compose -f docker-compose.dependencies.yml up -d
 # Access NebulaGraph console directly
 docker exec -it nebula-console nebula-console -addr nebula-graphd -port 9669 -u root -p nebula
 
-# NebulaGraph Studio is automatically available at http://localhost:7001
-# (starts automatically with dependencies)
+# Access NebulaGraph Studio for visual debugging at http://localhost:7001
+# (Studio is automatically started with dependencies)
 ```
 
 ## NebulaGraph Console Access
@@ -147,12 +147,9 @@ MATCH (v:state) RETURN v LIMIT 10;
 
 ## NebulaGraph Studio (Web Interface)
 
-For visual graph exploration and easier management:
+For visual graph exploration and easier management, Studio is automatically started with the dependencies:
 
 ```bash
-# Start Studio (automatically included with dependencies)
-docker-compose -f docker-compose.dependencies.yml up -d
-
 # Access via browser: http://localhost:7001
 # Connection: nebula-graphd:9669, root/nebula
 ```
