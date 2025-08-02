@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/dapr/components-contrib/metadata"
 	"github.com/dapr/components-contrib/state"
 	nebula "github.com/vesoft-inc/nebula-go/v3"
 )
@@ -17,6 +18,9 @@ type NebulaStateStore struct {
 	config NebulaConfig
 }
 
+// Compile time check to ensure NebulaStateStore implements state.Store
+var _ state.Store = (*NebulaStateStore)(nil)
+
 type NebulaConfig struct {
 	Hosts    string `json:"hosts"` // Changed to string for comma-separated values
 	Port     string `json:"port"`  // Changed to string to handle Dapr metadata
@@ -26,11 +30,16 @@ type NebulaConfig struct {
 }
 
 func (store *NebulaStateStore) Init(ctx context.Context, metadata state.Metadata) error {
+	fmt.Printf("DEBUG: Init called on store instance %p with metadata: %+v\n", store, metadata.Properties)
+
 	// Parse configuration from metadata
 	configBytes, _ := json.Marshal(metadata.Properties)
 	if err := json.Unmarshal(configBytes, &store.config); err != nil {
+		fmt.Printf("DEBUG: Failed to parse config: %v\n", err)
 		return fmt.Errorf("failed to parse configuration: %w", err)
 	}
+
+	fmt.Printf("DEBUG: Parsed config: %+v\n", store.config)
 
 	// Parse hosts string into slice
 	hosts := strings.Split(store.config.Hosts, ",")
@@ -41,8 +50,11 @@ func (store *NebulaStateStore) Init(ctx context.Context, metadata state.Metadata
 	// Convert port string to int
 	port, err := strconv.Atoi(store.config.Port)
 	if err != nil {
+		fmt.Printf("DEBUG: Invalid port: %v\n", err)
 		return fmt.Errorf("invalid port number: %w", err)
 	}
+
+	fmt.Printf("DEBUG: Connecting to NebulaGraph at hosts: %v, port: %d\n", hosts, port)
 
 	// Initialize NebulaGraph connection pool
 	hostList := make([]nebula.HostAddress, len(hosts))
@@ -53,9 +65,11 @@ func (store *NebulaStateStore) Init(ctx context.Context, metadata state.Metadata
 	poolConfig := nebula.GetDefaultConf()
 	pool, err := nebula.NewConnectionPool(hostList, poolConfig, nebula.DefaultLogger{})
 	if err != nil {
+		fmt.Printf("DEBUG: Failed to create connection pool: %v\n", err)
 		return fmt.Errorf("failed to create connection pool: %w", err)
 	}
 
+	fmt.Printf("DEBUG: Connection pool created successfully\n")
 	store.pool = pool
 	return nil
 }
@@ -91,25 +105,116 @@ func (store *NebulaStateStore) Delete(ctx context.Context, req *state.DeleteRequ
 }
 
 func (store *NebulaStateStore) Get(ctx context.Context, req *state.GetRequest) (*state.GetResponse, error) {
+	fmt.Printf("DEBUG: GET called on store instance %p for key: %s\n", store, req.Key)
+
+	// Lazy initialization if Init was not called
+	if store.pool == nil {
+		fmt.Printf("DEBUG: Connection pool is nil, attempting lazy initialization\n")
+
+		// Try to initialize with hardcoded config for now to test the theory
+		metadata := state.Metadata{
+			Base: metadata.Base{
+				Properties: map[string]string{
+					"hosts":    "nebula-graphd",
+					"port":     "9669",
+					"username": "root",
+					"password": "nebula",
+					"space":    "dapr_state",
+				},
+			},
+		}
+
+		err := store.Init(ctx, metadata)
+		if err != nil {
+			fmt.Printf("DEBUG: Lazy initialization failed: %v\n", err)
+			return nil, fmt.Errorf("failed to initialize component: %w", err)
+		}
+		fmt.Printf("DEBUG: Lazy initialization successful\n")
+	}
+
 	session, err := store.pool.GetSession(store.config.Username, store.config.Password)
 	if err != nil {
+		fmt.Printf("DEBUG: Failed to get session: %v\n", err)
 		return nil, fmt.Errorf("failed to get session: %w", err)
 	}
 	defer session.Release()
 
-	query := fmt.Sprintf("USE %s; FETCH PROP ON state '%s' YIELD properties(vertex)", store.config.Space, req.Key)
+	// First, let's see what vertices exist to debug the key format
+	debugQuery := fmt.Sprintf("USE %s; MATCH (v:state) RETURN id(v) LIMIT 10", store.config.Space)
+	fmt.Printf("DEBUG: Executing debug query: %s\n", debugQuery)
+	debugResp, err := session.Execute(debugQuery)
+	if err != nil {
+		fmt.Printf("DEBUG: Debug query failed: %v\n", err)
+		return nil, fmt.Errorf("debug query failed: %w", err)
+	}
+
+	if debugResp != nil && debugResp.IsSucceed() && debugResp.GetRowSize() > 0 {
+		fmt.Printf("DEBUG: Found %d vertices in database\n", debugResp.GetRowSize())
+		for i := 0; i < debugResp.GetRowSize(); i++ {
+			if record, err := debugResp.GetRowValuesByIndex(i); err == nil {
+				if idVal, err := record.GetValueByIndex(0); err == nil {
+					if idStr, err := idVal.AsString(); err == nil {
+						fmt.Printf("DEBUG: Vertex ID: %s\n", idStr)
+					}
+				}
+			}
+		}
+	} else {
+		fmt.Printf("DEBUG: No vertices found or query failed\n")
+	}
+
+	// Try multiple approaches to find the vertex since Dapr adds prefixes
+	// First try with CONTAINS for the key
+	query := fmt.Sprintf("USE %s; MATCH (v:state) WHERE id(v) CONTAINS '%s' RETURN v.state.data AS data", store.config.Space, req.Key)
+	fmt.Printf("DEBUG: Executing query: %s\n", query)
 	resp, err := session.Execute(query)
 	if err != nil {
+		fmt.Printf("DEBUG: Query failed: %v\n", err)
 		return nil, fmt.Errorf("failed to execute query: %w", err)
 	}
 
-	if !resp.IsSucceed() || resp.GetRowSize() == 0 {
+	if !resp.IsSucceed() {
+		return nil, fmt.Errorf("query failed: %s", resp.GetErrorMsg())
+	}
+
+	// If no results found, try with exact key match
+	if resp.GetRowSize() == 0 {
+		query = fmt.Sprintf("USE %s; FETCH PROP ON state '%s' YIELD properties(vertex)", store.config.Space, req.Key)
+		resp, err = session.Execute(query)
+		if err != nil {
+			return nil, fmt.Errorf("failed to execute fetch query: %w", err)
+		}
+
+		if !resp.IsSucceed() || resp.GetRowSize() == 0 {
+			return &state.GetResponse{}, nil
+		}
+	}
+
+	// Use GetRowValuesByIndex to get the first row
+	record, err := resp.GetRowValuesByIndex(0)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get row: %w", err)
+	}
+
+	// Get the first value from the record using GetValueByIndex
+	valueWrapper, err := record.GetValueByIndex(0)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get value by index: %w", err)
+	}
+
+	if valueWrapper.IsNull() {
 		return &state.GetResponse{}, nil
 	}
 
-	// For now, return empty response - this would need proper implementation
-	// based on the exact nebula-go API version you're using
-	return &state.GetResponse{}, nil
+	// Extract string value using AsString method
+	dataStr, err := valueWrapper.AsString()
+	if err != nil {
+		return nil, fmt.Errorf("failed to extract data as string: %w", err)
+	}
+
+	return &state.GetResponse{
+		Data: []byte(dataStr),
+	}, nil
 }
 
 func (store *NebulaStateStore) Set(ctx context.Context, req *state.SetRequest) error {
