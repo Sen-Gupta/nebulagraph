@@ -71,6 +71,7 @@ check_prerequisites() {
         return 1
     else
         print_pass "Dapr runtime is accessible on localhost:3501"
+    fi
     
     # Verify the space and schema exist
     verify_result=$(docker run --rm --network nebula-net vesoft/nebula-console:v3-nightly \

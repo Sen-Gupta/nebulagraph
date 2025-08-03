@@ -30,13 +30,13 @@ services:
     container_name: daprd-nebulagraph
     restart: on-failure
     image: "ghcr.io/dapr/daprd:latest"
-    command: "./daprd --log-level=debug --app-id nebulagraph-test --components-path=/components --resources-path=/components"
+    command: "./daprd --log-level=debug --app-id nebulagraph-test --dapr-http-port=3501 --components-path=/components --resources-path=/components"
     environment:
       - DAPR_COMPONENTS_SOCKETS_FOLDER=/var/run
     depends_on:
       - nebulagraph-component
     ports:
-      - "3501:3500"  # Dapr HTTP API
+      - "3501:3501"  # Dapr HTTP API
       - "50001:50001"  # Dapr gRPC API
     volumes:
       - socket:/var/run
