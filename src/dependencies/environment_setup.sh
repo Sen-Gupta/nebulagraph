@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# NebulaGraph Environment Setup Script
-# Sets up the NebulaGraph infrastructure including Docker networks, containers, and initialization
+# NebulaGraph Environment Management Script
+# Complete management of NebulaGraph infrastructure including setup, operations, and maintenance
 
 set -e
 
@@ -142,6 +142,89 @@ wait_for_nebula_ready() {
     fi
 }
 
+# Stop NebulaGraph cluster
+stop_nebula_cluster() {
+    print_header "Stopping NebulaGraph Dependencies"
+    if [ -f "docker-compose.yml" ]; then
+        docker-compose down
+        print_success "NebulaGraph dependencies stopped"
+    else
+        print_error "docker-compose.yml not found in current directory"
+        return 1
+    fi
+}
+
+# Show cluster status
+show_nebula_status() {
+    print_header "NebulaGraph Dependencies Status"
+    if [ -f "docker-compose.yml" ]; then
+        docker-compose ps
+    else
+        print_error "docker-compose.yml not found in current directory"
+        return 1
+    fi
+}
+
+# Show cluster logs
+show_nebula_logs() {
+    print_header "NebulaGraph Dependencies Logs"
+    if [ -f "docker-compose.yml" ]; then
+        docker-compose logs -f
+    else
+        print_error "docker-compose.yml not found in current directory"
+        return 1
+    fi
+}
+
+# Clean cluster (remove volumes and networks)
+clean_nebula_cluster() {
+    print_header "Cleaning NebulaGraph Dependencies"
+    if [ -f "docker-compose.yml" ]; then
+        docker-compose down -v --remove-orphans
+        print_success "NebulaGraph dependencies cleaned"
+    else
+        print_error "docker-compose.yml not found in current directory"
+        return 1
+    fi
+}
+
+# Test NebulaGraph services connectivity
+test_nebula_services() {
+    print_header "Testing NebulaGraph Dependencies"
+    
+    # Test NebulaGraph Graph Service
+    print_info "Testing NebulaGraph Graph Service (port 9669)..."
+    if nc -z localhost 9669 2>/dev/null; then
+        print_success "NebulaGraph Graph Service is responding"
+    else
+        print_error "NebulaGraph Graph Service is not responding on port 9669"
+    fi
+    
+    # Test NebulaGraph Studio
+    print_info "Testing NebulaGraph Studio (port 7001)..."
+    if curl -s --connect-timeout 5 http://localhost:7001 >/dev/null 2>&1; then
+        print_success "NebulaGraph Studio is responding"
+    else
+        print_error "NebulaGraph Studio is not responding on port 7001"
+    fi
+    
+    # Test Meta Service
+    print_info "Testing NebulaGraph Meta Service (port 9559)..."
+    if nc -z localhost 9559 2>/dev/null; then
+        print_success "NebulaGraph Meta Service is responding"
+    else
+        print_error "NebulaGraph Meta Service is not responding on port 9559"
+    fi
+    
+    # Test Storage Service
+    print_info "Testing NebulaGraph Storage Service (port 9779)..."
+    if nc -z localhost 9779 2>/dev/null; then
+        print_success "NebulaGraph Storage Service is responding"
+    else
+        print_error "NebulaGraph Storage Service is not responding on port 9779"
+    fi
+}
+
 # Main setup function
 main() {
     print_header "NebulaGraph Environment Setup"
@@ -228,9 +311,9 @@ main() {
     
     echo -e "\n${BLUE}Next steps:${NC}"
     echo -e "  • Start applications that use NebulaGraph"
-    echo -e "  • View logs: docker logs <container-name>"
-    echo -e "  • Stop environment: ./deps.sh stop"
-    echo -e "  • Status check: ./deps.sh status"
+    echo -e "  • View logs: ./environment_setup.sh logs"
+    echo -e "  • Stop environment: ./environment_setup.sh stop"
+    echo -e "  • Status check: ./environment_setup.sh status"
     
     echo ""
 }
@@ -240,21 +323,54 @@ case "${1:-setup}" in
     "setup"|"start")
         main
         ;;
+    "stop"|"down")
+        stop_nebula_cluster
+        ;;
+    "status")
+        show_nebula_status
+        ;;
+    "logs")
+        show_nebula_logs
+        ;;
+    "clean")
+        clean_nebula_cluster
+        ;;
+    "init")
+        print_header "Initializing NebulaGraph Cluster"
+        initialize_nebula
+        ;;
+    "test")
+        test_nebula_services
+        ;;
     "help"|"-h"|"--help")
-        echo "Usage: $0 [setup|start|help]"
+        echo "Usage: $0 [COMMAND]"
+        echo ""
+        echo "NebulaGraph Environment Management"
         echo ""
         echo "Commands:"
-        echo "  setup, start  Set up the NebulaGraph environment (default)"
-        echo "  help         Show this help message"
+        echo "  setup, start  Set up the complete NebulaGraph environment (default)"
+        echo "  stop, down    Stop NebulaGraph dependencies"
+        echo "  status        Show dependency status"
+        echo "  logs          Show dependency logs"
+        echo "  init          Initialize NebulaGraph cluster"
+        echo "  test          Test NebulaGraph services connectivity"
+        echo "  clean         Clean up dependencies (volumes and networks)"
+        echo "  help          Show this help message"
         echo ""
-        echo "This script will:"
+        echo "Setup will:"
         echo "  1. Check prerequisites (Docker, Docker Compose, Dapr, Go 1.24.5+)"
         echo "  2. Create Docker network"
         echo "  3. Start NebulaGraph cluster"
         echo "  4. Initialize NebulaGraph with required spaces/schemas"
         echo "  5. Wait for NebulaGraph to be ready"
         echo ""
-        echo "After running this script, you can start applications that use NebulaGraph."
+        echo "Access Points:"
+        echo "  • NebulaGraph Studio: http://localhost:7001"
+        echo "  • NebulaGraph Graph Service: localhost:9669"
+        echo "  • NebulaGraph Meta Service: localhost:9559"
+        echo "  • NebulaGraph Storage Service: localhost:9779"
+        echo ""
+        echo "After running setup, you can start applications that use NebulaGraph."
         ;;
     *)
         echo "Unknown command: $1"
