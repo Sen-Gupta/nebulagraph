@@ -6,48 +6,41 @@ echo "=============================================="
 # Base URL for Dapr HTTP API
 DAPR_URL="http://localhost:3500/v1.0/state/nebulagraph-state"
 
-# Function to check if dapr_state space exists and create it if needed
-check_and_create_space() {
-    echo "Checking if dapr_state space exists..."
+# Function to verify the prerequisites are met
+check_prerequisites() {
+    echo "Checking prerequisites..."
     
-    # Create the space and schema (this will be safe with IF NOT EXISTS)
-    echo "Ensuring dapr_state space and schema exist..."
-    docker run --rm --network nebula-net vesoft/nebula-console:v3-nightly \
-        --addr nebula-graphd --port 9669 --user root --password nebula \
-        --eval "CREATE SPACE IF NOT EXISTS dapr_state (vid_type=FIXED_STRING(256), partition_num=1, replica_factor=1); USE dapr_state; CREATE TAG IF NOT EXISTS state(data string);"
+    # Check if Dapr is running
+    if ! curl -s http://localhost:3500/v1.0/healthz > /dev/null 2>&1; then
+        echo "❌ Dapr is not running on localhost:3500"
+        echo "Please start the Dapr component with: docker-compose up -d"
+        return 1
+    fi
     
-    # Wait a moment for schema to be applied
-    echo "Waiting for schema to be applied..."
-    sleep 20
-    
-    # Verify the space was created by trying to use it
+    # Verify the space and schema exist
     verify_result=$(docker run --rm --network nebula-net vesoft/nebula-console:v3-nightly \
         --addr nebula-graphd --port 9669 --user root --password nebula \
         --eval "USE dapr_state; SHOW TAGS;" 2>&1)
     
     if echo "$verify_result" | grep -q "state"; then
-        echo "✅ dapr_state space and schema are ready"
+        echo "✅ NebulaGraph dapr_state space and schema are ready"
+        echo "✅ Dapr runtime is accessible"
         return 0
     else
-        echo "❌ Failed to verify dapr_state space"
+        echo "❌ NebulaGraph dapr_state space or schema not found"
+        echo "Please run the initialization script: cd ../dependencies && ./init_nebula.sh"
         echo "Verification output: $verify_result"
         return 1
     fi
 }
 
 echo ""
-echo "0. Testing NebulaGraph Schema Setup..."
-check_and_create_space
+echo "0. Checking Prerequisites..."
+check_prerequisites
 if [ $? -ne 0 ]; then
-    echo "❌ Schema setup failed. Exiting tests."
+    echo "❌ Prerequisites not met. Please check the setup."
     exit 1
 fi
-
-echo ""
-echo "Restarting Dapr component to pick up schema changes..."
-docker-compose restart > /dev/null 2>&1
-sleep 10
-echo "✅ Component restarted"
 
 echo ""
 echo "1. Testing SET operation..."
