@@ -127,7 +127,7 @@ public class DaprServiceInvocationController : ControllerBase
             },
             endpoints = new
             {
-                defaultDaprHttp = "http://localhost:3501",
+                defaultDaprHttp = "http://localhost:3502",
                 daprGrpc = "http://localhost:50002",
                 appId = "test-api"
             },
