@@ -1,10 +1,10 @@
-# Use the official .NET 9.0.7 runtime as base image
-FROM mcr.microsoft.com/dotnet/aspnet:9.0.7 AS base
+# Use the official .NET 9.0 runtime as base image
+FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS base
 WORKDIR /app
 EXPOSE 80
 
-# Use the .NET 9.0.7 SDK for building
-FROM mcr.microsoft.com/dotnet/sdk:9.0.7 AS build
+# Use the .NET 9.0 SDK for building
+FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
 WORKDIR /src
 COPY ["NebulaGraphTestApi.csproj", "./"]
 RUN dotnet restore "NebulaGraphTestApi.csproj"
