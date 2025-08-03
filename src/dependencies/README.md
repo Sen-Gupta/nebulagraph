@@ -1,11 +1,6 @@
-# NebulaGraph Setup
+# NebulaGraph Dependencies
 
-This folder contains all the infrastructure set## Notes
-
-- This setup uses Docker containers for NebulaGraph infrastructure only
-- Use `./deps.sh test` to validate all services are running correctly
-- Volumes are persisted between restarts
-- Use `./deps.sh clean` to remove all data and start freshs for NebulaGraph dependencies.
+This folder contains all the infrastructure setup files for NebulaGraph dependencies.
 
 ## Structure
 
@@ -41,10 +36,31 @@ This starts:
 ./deps.sh test
 ```
 
-### 4. Start Applications
+### 4. Access NebulaGraph
 ```bash
-cd ../../
-./apps.sh start
+# NebulaGraph Studio (Web Interface)
+open http://localhost:7001
+
+# Connect with credentials: root/nebula
+```
+
+## Typical Workflow
+
+```bash
+# First time setup
+./deps.sh start    # Start services
+./deps.sh init     # Initialize cluster
+./deps.sh test     # Validate setup
+
+# Daily usage
+./deps.sh start    # Start services
+./deps.sh test     # Quick health check
+
+# Maintenance
+./deps.sh status   # Check container status
+./deps.sh logs     # View logs
+./deps.sh stop     # Stop services
+./deps.sh clean    # Clean reset (removes all data)
 ```
 
 ## Available Commands
@@ -73,8 +89,8 @@ cd ../../
 
 ## Notes
 
-- This setup uses Docker containers for NebulaGraph infrastructure only
-- Application components (Dapr components and TestAPI) are managed separately by `../apps.sh`
-- Volumes are persisted between restarts
-- Use `./deps.sh clean` to remove all data and start fresh
-- Use `../../apps.sh` to manage Dapr components and TestAPI
+- **Infrastructure Only**: This setup manages only NebulaGraph Docker containers
+- **Testing**: Use `./deps.sh test` to validate all services are running correctly
+- **Data Persistence**: Volumes are persisted between restarts
+- **Clean Start**: Use `./deps.sh clean` to remove all data and start fresh
+- **Credentials**: Default username `root`, password `nebula`
