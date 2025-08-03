@@ -214,19 +214,26 @@ test_component() {
     print_success "All Dapr component tests passed!"
 }
 
-# Run comprehensive test using test_component.sh if available
+# Run comprehensive test using test_all.sh (HTTP + gRPC) if available
 run_comprehensive_test() {
-    print_header "Running Comprehensive Component Test"
+    print_header "Running Comprehensive Component Test (HTTP + gRPC)"
     
-    # Look for test_component.sh in the tests directory
-    local test_script="../../tests/test_component.sh"
-    if [ -f "$test_script" ]; then
-        print_info "Running test_component.sh..."
+    # Look for test_all.sh in the tests directory (comprehensive test suite)
+    local test_all_script="../../tests/test_all.sh"
+    local test_http_script="../../tests/test_component.sh"
+    
+    if [ -f "$test_all_script" ]; then
+        print_info "Running complete test suite (HTTP + gRPC)..."
+        cd ../../tests/
+        ./test_all.sh
+        cd - > /dev/null
+    elif [ -f "$test_http_script" ]; then
+        print_warning "Complete test suite not found, running HTTP tests only..."
         cd ../../tests/
         ./test_component.sh
         cd - > /dev/null
     else
-        print_warning "test_component.sh not found at $test_script, running basic tests..."
+        print_warning "No test scripts found, running basic inline tests..."
         test_component
     fi
 }
@@ -263,7 +270,9 @@ main() {
     echo -e "  • View logs: ./run_docker_pluggable.sh logs"
     echo -e "  • Stop component: ./run_docker_pluggable.sh stop"
     echo -e "  • Check status: ./run_docker_pluggable.sh status"
-    echo -e "  • Run comprehensive tests: ../../tests/test_component.sh"
+    echo -e "  • Run comprehensive tests: ../../tests/test_all.sh (HTTP + gRPC)"
+    echo -e "  • Run HTTP tests only: ../../tests/test_component.sh"
+    echo -e "  • Run gRPC tests only: ../../tests/test_component_grpc.sh"
     
     echo ""
 }
@@ -305,7 +314,7 @@ case "${1:-start}" in
         echo "  status        Show component status"
         echo "  logs [SERVICE] Show component logs (optionally for specific service)"
         echo "  test          Test component functionality"
-        echo "  test-full     Run comprehensive tests (uses test_component.sh if available)"
+        echo "  test-full     Run comprehensive tests (HTTP + gRPC via test_all.sh if available)"
         echo "  validate      Validate NebulaGraph infrastructure only"
         echo "  clean         Clean up component (volumes and networks)"
         echo "  help          Show this help message"

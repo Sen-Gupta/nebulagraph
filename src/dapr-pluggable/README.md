@@ -14,7 +14,9 @@ src/dapr-pluggable/                   # Dapr pluggable component implementation
 │       ├── docker-compose.yml        # Component and Dapr runtime
 │       └── run_docker_pluggable.sh   # Complete component management
 ├── tests/
-│   └── test_component.sh             # Comprehensive test suite
+│   ├── test_component.sh             # HTTP API test suite  
+│   ├── test_component_grpc.sh        # gRPC API test suite
+│   └── test_all.sh                   # Comprehensive test runner (HTTP + gRPC)
 ├── go.mod                            # Go module definition
 ├── go.sum                            # Go dependency checksums
 ├── Dockerfile                        # Component container
@@ -62,7 +64,9 @@ This structure allows for:
 - Docker and Docker Compose
 - Dapr CLI
 - Go 1.24.5 or later
-- curl (for testing)
+- curl (for HTTP testing)
+- **grpcurl** (for gRPC testing) - Install with: `go install github.com/fullstorydev/grpcurl/cmd/grpcurl@latest`
+- **jq** (for JSON parsing) - Install with: `apt-get install jq`
 
 All prerequisites are automatically validated by our scripts.
 
@@ -191,17 +195,36 @@ The component management script provides detailed testing:
 cd src/dapr-pluggable/setup/docker/
 ./run_docker_pluggable.sh validate  # Check prerequisites
 ./run_docker_pluggable.sh status    # Show component status  
-./run_docker_pluggable.sh test-full # Run comprehensive test suite
+./run_docker_pluggable.sh test-full # Run comprehensive test suite (HTTP + gRPC)
 ```
 
-The test suite validates:
-- ✅ Prerequisites (Docker, Docker Compose, curl, Go)
+### Individual Test Options
+
+You can also run specific test types:
+
+```bash
+cd src/dapr-pluggable/tests/
+
+# Run all tests (HTTP + gRPC + cross-protocol)
+./test_all.sh
+
+# Run only HTTP API tests (port 3500)
+./test_component.sh
+
+# Run only gRPC API tests (port 50001) 
+./test_component_grpc.sh
+```
+
+The comprehensive test suite validates:
+- ✅ Prerequisites (Docker, Docker Compose, curl, grpcurl, Go)
 - ✅ All Docker containers are running
 - ✅ Network connectivity between services
 - ✅ NebulaGraph cluster health and accessibility
 - ✅ Dapr component registration and response
-- ✅ Complete CRUD operations (SET, GET, DELETE, BULK)
-- ✅ Data persistence verification
+- ✅ **HTTP API** (port 3500): Complete CRUD operations (SET, GET, DELETE, BULK)
+- ✅ **gRPC API** (port 50001): Complete CRUD operations via Protocol Buffers
+- ✅ **Cross-protocol compatibility**: Data set via gRPC accessible via HTTP
+- ✅ Data persistence verification in NebulaGraph
 - ✅ Cleanup operations
 
 ### Manual Validation Commands
@@ -396,7 +419,9 @@ The project uses consolidated, single-purpose scripts:
 - **`run_docker_pluggable.sh`**: Complete Dapr component lifecycle (validate, start, test, test-full, status, logs, stop, clean)
 
 **Testing** (in `tests/`):
-- **`test_component.sh`**: Comprehensive test suite with automatic schema setup and clear pass/fail indicators
+- **`test_all.sh`**: Complete test suite runner (HTTP + gRPC + cross-protocol)
+- **`test_component.sh`**: HTTP API test suite with automatic schema setup and clear pass/fail indicators
+- **`test_component_grpc.sh`**: gRPC API test suite with Protocol Buffers validation
 
 **Initialization** (in project root):
 - **`init_nebula.sh`**: NebulaGraph cluster initialization (called by environment_setup.sh)
@@ -601,17 +626,23 @@ cd ../dapr-pluggable/setup/docker/
 
 ## 📋 Requirements
 
+**Core Requirements:**
 - Docker & Docker Compose
 - Go 1.24+ (for local development)
 - NebulaGraph v3.8.0+
 - Dapr runtime v1.15.8+
 
+**Testing Requirements:**
+- curl (HTTP API testing)
+- grpcurl (gRPC API testing)
+- jq (JSON parsing)
+- netcat/nc (port checking)
+
 ## 🚀 Usage in Applications
 
-To use this component in your Dapr applications:
+To use this component in your Dapr applications, you can choose between **HTTP** and **gRPC** APIs:
 
-1. Ensure the component is running and registered
-2. Reference the component by name in your application:
+### HTTP API (Port 3500)
 
 ```bash
 # Set state
@@ -621,9 +652,30 @@ curl -X POST http://localhost:3500/v1.0/state/nebulagraph-state \
 
 # Get state  
 curl -X GET http://localhost:3500/v1.0/state/nebulagraph-state/mykey
+
+# Delete state
+curl -X DELETE http://localhost:3500/v1.0/state/nebulagraph-state/mykey
 ```
 
-Or use the Dapr SDK in your preferred programming language.
+### gRPC API (Port 50001)
+
+```bash
+# Set state via gRPC
+grpcurl -plaintext -d '{
+  "storeName": "nebulagraph-state",
+  "states": [{"key": "mykey", "value": "bXl2YWx1ZQ=="}]
+}' localhost:50001 dapr.proto.runtime.v1.Dapr/SetState
+
+# Get state via gRPC  
+grpcurl -plaintext -d '{
+  "storeName": "nebulagraph-state",
+  "key": "mykey"
+}' localhost:50001 dapr.proto.runtime.v1.Dapr/GetState
+```
+
+### Using Dapr SDKs
+
+Or use the Dapr SDK in your preferred programming language - both HTTP and gRPC clients are supported.
 
 ## 🌐 NebulaGraph Studio (Web Interface)
 
