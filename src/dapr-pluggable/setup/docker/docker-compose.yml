@@ -36,7 +36,7 @@ services:
     depends_on:
       - nebulagraph-component
     ports:
-      - "3500:3500"  # Dapr HTTP API
+      - "3501:3500"  # Dapr HTTP API
       - "50001:50001"  # Dapr gRPC API
     volumes:
       - socket:/var/run
@@ -52,7 +52,7 @@ services:
       context: ../../  # Point to dapr-pluggable root directory
       dockerfile: Dockerfile.test
     environment:
-      - DAPR_HTTP_ENDPOINT=http://daprd:3500
+      - DAPR_HTTP_ENDPOINT=http://daprd:3501
       - DAPR_GRPC_ENDPOINT=daprd:50001
     depends_on:
       - daprd

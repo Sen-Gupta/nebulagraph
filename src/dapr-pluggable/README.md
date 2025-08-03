@@ -126,7 +126,7 @@ cd ../dapr-pluggable/setup/docker/
 ```
 
 Both approaches provide a working NebulaGraph + Dapr environment with comprehensive testing covering:
-- ✅ **HTTP API** (port 3500): Complete CRUD operations with curl
+- ✅ **HTTP API** (port 3501): Complete CRUD operations with curl
 - ✅ **gRPC API** (port 50001): Complete CRUD operations with grpcurl
 - ✅ **Cross-protocol compatibility**: Data set via gRPC accessible via HTTP
 
@@ -211,7 +211,7 @@ cd src/dapr-pluggable/tests/
 # Run all tests (HTTP + gRPC + cross-protocol)
 ./test_all.sh
 
-# Run only HTTP API tests (port 3500)
+# Run only HTTP API tests (port 3501)
 ./test_component.sh
 
 # Run only gRPC API tests (port 50001) 
@@ -224,7 +224,7 @@ The comprehensive test suite validates:
 - ✅ Network connectivity between services
 - ✅ NebulaGraph cluster health and accessibility
 - ✅ Dapr component registration and response
-- ✅ **HTTP API** (port 3500): Complete CRUD operations (SET, GET, DELETE, BULK)
+- ✅ **HTTP API** (port 3501): Complete CRUD operations (SET, GET, DELETE, BULK)
 - ✅ **gRPC API** (port 50001): Complete CRUD operations via Protocol Buffers
 - ✅ **Cross-protocol compatibility**: Data set via gRPC accessible via HTTP
 - ✅ Data persistence verification in NebulaGraph
@@ -277,28 +277,28 @@ docker exec nebula-console /usr/local/bin/nebula-console \
 #### 4. Test Dapr Component Accessibility
 ```bash
 # Test Dapr sidecar is responding
-curl -s http://localhost:3500/v1.0/state/nebulagraph-state/test-key
+curl -s http://localhost:3501/v1.0/state/nebulagraph-state/test-key
 # Expected: Empty response with 204 status (key doesn't exist)
 ```
 
 #### 5. Test Complete CRUD Operations
 ```bash
 # Test SET operation
-curl -X POST http://localhost:3500/v1.0/state/nebulagraph-state \
+curl -X POST http://localhost:3501/v1.0/state/nebulagraph-state \
   -H "Content-Type: application/json" \
   -d '[{"key": "validation-test", "value": "Hello Setup!"}]'
 # Expected: Empty response with 204 status
 
 # Test GET operation  
-curl -X GET http://localhost:3500/v1.0/state/nebulagraph-state/validation-test
+curl -X GET http://localhost:3501/v1.0/state/nebulagraph-state/validation-test
 # Expected: "Hello Setup!"
 
 # Test DELETE operation
-curl -X DELETE http://localhost:3500/v1.0/state/nebulagraph-state/validation-test
+curl -X DELETE http://localhost:3501/v1.0/state/nebulagraph-state/validation-test
 # Expected: Empty response with 204 status
 
 # Verify deletion
-curl -X GET http://localhost:3500/v1.0/state/nebulagraph-state/validation-test
+curl -X GET http://localhost:3501/v1.0/state/nebulagraph-state/validation-test
 # Expected: Empty response with 204 status (key no longer exists)
 ```
 
@@ -358,7 +358,7 @@ NebulaGraph Dapr Component - Setup Validation
 ======================================
 5. Dapr Component Validation
 ======================================
-✅ Dapr sidecar is responding on port 3500
+✅ Dapr sidecar is responding on port 3501
 ✅ Dapr component is responding to state requests
 
 ======================================
@@ -395,18 +395,18 @@ Or test manually with individual operations:
 
 ```bash
 # Test SET operation
-curl -X POST http://localhost:3500/v1.0/state/nebulagraph-state \
+curl -X POST http://localhost:3501/v1.0/state/nebulagraph-state \
   -H "Content-Type: application/json" \
   -d '[{"key": "test-key", "value": "Hello NebulaGraph!"}]'
 
 # Test GET operation
-curl -X GET http://localhost:3500/v1.0/state/nebulagraph-state/test-key
+curl -X GET http://localhost:3501/v1.0/state/nebulagraph-state/test-key
 
 # Test DELETE operation
-curl -X DELETE http://localhost:3500/v1.0/state/nebulagraph-state/test-key
+curl -X DELETE http://localhost:3501/v1.0/state/nebulagraph-state/test-key
 
 # Test BULK GET operation
-curl -X POST http://localhost:3500/v1.0/state/nebulagraph-state/bulk \
+curl -X POST http://localhost:3501/v1.0/state/nebulagraph-state/bulk \
   -H "Content-Type: application/json" \
   -d '{"keys": ["key1", "key2"]}'
 ```
@@ -645,19 +645,19 @@ cd ../dapr-pluggable/setup/docker/
 
 To use this component in your Dapr applications, you can choose between **HTTP** and **gRPC** APIs:
 
-### HTTP API (Port 3500)
+### HTTP API (Port 3501)
 
 ```bash
 # Set state
-curl -X POST http://localhost:3500/v1.0/state/nebulagraph-state \
+curl -X POST http://localhost:3501/v1.0/state/nebulagraph-state \
   -H "Content-Type: application/json" \
   -d '[{"key": "mykey", "value": "myvalue"}]'
 
 # Get state  
-curl -X GET http://localhost:3500/v1.0/state/nebulagraph-state/mykey
+curl -X GET http://localhost:3501/v1.0/state/nebulagraph-state/mykey
 
 # Delete state
-curl -X DELETE http://localhost:3500/v1.0/state/nebulagraph-state/mykey
+curl -X DELETE http://localhost:3501/v1.0/state/nebulagraph-state/mykey
 ```
 
 ### gRPC API (Port 50001)

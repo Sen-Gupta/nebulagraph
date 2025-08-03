@@ -4,7 +4,7 @@ echo "Testing NebulaGraph Dapr State Store Component"
 echo "=============================================="
 
 # Base URL for Dapr HTTP API
-DAPR_URL="http://localhost:3500/v1.0/state/nebulagraph-state"
+DAPR_URL="http://localhost:3501/v1.0/state/nebulagraph-state"
 
 # Test counters
 TOTAL_TESTS=0
@@ -65,13 +65,12 @@ check_prerequisites() {
     print_test_header "0. Checking Prerequisites"
     
     # Check if Dapr is running
-    if ! curl -s http://localhost:3500/v1.0/healthz > /dev/null 2>&1; then
-        print_fail "Dapr is not running on localhost:3500"
-        print_info "Please start the Dapr component with: ./run_docker_pluggable.sh"
+    if ! curl -s http://localhost:3501/v1.0/healthz > /dev/null 2>&1; then
+        print_fail "Dapr is not running on localhost:3501"
+        print_info "Please ensure the Dapr sidecar is running on port 3501"
         return 1
     else
-        print_pass "Dapr runtime is accessible on localhost:3500"
-    fi
+        print_pass "Dapr runtime is accessible on localhost:3501"
     
     # Verify the space and schema exist
     verify_result=$(docker run --rm --network nebula-net vesoft/nebula-console:v3-nightly \

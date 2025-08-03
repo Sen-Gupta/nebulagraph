@@ -2,7 +2,7 @@
 
 echo "NebulaGraph Dapr State Store Component - Complete Test Suite"
 echo "==========================================================="
-echo "Testing both HTTP (port 3500) and gRPC (port 50001) interfaces"
+echo "Testing both HTTP (port 3501) and gRPC (port 50001) interfaces"
 echo ""
 
 # Colors for output
@@ -29,7 +29,7 @@ if [ ! -f "test_component.sh" ] || [ ! -f "test_component_grpc.sh" ]; then
     exit 1
 fi
 
-print_section "🌐 PHASE 1: HTTP Interface Testing (port 3500)"
+print_section "🌐 PHASE 1: HTTP Interface Testing (port 3501)"
 echo "Running HTTP API tests..."
 echo ""
 
@@ -75,7 +75,7 @@ elif [ $HTTP_RESULT -ne 0 ] && [ $GRPC_RESULT -eq 0 ]; then
     echo "✅ gRPC interface is working"
     echo ""
     echo "Troubleshooting:"
-    echo "  • Check if Dapr HTTP port 3500 is accessible"
+    echo "  • Check if Dapr HTTP port 3501 is accessible"
     echo "  • Check component logs: docker logs nebulagraph-dapr-component"
     echo "  • Verify curl is available and working"
     exit 1

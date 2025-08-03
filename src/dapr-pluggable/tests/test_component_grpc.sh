@@ -311,7 +311,7 @@ test_cross_protocol() {
         dapr.proto.runtime.v1.Dapr/SaveState >/dev/null 2>&1
     
     # Retrieve via HTTP
-    http_response=$(curl -s "http://localhost:3500/v1.0/state/$COMPONENT_NAME/cross-protocol-test")
+    http_response=$(curl -s "http://localhost:3501/v1.0/state/$COMPONENT_NAME/cross-protocol-test")
     
     if echo "$http_response" | grep -q "Cross-protocol test data"; then
         print_pass "Cross-protocol compatibility verified (gRPC SET → HTTP GET)"
@@ -321,7 +321,7 @@ test_cross_protocol() {
     fi
     
     # Clean up cross-protocol test data
-    curl -s -X DELETE "http://localhost:3500/v1.0/state/$COMPONENT_NAME/cross-protocol-test" >/dev/null 2>&1
+    curl -s -X DELETE "http://localhost:3501/v1.0/state/$COMPONENT_NAME/cross-protocol-test" >/dev/null 2>&1
 }
 
 # Check prerequisites first
