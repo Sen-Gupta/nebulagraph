@@ -1,6 +1,11 @@
 # NebulaGraph Setup
 
-This folder contains all the infrastructure setup files for NebulaGraph dependencies.
+This folder contains all the infrastructure set## Notes
+
+- This setup uses Docker containers for NebulaGraph infrastructure only
+- Use `./deps.sh test` to validate all services are running correctly
+- Volumes are persisted between restarts
+- Use `./deps.sh clean` to remove all data and start freshs for NebulaGraph dependencies.
 
 ## Structure
 
@@ -31,7 +36,12 @@ This starts:
 ./deps.sh init
 ```
 
-### 3. Start Applications
+### 3. Test the Setup
+```bash
+./deps.sh test
+```
+
+### 4. Start Applications
 ```bash
 cd ../../
 ./apps.sh start
@@ -46,6 +56,7 @@ cd ../../
 | `./deps.sh status` | Show dependency status |
 | `./deps.sh logs` | Show dependency logs |
 | `./deps.sh init` | Initialize NebulaGraph cluster |
+| `./deps.sh test` | Test NebulaGraph services connectivity |
 | `./deps.sh clean` | Clean up dependencies (volumes and networks) |
 
 ## Access Points

@@ -32,7 +32,7 @@ print_error() {
 
 # Get the script directory and set paths
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" &> /dev/null && pwd)"
-DEPENDENCIES_DIR="$SCRIPT_DIR/dependencies"
+DEPENDENCIES_DIR="$SCRIPT_DIR"
 
 case "${1:-start}" in
     "start"|"up")
@@ -47,7 +47,7 @@ case "${1:-start}" in
         
         print_success "NebulaGraph dependencies are ready!"
         print_info "Access NebulaGraph Studio at: http://localhost:7001"
-        print_info "You can now run: ./apps.sh start"
+        print_info "NebulaGraph Graph Service: localhost:9669"
         ;;
     "stop"|"down")
         print_header "Stopping NebulaGraph Dependencies"
@@ -76,6 +76,41 @@ case "${1:-start}" in
         cd "$DEPENDENCIES_DIR"
         ./init_nebula.sh
         ;;
+    "test")
+        print_header "Testing NebulaGraph Dependencies"
+        
+        # Test NebulaGraph Graph Service
+        print_info "Testing NebulaGraph Graph Service (port 9669)..."
+        if nc -z localhost 9669 2>/dev/null; then
+            print_success "NebulaGraph Graph Service is responding"
+        else
+            print_error "NebulaGraph Graph Service is not responding on port 9669"
+        fi
+        
+        # Test NebulaGraph Studio
+        print_info "Testing NebulaGraph Studio (port 7001)..."
+        if curl -s --connect-timeout 5 http://localhost:7001 >/dev/null 2>&1; then
+            print_success "NebulaGraph Studio is responding"
+        else
+            print_error "NebulaGraph Studio is not responding on port 7001"
+        fi
+        
+        # Test Meta Service
+        print_info "Testing NebulaGraph Meta Service (port 9559)..."
+        if nc -z localhost 9559 2>/dev/null; then
+            print_success "NebulaGraph Meta Service is responding"
+        else
+            print_error "NebulaGraph Meta Service is not responding on port 9559"
+        fi
+        
+        # Test Storage Service
+        print_info "Testing NebulaGraph Storage Service (port 9779)..."
+        if nc -z localhost 9779 2>/dev/null; then
+            print_success "NebulaGraph Storage Service is responding"
+        else
+            print_error "NebulaGraph Storage Service is not responding on port 9779"
+        fi
+        ;;
     "help"|"-h"|"--help")
         echo "Usage: $0 [COMMAND]"
         echo ""
@@ -87,10 +122,15 @@ case "${1:-start}" in
         echo "  status    Show dependency status"
         echo "  logs      Show dependency logs"
         echo "  init      Initialize NebulaGraph cluster (run after first start)"
+        echo "  test      Test NebulaGraph services connectivity"
         echo "  clean     Clean up dependencies (volumes and networks)"
         echo "  help      Show this help"
         echo ""
-        echo "Note: Use ../apps.sh to manage Dapr components and TestAPI"
+        echo "Access Points:"
+        echo "  • NebulaGraph Studio: http://localhost:7001"
+        echo "  • NebulaGraph Graph Service: localhost:9669"
+        echo "  • NebulaGraph Meta Service: localhost:9559"
+        echo "  • NebulaGraph Storage Service: localhost:9779"
         ;;
     *)
         echo "Unknown command: $1"
