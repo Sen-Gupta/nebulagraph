@@ -277,6 +277,39 @@ main() {
         print_info "Add to PATH: export PATH=\$PATH:/usr/local/go/bin"
         overall_success=1
     fi
+
+    # Testing Prerequisites
+    print_header "Testing Prerequisites"
+    
+    if command_exists curl; then
+        print_success "curl is available: $(curl --version | head -n1)"
+    else
+        print_error "curl is not installed (required for HTTP API testing)"
+        print_info "Install curl: sudo apt-get install curl  # Ubuntu/Debian"
+        print_info "             sudo yum install curl      # RHEL/CentOS"
+        print_info "             brew install curl          # macOS"
+        overall_success=1
+    fi
+    
+    if command_exists grpcurl; then
+        print_success "grpcurl is available: $(grpcurl --version 2>&1 | head -n1)"
+    else
+        print_error "grpcurl is not installed (required for gRPC API testing)"
+        print_info "Install grpcurl: go install github.com/fullstorydev/grpcurl/cmd/grpcurl@latest"
+        print_info "                sudo apt-get install grpcurl  # Ubuntu/Debian (if available)"
+        print_info "                brew install grpcurl          # macOS"
+        overall_success=1
+    fi
+    
+    if command_exists jq; then
+        print_success "jq is available: $(jq --version)"
+    else
+        print_error "jq is not installed (required for JSON parsing in tests)"
+        print_info "Install jq: sudo apt-get install jq  # Ubuntu/Debian"
+        print_info "           sudo yum install jq      # RHEL/CentOS" 
+        print_info "           brew install jq          # macOS"
+        overall_success=1
+    fi
     
     if [ $overall_success -ne 0 ]; then
         print_error "Prerequisites not met. Please install the missing components using the commands shown above."
@@ -358,7 +391,7 @@ case "${1:-setup}" in
         echo "  help          Show this help message"
         echo ""
         echo "Setup will:"
-        echo "  1. Check prerequisites (Docker, Docker Compose, Dapr, Go 1.24.5+)"
+        echo "  1. Check prerequisites (Docker, Docker Compose, Dapr, Go 1.24.5+, curl, grpcurl, jq)"
         echo "  2. Create Docker network"
         echo "  3. Start NebulaGraph cluster"
         echo "  4. Initialize NebulaGraph with required spaces/schemas"

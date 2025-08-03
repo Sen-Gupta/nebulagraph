@@ -20,7 +20,7 @@ dependencies/                  # Docker infrastructure files
 ```
 
 This comprehensive script will:
-- Check all prerequisites (Docker, Docker Compose, Dapr, Go 1.24.5+)
+- Check all prerequisites (Docker, Docker Compose, Dapr, Go 1.24.5+, curl, grpcurl, jq)
 - Provide installation commands for missing components
 - Set up Docker network
 - Start NebulaGraph cluster
@@ -105,10 +105,16 @@ All operations are handled by the single `environment_setup.sh` script:
 
 The `environment_setup.sh` script automatically checks for and provides installation instructions for:
 
+**Core Development Prerequisites:**
 - **Docker**: Container runtime
 - **Docker Compose**: Multi-container orchestration  
 - **Dapr**: Distributed application runtime
 - **Go 1.24.5+**: Go programming language
+
+**Testing Prerequisites:**
+- **curl**: HTTP API testing (for HTTP interface validation)
+- **grpcurl**: gRPC API testing (for gRPC interface validation)
+- **jq**: JSON parsing (for test result processing)
 
 ## Access Points
 
