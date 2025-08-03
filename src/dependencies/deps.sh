@@ -30,13 +30,17 @@ print_error() {
     echo -e "${RED}❌ $1${NC}"
 }
 
+# Get the script directory and set paths
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" &> /dev/null && pwd)"
+DEPENDENCIES_DIR="$SCRIPT_DIR/dependencies"
+
 case "${1:-start}" in
     "start"|"up")
         print_header "Starting NebulaGraph Dependencies"
-        cd dapr-pluggable
+        cd "$DEPENDENCIES_DIR"
         
         print_info "Starting NebulaGraph cluster..."
-        docker-compose -f docker-compose.dependencies.yml up -d
+        docker-compose up -d
         
         print_info "Waiting for services to initialize..."
         sleep 5
@@ -47,25 +51,30 @@ case "${1:-start}" in
         ;;
     "stop"|"down")
         print_header "Stopping NebulaGraph Dependencies"
-        cd dapr-pluggable
-        docker-compose -f docker-compose.dependencies.yml down
+        cd "$DEPENDENCIES_DIR"
+        docker-compose down
         print_success "NebulaGraph dependencies stopped"
         ;;
     "status")
         print_header "NebulaGraph Dependencies Status"
-        cd dapr-pluggable
-        docker-compose -f docker-compose.dependencies.yml ps
+        cd "$DEPENDENCIES_DIR"
+        docker-compose ps
         ;;
     "logs")
         print_header "NebulaGraph Dependencies Logs"
-        cd dapr-pluggable
-        docker-compose -f docker-compose.dependencies.yml logs -f
+        cd "$DEPENDENCIES_DIR"
+        docker-compose logs -f
         ;;
     "clean")
         print_header "Cleaning NebulaGraph Dependencies"
-        cd dapr-pluggable
-        docker-compose -f docker-compose.dependencies.yml down -v --remove-orphans
+        cd "$DEPENDENCIES_DIR"
+        docker-compose down -v --remove-orphans
         print_success "NebulaGraph dependencies cleaned"
+        ;;
+    "init")
+        print_header "Initializing NebulaGraph Cluster"
+        cd "$DEPENDENCIES_DIR"
+        ./init_nebula.sh
         ;;
     "help"|"-h"|"--help")
         echo "Usage: $0 [COMMAND]"
@@ -77,10 +86,11 @@ case "${1:-start}" in
         echo "  stop      Stop NebulaGraph dependencies"
         echo "  status    Show dependency status"
         echo "  logs      Show dependency logs"
+        echo "  init      Initialize NebulaGraph cluster (run after first start)"
         echo "  clean     Clean up dependencies (volumes and networks)"
         echo "  help      Show this help"
         echo ""
-        echo "Note: Use ./apps.sh to manage Dapr components and TestAPI"
+        echo "Note: Use ../apps.sh to manage Dapr components and TestAPI"
         ;;
     *)
         echo "Unknown command: $1"

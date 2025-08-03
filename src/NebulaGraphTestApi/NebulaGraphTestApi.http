@@ -1,6 +1,0 @@
-@NebulaGraphTestApi_HostAddress = http://localhost:5236
-
-GET {{NebulaGraphTestApi_HostAddress}}/weatherforecast/
-Accept: application/json
-
-###

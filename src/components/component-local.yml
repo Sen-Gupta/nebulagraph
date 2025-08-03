@@ -7,7 +7,7 @@ spec:
   version: v1
   metadata:
   - name: hosts
-    value: "nebula-graphd"
+    value: "localhost"
   - name: port
     value: "9669"
   - name: username
