@@ -121,11 +121,14 @@ cd src/dependencies/
 cd ../dapr-pluggable/setup/docker/
 ./run_docker_pluggable.sh status
 
-# Run tests to validate functionality
+# Run comprehensive tests (HTTP + gRPC)
 ./run_docker_pluggable.sh test-full
 ```
 
-Both approaches provide a working NebulaGraph + Dapr environment with comprehensive testing.
+Both approaches provide a working NebulaGraph + Dapr environment with comprehensive testing covering:
+- ✅ **HTTP API** (port 3500): Complete CRUD operations with curl
+- ✅ **gRPC API** (port 50001): Complete CRUD operations with grpcurl
+- ✅ **Cross-protocol compatibility**: Data set via gRPC accessible via HTTP
 
 ## 🔧 Manual Development Setup
 
@@ -661,16 +664,22 @@ curl -X DELETE http://localhost:3500/v1.0/state/nebulagraph-state/mykey
 
 ```bash
 # Set state via gRPC
-grpcurl -plaintext -d '{
+grpcurl -plaintext -H 'dapr-app-id: nebulagraph-test' -d '{
   "storeName": "nebulagraph-state",
   "states": [{"key": "mykey", "value": "bXl2YWx1ZQ=="}]
-}' localhost:50001 dapr.proto.runtime.v1.Dapr/SetState
+}' localhost:50001 dapr.proto.runtime.v1.Dapr/SaveState
 
 # Get state via gRPC  
-grpcurl -plaintext -d '{
+grpcurl -plaintext -H 'dapr-app-id: nebulagraph-test' -d '{
   "storeName": "nebulagraph-state",
   "key": "mykey"
 }' localhost:50001 dapr.proto.runtime.v1.Dapr/GetState
+
+# Delete state via gRPC
+grpcurl -plaintext -H 'dapr-app-id: nebulagraph-test' -d '{
+  "storeName": "nebulagraph-state",
+  "key": "mykey"
+}' localhost:50001 dapr.proto.runtime.v1.Dapr/DeleteState
 ```
 
 ### Using Dapr SDKs
