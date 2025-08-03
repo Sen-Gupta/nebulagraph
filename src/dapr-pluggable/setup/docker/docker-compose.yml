@@ -16,7 +16,7 @@ services:
   nebulagraph-component:
     container_name: nebulagraph-dapr-component
     build:
-      context: .
+      context: ../../  # Point to dapr-pluggable root directory
       dockerfile: Dockerfile
     environment:
       - DAPR_COMPONENT_SOCKETS_FOLDER=/var/run
@@ -40,7 +40,8 @@ services:
       - "50001:50001"  # Dapr gRPC API
     volumes:
       - socket:/var/run
-      - ../components:/components
+      # Mount docker-specific component (uses nebula-graphd hostname)
+      - ../../../components/docker-component.yml:/components/component.yml
     networks:
       - nebula-net
 
@@ -48,7 +49,7 @@ services:
   test-app:
     container_name: test-app
     build:
-      context: .
+      context: ../../  # Point to dapr-pluggable root directory
       dockerfile: Dockerfile.test
     environment:
       - DAPR_HTTP_ENDPOINT=http://daprd:3500
