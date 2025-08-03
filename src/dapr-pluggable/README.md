@@ -19,8 +19,7 @@ src/dapr-pluggable/                   # Dapr pluggable component implementation
 ├── go.sum                            # Go dependency checksums
 ├── Dockerfile                        # Component container
 ├── Dockerfile.test                   # Test container
-├── README.md                         # Main documentation
-└── README_DEV.md                     # Development setup guide
+└── README.md                         # Main documentation
 ```
 
 ### Component Dependencies
@@ -360,10 +359,8 @@ Next steps:
 
 ## 📖 Development Guide
 
-For detailed development setup, testing, and troubleshooting, see [README_DEV.md](README_DEV.md).
-
-The development guide includes:
-- Detailed explanation of all 3 shell scripts
+This README provides complete development guidance including:
+- Detailed explanation of all management scripts
 - Multiple development workflows
 - NebulaGraph console access and commands
 - Comprehensive troubleshooting guide
@@ -491,7 +488,7 @@ cd ../../../dependencies/
 ./environment_setup.sh test
 ```
 
-For detailed troubleshooting, see [README_DEV.md](README_DEV.md).
+For detailed troubleshooting, use the debug commands in the sections above.
 
 ## 🧹 Cleanup
 
@@ -529,7 +526,7 @@ This will completely reset your environment for a fresh start.
 
 ### Development Workflow
 
-For detailed development setup, see [README_DEV.md](README_DEV.md).
+For detailed development setup, see the sections above covering setup workflows and daily development.
 
 Quick development cycle:
 
