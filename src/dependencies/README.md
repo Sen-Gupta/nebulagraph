@@ -48,14 +48,6 @@ This comprehensive script will:
 ./environment_setup.sh clean
 ```
 
-### 4. Access NebulaGraph
-```bash
-# NebulaGraph Studio (Web Interface)
-open http://localhost:7001
-
-# Connect with credentials: root/nebula
-```
-
 ## Typical Workflow
 
 ### For New Setup (First Time)
