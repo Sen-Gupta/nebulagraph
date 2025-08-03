@@ -1,7 +1,8 @@
 #!/bin/bash
 
-# NebulaGraph Dapr Component - Development Setup Validation Script
+# NebulaGraph Dapr Component - Environment Validation Script
 # Validates that all components are properly configured and running
+# NOTE: This script only validates - use ../dependencies/environment_setup.sh to set up the environment
 
 set -e
 
@@ -35,49 +36,6 @@ print_info() {
     echo -e "${BLUE}ℹ️  $1${NC}"
 }
 
-# Check if command exists
-command_exists() {
-    command -v "$1" >/dev/null 2>&1
-}
-
-# Check if port is available
-check_port() {
-    local port=$1
-    local service=$2
-    if command_exists nc; then
-        if nc -z localhost $port 2>/dev/null; then
-            print_success "$service is responding on port $port"
-            return 0
-        else
-            print_error "$service is not responding on port $port"
-            return 1
-        fi
-    else
-        print_warning "netcat not available, skipping port check for $service"
-        return 0
-    fi
-}
-
-# Check Docker container status
-check_container() {
-    local container_name=$1
-    local expected_status=$2
-    
-    if docker ps --format "table {{.Names}}\t{{.Status}}" | grep -q "$container_name"; then
-        local status=$(docker ps --format "table {{.Names}}\t{{.Status}}" | grep "$container_name" | awk '{for(i=2;i<=NF;i++) printf "%s ", $i; print ""}' | sed 's/[[:space:]]*$//')
-        if [[ $status == *"Up"* ]]; then
-            print_success "Container '$container_name' is running"
-            return 0
-        else
-            print_error "Container '$container_name' status: $status"
-            return 1
-        fi
-    else
-        print_error "Container '$container_name' not found or not running"
-        return 1
-    fi
-}
-
 # Test NebulaGraph connectivity
 test_nebula_connection() {
     print_info "Testing NebulaGraph connectivity..."
@@ -97,7 +55,9 @@ test_dapr_component() {
     print_info "Testing Dapr component connectivity..."
     
     # Test if Dapr sidecar is responding
-    if check_port 3500 "Dapr sidecar"; then
+    if curl -s http://localhost:3500/v1.0/healthz > /dev/null 2>&1; then
+        print_success "Dapr sidecar is responding on port 3500"
+        
         # Test a simple GET operation (should return 204 if key doesn't exist)
         local response=$(curl -s -w "%{http_code}" -o /dev/null http://localhost:3500/v1.0/state/nebulagraph-state/validation-test-key 2>/dev/null || echo "000")
         if [[ "$response" == "204" ]] || [[ "$response" == "200" ]]; then
@@ -108,6 +68,7 @@ test_dapr_component() {
             return 1
         fi
     else
+        print_error "Dapr sidecar is not responding on port 3500"
         return 1
     fi
 }
@@ -171,77 +132,14 @@ test_crud_operations() {
 
 # Main validation function
 main() {
-    print_header "NebulaGraph Dapr Component - Setup Validation"
-    echo -e "This script validates your development setup to ensure everything is working correctly.\n"
+    print_header "NebulaGraph Dapr Component - Environment Validation"
+    echo -e "This script validates your development environment to ensure everything is working correctly."
+    echo -e "To set up the environment, run: ../dependencies/environment_setup.sh\n"
     
     local overall_success=0
     
-    # 1. Check prerequisites
-    print_header "1. Prerequisites Check"
-    
-    if command_exists docker; then
-        print_success "Docker is installed: $(docker --version)"
-    else
-        print_error "Docker is not installed or not in PATH"
-        overall_success=1
-    fi
-    
-    if command_exists docker-compose; then
-        print_success "Docker Compose is installed: $(docker-compose --version)"
-    else
-        print_error "Docker Compose is not installed or not in PATH"
-        overall_success=1
-    fi
-    
-    if command_exists curl; then
-        print_success "curl is installed: $(curl --version | head -n1)"
-    else
-        print_error "curl is not installed or not in PATH"
-        overall_success=1
-    fi
-    
-    # 2. Check Docker containers
-    print_header "2. Docker Containers Status"
-    
-    local containers=(
-        "nebula-metad"
-        "nebula-storaged"
-        "nebula-graphd"
-        "nebula-console"
-        "nebulagraph-dapr-component"
-        "daprd-nebulagraph"
-    )
-    
-    for container in "${containers[@]}"; do
-        if ! check_container "$container" "Up"; then
-            overall_success=1
-        fi
-    done
-    
-    # 3. Check network connectivity
-    print_header "3. Network Connectivity"
-    
-    # Check if containers are on the same network
-    print_info "Checking Docker network configuration..."
-    local network_name="nebula-net"
-    if docker network ls | grep -q "$network_name"; then
-        print_success "Docker network '$network_name' exists"
-        
-        # Check if key containers are on the network
-        local containers_on_network=$(docker network inspect $network_name --format='{{range .Containers}}{{.Name}} {{end}}' 2>/dev/null || echo "")
-        if [[ "$containers_on_network" == *"nebula-graphd"* ]] && [[ "$containers_on_network" == *"nebulagraph-dapr-component"* ]]; then
-            print_success "Key containers are connected to the network"
-        else
-            print_error "Some containers may not be connected to the network"
-            overall_success=1
-        fi
-    else
-        print_error "Docker network '$network_name' not found"
-        overall_success=1
-    fi
-    
-    # 4. Test NebulaGraph
-    print_header "4. NebulaGraph Cluster Validation"
+    # 1. Test NebulaGraph Cluster
+    print_header "1. NebulaGraph Cluster Validation"
     
     if ! test_nebula_connection; then
         overall_success=1
@@ -252,19 +150,20 @@ main() {
     if docker exec nebula-console sh -c '/usr/local/bin/nebula-console -addr nebula-graphd -port 9669 -u root -p nebula -e "USE dapr_state; SHOW TAGS;" > /dev/null 2>&1'; then
         print_success "NebulaGraph 'dapr_state' space exists and is accessible"
     else
-        print_warning "NebulaGraph 'dapr_state' space may not exist - run './init_nebula.sh' to initialize"
-        print_info "This is normal for a fresh setup"
+        print_error "NebulaGraph 'dapr_state' space not found or not accessible"
+        print_info "Run: cd ../dependencies && ./init_nebula.sh"
+        overall_success=1
     fi
     
-    # 5. Test Dapr component
-    print_header "5. Dapr Component Validation"
+    # 2. Test Dapr Component
+    print_header "2. Dapr Component Validation"
     
     if ! test_dapr_component; then
         overall_success=1
     fi
     
-    # 6. Test CRUD operations
-    print_header "6. CRUD Operations Test"
+    # 3. Test CRUD Operations
+    print_header "3. CRUD Operations Test"
     
     if ! test_crud_operations; then
         overall_success=1
@@ -283,11 +182,11 @@ main() {
         echo -e "  • Access NebulaGraph Studio at: http://localhost:7001 (if Studio profile is running)"
     else
         print_error "Some validation checks failed. Please review the errors above."
-        echo -e "\n${YELLOW}Common solutions:${NC}"
-        echo -e "  • Run './setup_dev.sh' to set up the complete environment"
-        echo -e "  • Run './init_nebula.sh' if NebulaGraph space is missing"
+        echo -e "\n${YELLOW}Solutions:${NC}"
+        echo -e "  • Set up environment: ../dependencies/environment_setup.sh"
         echo -e "  • Check container logs: docker logs <container-name>"
-        echo -e "  • Restart services: docker-compose down && docker-compose up -d"
+        echo -e "  • Restart services: cd ../dependencies && ./deps.sh restart"
+        echo -e "  • Manual initialization: cd ../dependencies && ./init_nebula.sh"
         echo -e "  • Check README_DEV.md for detailed troubleshooting"
         exit 1
     fi
