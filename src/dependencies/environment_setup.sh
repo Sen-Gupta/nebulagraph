@@ -48,14 +48,30 @@ setup_docker_network() {
     if docker network ls | grep -q "$network_name"; then
         print_success "Docker network '$network_name' already exists"
         
-        # Check if network needs to be recreated due to configuration changes
-        if ! docker network inspect $network_name > /dev/null 2>&1; then
-            print_warning "Network inspection failed, may need recreation"
+        # Check if network has active endpoints
+        local active_endpoints=$(docker network inspect $network_name --format='{{range .Containers}}{{.Name}} {{end}}' 2>/dev/null || echo "")
+        if [ -n "$active_endpoints" ] && [ "$active_endpoints" != " " ]; then
+            print_warning "Network '$network_name' has active endpoints: $active_endpoints"
+            print_info "This is expected if containers are already running"
         fi
     else
         print_info "Creating Docker network '$network_name'..."
-        docker network create "$network_name"
-        print_success "Docker network '$network_name' created"
+        if docker network create "$network_name"; then
+            print_success "Docker network '$network_name' created"
+        else
+            print_error "Failed to create Docker network '$network_name'"
+            print_info "This may be due to existing network conflicts"
+            # Try to remove and recreate
+            print_info "Attempting to remove existing network and recreate..."
+            docker network rm "$network_name" 2>/dev/null || true
+            sleep 2
+            if docker network create "$network_name"; then
+                print_success "Docker network '$network_name' recreated successfully"
+            else
+                print_error "Failed to create Docker network after cleanup"
+                return 1
+            fi
+        fi
     fi
 }
 
@@ -225,10 +241,62 @@ test_nebula_services() {
     fi
 }
 
+# Check for existing containers
+check_existing_containers() {
+    print_info "Checking for existing NebulaGraph containers..."
+    
+    # Check for any running containers related to nebula or dapr
+    local running_containers=$(docker ps --filter "name=nebula" --filter "name=dapr" --format "table {{.Names}}\t{{.Status}}" 2>/dev/null || echo "")
+    local all_containers=$(docker ps -a --filter "name=nebula" --filter "name=dapr" --format "table {{.Names}}\t{{.Status}}" 2>/dev/null || echo "")
+    
+    if [ -n "$running_containers" ] && [ "$running_containers" != "NAMES	STATUS" ]; then
+        print_warning "Found running containers:"
+        echo "$running_containers"
+        echo ""
+        print_info "These containers need to be stopped before setting up a clean environment."
+        echo -n "Do you want to stop and clean existing containers? (y/N): "
+        read -r response
+        
+        case "$response" in
+            [yY]|[yY][eE][sS])
+                print_info "Stopping and cleaning existing containers..."
+                clean_nebula_cluster
+                print_success "Existing containers cleaned"
+                ;;
+            *)
+                print_info "Setup cancelled by user. Please stop containers manually or run with 'clean' option."
+                exit 0
+                ;;
+        esac
+    elif [ -n "$all_containers" ] && [ "$all_containers" != "NAMES	STATUS" ]; then
+        print_warning "Found stopped containers:"
+        echo "$all_containers"
+        echo ""
+        echo -n "Do you want to clean existing containers before setup? (y/N): "
+        read -r response
+        
+        case "$response" in
+            [yY]|[yY][eE][sS])
+                print_info "Cleaning existing containers..."
+                clean_nebula_cluster
+                print_success "Existing containers cleaned"
+                ;;
+            *)
+                print_info "Continuing with existing containers..."
+                ;;
+        esac
+    else
+        print_success "No existing NebulaGraph or Dapr containers found"
+    fi
+}
+
 # Main setup function
 main() {
     print_header "NebulaGraph Environment Setup"
     echo -e "This script sets up the NebulaGraph infrastructure environment.\n"
+    
+    # Check for existing containers first
+    check_existing_containers
     
     local overall_success=0
     
