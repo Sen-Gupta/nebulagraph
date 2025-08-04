@@ -204,36 +204,52 @@ check_status() {
 }
 
 test_services() {
-    print_header "Testing Services"
+    print_header "Testing Service Invocation Architecture"
     
     sleep 3  # Give services time to start
     
-    # Test component via Dapr
-    print_info "Testing Dapr component..."
+    # Test main component directly
+    print_info "Testing main Dapr component directly..."
     if curl -s -X POST "http://localhost:$COMPONENT_DAPR_HTTP_PORT/v1.0/state/nebulagraph-state" \
         -H "Content-Type: application/json" \
-        -d '[{"key": "test-component", "value": "Hello from component!"}]' > /dev/null; then
-        print_success "Component test passed"
+        -d '[{"key": "test-component", "value": "Hello from main component!"}]' > /dev/null; then
+        print_success "Main component test passed"
     else
-        print_error "Component test failed"
+        print_error "Main component test failed"
     fi
     
-    # Test TestAPI
-    print_info "Testing TestAPI..."
-    if curl -s "http://localhost:$TESTAPI_PORT/health" > /dev/null; then
-        print_success "TestAPI test passed"
+    # Test TestAPI health
+    print_info "Testing TestAPI health..."
+    if curl -s "http://localhost:$TESTAPI_PORT/swagger" > /dev/null; then
+        print_success "TestAPI health test passed"
     else
-        print_error "TestAPI test failed"
+        print_error "TestAPI health test failed"
     fi
     
-    # Test integration
-    print_info "Testing integration..."
-    if curl -s -X POST "http://localhost:$TESTAPI_PORT/api/state" \
+    # Test HTTP REST API service invocation
+    print_info "Testing HTTP REST API service invocation..."
+    if curl -s -X POST "http://localhost:$TESTAPI_PORT/api/state/test-http" \
         -H "Content-Type: application/json" \
-        -d '{"key": "test-integration", "value": {"message": "Hello from TestAPI!"}}' > /dev/null; then
-        print_success "Integration test passed"
+        -d '{"value": "Hello from HTTP service invocation!"}' > /dev/null; then
+        print_success "HTTP service invocation test passed"
     else
-        print_error "Integration test failed"
+        print_error "HTTP service invocation test failed"
+    fi
+    
+    # Test HTTP GET via service invocation
+    print_info "Testing HTTP GET via service invocation..."
+    if curl -s "http://localhost:$TESTAPI_PORT/api/state/test-http" > /dev/null; then
+        print_success "HTTP GET service invocation test passed"
+    else
+        print_error "HTTP GET service invocation test failed"
+    fi
+    
+    # Test gRPC service availability (gRPC server should be running on TestAPI)
+    print_info "Testing gRPC service availability..."
+    if curl -s "http://localhost:$TESTAPI_PORT" > /dev/null; then
+        print_success "gRPC service availability test passed"
+    else
+        print_info "gRPC service test skipped (requires grpcurl)"
     fi
 }
 

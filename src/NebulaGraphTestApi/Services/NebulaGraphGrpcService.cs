@@ -8,7 +8,7 @@ public class NebulaGraphGrpcService : NebulaGraphService.NebulaGraphServiceBase
 {
     private readonly DaprClient _daprClient;
     private readonly ILogger<NebulaGraphGrpcService> _logger;
-    private const string StoreName = "nebulagraph-state";
+    private const string MainComponentAppId = "nebulagraph-test";
 
     public NebulaGraphGrpcService(DaprClient daprClient, ILogger<NebulaGraphGrpcService> logger)
     {
@@ -20,26 +20,13 @@ public class NebulaGraphGrpcService : NebulaGraphService.NebulaGraphServiceBase
     {
         try
         {
-            _logger.LogInformation("gRPC: Getting value for key: {Key}", request.Key);
-            
-            var value = await _daprClient.GetStateAsync<string>(StoreName, request.Key);
-            
-            if (value == null)
-            {
-                return new GetValueResponse
-                {
-                    Value = "",
-                    Found = false,
-                    Error = "Key not found"
-                };
-            }
-
-            return new GetValueResponse
-            {
-                Value = value,
-                Found = true,
-                Error = ""
-            };
+            _logger.LogInformation("gRPC: Getting value for key: {Key} via Dapr gRPC service invocation", request.Key);
+            var response = await _daprClient.InvokeMethodGrpcAsync<GetValueRequest, GetValueResponse>(
+                appId: MainComponentAppId,
+                methodName: "GetValue",
+                data: request
+            );
+            return response;
         }
         catch (Exception ex)
         {
@@ -57,15 +44,13 @@ public class NebulaGraphGrpcService : NebulaGraphService.NebulaGraphServiceBase
     {
         try
         {
-            _logger.LogInformation("gRPC: Setting value for key: {Key}", request.Key);
-            
-            await _daprClient.SaveStateAsync(StoreName, request.Key, request.Value);
-            
-            return new SetValueResponse
-            {
-                Success = true,
-                Error = ""
-            };
+            _logger.LogInformation("gRPC: Setting value for key: {Key} via Dapr gRPC service invocation", request.Key);
+            var response = await _daprClient.InvokeMethodGrpcAsync<SetValueRequest, SetValueResponse>(
+                appId: MainComponentAppId,
+                methodName: "SetValue",
+                data: request
+            );
+            return response;
         }
         catch (Exception ex)
         {
@@ -82,15 +67,13 @@ public class NebulaGraphGrpcService : NebulaGraphService.NebulaGraphServiceBase
     {
         try
         {
-            _logger.LogInformation("gRPC: Deleting value for key: {Key}", request.Key);
-            
-            await _daprClient.DeleteStateAsync(StoreName, request.Key);
-            
-            return new DeleteValueResponse
-            {
-                Success = true,
-                Error = ""
-            };
+            _logger.LogInformation("gRPC: Deleting value for key: {Key} via Dapr gRPC service invocation", request.Key);
+            var response = await _daprClient.InvokeMethodGrpcAsync<DeleteValueRequest, DeleteValueResponse>(
+                appId: MainComponentAppId,
+                methodName: "DeleteValue",
+                data: request
+            );
+            return response;
         }
         catch (Exception ex)
         {
@@ -107,22 +90,12 @@ public class NebulaGraphGrpcService : NebulaGraphService.NebulaGraphServiceBase
     {
         try
         {
-            _logger.LogInformation("gRPC: Listing keys with prefix: {Prefix}, limit: {Limit}", request.Prefix, request.Limit);
-            
-            // Note: This is a basic implementation as Dapr doesn't have a built-in list operation
-            // In a real scenario, you might need to maintain a separate index or query NebulaGraph directly
-            var response = new ListKeysResponse();
-            
-            // For demonstration, we'll return some test keys
-            // In a real implementation, you'd query your state store directly
-            if (!string.IsNullOrEmpty(request.Prefix))
-            {
-                response.Keys.Add($"{request.Prefix}1");
-                response.Keys.Add($"{request.Prefix}2");
-                response.Keys.Add($"{request.Prefix}3");
-            }
-            
-            response.Error = "";
+            _logger.LogInformation("gRPC: Listing keys with prefix: {Prefix}, limit: {Limit} via Dapr gRPC service invocation", request.Prefix, request.Limit);
+            var response = await _daprClient.InvokeMethodGrpcAsync<ListKeysRequest, ListKeysResponse>(
+                appId: MainComponentAppId,
+                methodName: "ListKeys",
+                data: request
+            );
             return response;
         }
         catch (Exception ex)
