@@ -1,9 +1,7 @@
-version: '3.8'
-
 services:
   # NebulaGraph Test API
   nebulagraph-test-api:
-    build: .
+    build: ../../
     container_name: nebulagraph-test-api
     ports:
       - "5090:80"
