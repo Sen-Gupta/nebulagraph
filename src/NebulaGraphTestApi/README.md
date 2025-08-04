@@ -13,16 +13,66 @@ src/
 │   │   └── NebulaGraphGrpcService.cs  # gRPC service implementation
 │   ├── Protos/
 │   │   └── nebulagraph.proto          # gRPC service definition
-│   ├── dapr/
-│   │   └── nebulagraph-store.yaml     # Dapr component configuration
+│   ├── setup/local/
+│   │   └── apps.sh                    # TestAPI management with Dapr sidecar
 │   ├── Program.cs                     # Application startup configuration
-│   ├── start_api.sh                   # Script to start API with Dapr
-│   ├── test_api.sh                    # HTTP API test script
-│   ├── test_grpc.sh                   # gRPC API test script
 │   └── README.md                      # This file
 ├── dapr-pluggable/                    # NebulaGraph Dapr component
-└── nebulagraph_test.sln               # Solution file
+├── dependencies/                      # NebulaGraph infrastructure
+└── components/                        # Dapr component configurations
 ```
+
+## Architecture
+
+The TestAPI uses Dapr's service invocation pattern with pluggable components:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    Dapr Microservices Architecture          │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  ┌─────────────────┐    ┌──────────────────┐               │
+│  │   TestAPI       │◄──►│ TestAPI Dapr     │               │
+│  │ (.NET 9 App)    │    │ Sidecar          │               │
+│  │ Port: 5090      │    │ HTTP: 3002       │               │
+│  │                 │    │ gRPC: 50002      │               │
+│  └─────────────────┘    └──────────────────┘               │
+│                                │                           │
+│                                ▼ Service Discovery         │
+│  ┌─────────────────┐    ┌──────────────────┐               │
+│  │ NebulaGraph     │◄──►│ Main Dapr        │               │
+│  │ Pluggable       │    │ Component        │               │
+│  │ Component       │    │ Sidecar          │               │
+│  │ (Unix Socket)   │    │ HTTP: 3501       │               │
+│  └─────────────────┘    │ gRPC: 50001      │               │
+│                         └──────────────────┘               │
+│                                │                           │
+│                                ▼ Database Connection       │
+│                    ┌──────────────────┐                    │
+│                    │ NebulaGraph      │                    │
+│                    │ Database Cluster │                    │
+│                    │ Ports: 9669,     │                    │
+│                    │        9559,     │                    │
+│                    │        9779      │                    │
+│                    └──────────────────┘                    │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Communication Flow
+
+1. **Client** → **TestAPI** (HTTP REST or gRPC calls on port 5090)
+2. **TestAPI** → **TestAPI Dapr Sidecar** (local HTTP calls to port 3002)
+3. **TestAPI Sidecar** → **Main Component Sidecar** (service invocation to port 3501)
+4. **Main Component Sidecar** → **NebulaGraph Component** (Unix Domain Socket)
+5. **NebulaGraph Component** → **NebulaGraph Database** (native graph protocol on port 9669)
+
+### Key Benefits
+
+- **Service Invocation Pattern**: TestAPI uses service discovery to access the main component
+- **Pluggable Component Isolation**: Only the main sidecar loads the NebulaGraph component
+- **Unix Socket Efficiency**: High-performance communication between component and main sidecar
+- **Multiple Applications Support**: Additional services can access state through service invocation
+- **Architecture Compliance**: Follows official Dapr pluggable component patterns
 
 ## Prerequisites
 
@@ -34,49 +84,78 @@ src/
 
 ## Quick Start
 
-### 1. Ensure Prerequisites
+### 1. Start NebulaGraph Infrastructure
 
-Make sure NebulaGraph cluster is running:
 ```bash
-cd /home/sen/repos/nebulagraph/src/dapr-pluggable
-docker-compose -f docker-compose.dependencies.yml up -d
+cd /home/sen/repos/nebulagraph/src/dependencies
+./environment_setup.sh start
 ```
 
-Build and start the Dapr component:
+### 2. Start Main Dapr Component
+
 ```bash
 cd /home/sen/repos/nebulagraph/src/dapr-pluggable
-./setup_dev.sh
+./run_docker_pluggable.sh start
 ```
 
-### 2. Start the Test API
+### 3. Start TestAPI with Dapr Sidecar
 
-From within the `NebulaGraphTestApi` directory:
 ```bash
-cd /home/sen/repos/nebulagraph/src/NebulaGraphTestApi
-./start_api.sh
+cd /home/sen/repos/nebulagraph/src/NebulaGraphTestApi/setup/local
+./apps.sh start
 ```
 
 This will:
+- Validate all dependencies (Dapr CLI, .NET 9, Go, NebulaGraph)
+- Ensure required ports are available (5090, 3002, 50002)
 - Build the .NET application
-- Start it with Dapr runtime
-- Expose HTTP API on `http://localhost:5000`
-- Expose gRPC API on `localhost:5000`
-- Configure Dapr HTTP port on `3500`
+- Start TestAPI with its own Dapr sidecar
+- Run comprehensive tests to verify functionality
 
-### 3. Test the APIs
+### 4. Access the APIs
 
-#### HTTP REST API Testing
+- **HTTP REST API**: `http://localhost:5090/api/state`
+- **Swagger UI**: `http://localhost:5090/swagger`
+- **TestAPI Dapr Sidecar**: `http://localhost:3002/v1.0/`
+- **Main Component Sidecar**: `http://localhost:3501/v1.0/`
+
+## Management Commands
+
+### TestAPI Management (`apps.sh`)
+
 ```bash
-./test_api.sh
+cd /home/sen/repos/nebulagraph/src/NebulaGraphTestApi/setup/local
+
+# Start TestAPI with Dapr sidecar
+./apps.sh start
+
+# Stop TestAPI
+./apps.sh stop
+
+# Restart TestAPI
+./apps.sh restart
+
+# Check status
+./apps.sh status
+
+# Run tests only
+./apps.sh test
+
+# Build without starting
+./apps.sh build
 ```
 
-#### gRPC API Testing
-```bash
-./test_grpc.sh
-```
+### Infrastructure Management
 
-#### Manual Testing with Swagger UI
-Visit: `http://localhost:5000/swagger`
+```bash
+# NebulaGraph cluster management
+cd /home/sen/repos/nebulagraph/src/dependencies
+./environment_setup.sh start|stop|status|test|clean
+
+# Main Dapr component management  
+cd /home/sen/repos/nebulagraph/src/dapr-pluggable
+./run_docker_pluggable.sh start|stop|status|test|clean
+```
 
 ## API Endpoints
 
@@ -105,18 +184,18 @@ Visit: `http://localhost:5000/swagger`
 
 ```bash
 # Set a value
-curl -X POST "http://localhost:5000/api/state/mykey" \
+curl -X POST "http://localhost:5090/api/state/mykey" \
      -H "Content-Type: application/json" \
      -d '{"value":"myvalue"}'
 
 # Get a value
-curl -X GET "http://localhost:5000/api/state/mykey"
+curl -X GET "http://localhost:5090/api/state/mykey"
 
 # Delete a value
-curl -X DELETE "http://localhost:5000/api/state/mykey"
+curl -X DELETE "http://localhost:5090/api/state/mykey"
 
 # Bulk operations
-curl -X POST "http://localhost:5000/api/state/bulk" \
+curl -X POST "http://localhost:5090/api/state/bulk" \
      -H "Content-Type: application/json" \
      -d '{
          "operations": [
@@ -140,70 +219,73 @@ grpcurl -plaintext \
     localhost:5000 nebulagraph.NebulaGraphService/GetValue
 ```
 
-### Direct Dapr API Testing
+### Service Invocation Testing
 
-You can also test the Dapr component directly:
+You can test the service invocation pattern through TestAPI:
 
 ```bash
-# Set via Dapr
-curl -X POST "http://localhost:3500/v1.0/state/nebulagraph-store" \
+# Test via TestAPI (uses service invocation to main component)
+curl -X POST "http://localhost:5090/api/state/testkey" \
+     -H "Content-Type: application/json" \
+     -d '{"value":"testvalue"}'
+
+# Get via TestAPI
+curl -X GET "http://localhost:5090/api/state/testkey"
+```
+
+### Direct Component Testing
+
+You can also test the main component directly:
+
+```bash
+# Set via main component
+curl -X POST "http://localhost:3501/v1.0/state/nebulagraph-state" \
      -H "Content-Type: application/json" \
      -d '[{"key":"testkey", "value":"testvalue"}]'
 
-# Get via Dapr
-curl -X GET "http://localhost:3500/v1.0/state/nebulagraph-store/testkey"
+# Get via main component
+curl -X GET "http://localhost:3501/v1.0/state/nebulagraph-state/testkey"
 ```
 
 ## Configuration
 
-The Dapr component configuration is in `dapr/nebulagraph-store.yaml`:
+The main Dapr component configuration uses the pluggable component pattern. The TestAPI accesses the state store through service invocation rather than direct component loading.
 
-```yaml
-apiVersion: dapr.io/v1alpha1
-kind: Component
-metadata:
-  name: nebulagraph-store
-spec:
-  type: state.nebulagraph
-  version: v1
-  metadata:
-  - name: graphHost
-    value: "127.0.0.1"
-  - name: graphPort
-    value: "9669"
-  - name: space
-    value: "dapr_state"
-  - name: username
-    value: "root"
-  - name: password
-    value: "nebula"
-  - name: tag
-    value: "state_tag"
-```
+Component discovery happens automatically via Unix Domain Sockets in `/tmp/dapr-components-sockets/`.
 
 ## Troubleshooting
 
-### Component Not Found
-If you get "component not found" errors:
-1. Ensure the NebulaGraph Dapr component is running
-2. Check the component configuration path in `start_api.sh`
-3. Verify NebulaGraph cluster connectivity
+### Main Component Not Accessible
+If you get connection errors to the main component:
+1. Ensure the main Dapr component is running: `./run_docker_pluggable.sh status`
+2. Check that port 3501 is accessible: `curl http://localhost:3501/v1.0/healthz`
+3. Verify the component logs for any startup errors
+
+### TestAPI Service Invocation Errors
+If TestAPI cannot access the state store:
+1. Verify both sidecars are running: `./apps.sh status`
+2. Check service discovery is working between sidecars
+3. Ensure the main component is registered and healthy
 
 ### Build Errors
 ```bash
+cd /home/sen/repos/nebulagraph/src/NebulaGraphTestApi
 ~/.dotnet/dotnet clean
 ~/.dotnet/dotnet restore
 ~/.dotnet/dotnet build
 ```
 
-### Connection Errors
+### NebulaGraph Connectivity Issues
 1. Verify NebulaGraph cluster is running:
    ```bash
-   docker-compose -f docker-compose.dependencies.yml ps
+   cd /home/sen/repos/nebulagraph/src/dependencies
+   ./environment_setup.sh status
    ```
 2. Check NebulaGraph console connectivity:
    ```bash
-   docker exec -it nebula-console nebula-console -addr graphd -port 9669 -u root -p nebula
+   docker run --rm --network nebula-net vesoft/nebula-console:v3-nightly \
+     --addr nebula-graphd --port 9669 --user root --password nebula \
+     --eval "SHOW SPACES;"
    ```
 
 ## Development
@@ -212,10 +294,10 @@ To modify the API:
 
 1. **Add new endpoints**: Edit `Controllers/StateController.cs`
 2. **Modify gRPC service**: Update `Protos/nebulagraph.proto` and `Services/NebulaGraphGrpcService.cs`
-3. **Change configuration**: Modify `dapr/nebulagraph-store.yaml`
+3. **Change TestAPI behavior**: Modify the service invocation calls to the main component
 
 After changes, rebuild and restart:
 ```bash
-~/.dotnet/dotnet build
-./start_api.sh
+cd /home/sen/repos/nebulagraph/src/NebulaGraphTestApi/setup/local
+./apps.sh restart
 ```

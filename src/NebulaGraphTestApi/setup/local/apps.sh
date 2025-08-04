@@ -13,16 +13,14 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # PID file locations
-COMPONENT_PID_FILE="/tmp/nebulagraph-component.pid"
-DAPRD_COMPONENT_PID_FILE="/tmp/daprd-component.pid"
-TESTAPI_PID_FILE="/tmp/testapi.pid"
 DAPRD_TESTAPI_PID_FILE="/tmp/daprd-testapi.pid"
 
 # Port definitions
-TESTAPI_PORT=5000
-COMPONENT_DAPR_HTTP_PORT=3500
-TESTAPI_DAPR_HTTP_PORT=3501
+TESTAPI_PORT=5090
+COMPONENT_DAPR_HTTP_PORT=3501
 COMPONENT_DAPR_GRPC_PORT=50001
+
+TESTAPI_DAPR_HTTP_PORT=3002
 TESTAPI_DAPR_GRPC_PORT=50002
 
 check_port() {
@@ -55,7 +53,7 @@ kill_port() {
 ensure_ports_available() {
     print_header "Ensuring Ports Are Available"
     
-    local ports=($TESTAPI_PORT $COMPONENT_DAPR_HTTP_PORT $TESTAPI_DAPR_HTTP_PORT $COMPONENT_DAPR_GRPC_PORT $TESTAPI_DAPR_GRPC_PORT)
+    local ports=($TESTAPI_PORT $TESTAPI_DAPR_HTTP_PORT $TESTAPI_DAPR_GRPC_PORT)
     local ports_to_kill=()
     
     # First, check which ports are in use
@@ -125,84 +123,47 @@ check_dependencies() {
         exit 1
     fi
     
-    # Check NebulaGraph
-    if curl -s --connect-timeout 3 http://localhost:7001 > /dev/null 2>&1; then
-        print_success "NebulaGraph is accessible"
+    # Check NebulaGraph and verify dapr_state space exists
+    verify_result=$(docker run --rm --network nebula-net vesoft/nebula-console:v3-nightly \
+        --addr nebula-graphd --port 9669 --user root --password nebula \
+        --eval "USE dapr_state; SHOW TAGS;" 2>&1)
+    
+    if echo "$verify_result" | grep -q "state"; then
+        print_success "NebulaGraph dapr_state space and schema are ready"
     else
-        print_warning "NebulaGraph doesn't seem to be running"
+        print_warning "NebulaGraph dapr_state space or schema not found"
         print_info "Start dependencies first: ./deps.sh start"
         exit 1
     fi
 }
 
-build_component() {
-    print_header "Building Dapr Component"
-    
-    cd dapr-pluggable
-    print_info "Building Go component..."
-    go build -o nebulagraph .
-    print_success "Component built successfully"
-    cd ..
-}
-
 build_testapi() {
     print_header "Building TestAPI"
     
-    cd NebulaGraphTestApi
+    cd ../..
     print_info "Building .NET API..."
     dotnet build --configuration Release
     print_success "TestAPI built successfully"
-    cd ..
-}
-
-start_component() {
-    print_info "Starting NebulaGraph Dapr component..."
-    cd dapr-pluggable
-    
-    # Create socket directory if it doesn't exist
-    mkdir -p /tmp/dapr-components-sockets
-    
-    # Start the component
-    ./nebulagraph &
-    COMPONENT_PID=$!
-    echo $COMPONENT_PID > $COMPONENT_PID_FILE
-    print_success "Component started (PID: $COMPONENT_PID)"
-    
-    # Start Dapr sidecar for component
-    dapr run \
-        --app-id nebulagraph-component \
-        --app-port $COMPONENT_DAPR_GRPC_PORT \
-        --dapr-http-port $COMPONENT_DAPR_HTTP_PORT \
-        --dapr-grpc-port 50000 \
-        --resources-path ../components-local \
-        --log-level info \
-        --app-protocol grpc \
-        -- sleep infinity &
-    DAPRD_COMPONENT_PID=$!
-    echo $DAPRD_COMPONENT_PID > $DAPRD_COMPONENT_PID_FILE
-    print_success "Component Dapr sidecar started (PID: $DAPRD_COMPONENT_PID)"
-    
-    cd ..
+    cd - > /dev/null
 }
 
 start_testapi() {
     print_info "Starting TestAPI..."
-    cd NebulaGraphTestApi
+    cd ../..
     
-    # Start Dapr sidecar for TestAPI
+    # Start Dapr sidecar for TestAPI (uses service invocation to access main component)
     dapr run \
         --app-id test-api \
         --app-port $TESTAPI_PORT \
         --dapr-http-port $TESTAPI_DAPR_HTTP_PORT \
         --dapr-grpc-port $TESTAPI_DAPR_GRPC_PORT \
-        --resources-path ../components-local \
         --log-level info \
         -- dotnet run --no-build --urls http://localhost:$TESTAPI_PORT &
     DAPRD_TESTAPI_PID=$!
     echo $DAPRD_TESTAPI_PID > $DAPRD_TESTAPI_PID_FILE
     print_success "TestAPI with Dapr sidecar started (PID: $DAPRD_TESTAPI_PID)"
     
-    cd ..
+    cd - > /dev/null
 }
 
 stop_processes() {
@@ -218,49 +179,14 @@ stop_processes() {
         rm -f $DAPRD_TESTAPI_PID_FILE
     fi
     
-    # Stop Component Dapr sidecar
-    if [ -f $DAPRD_COMPONENT_PID_FILE ]; then
-        DAPRD_COMPONENT_PID=$(cat $DAPRD_COMPONENT_PID_FILE)
-        if kill -0 $DAPRD_COMPONENT_PID 2>/dev/null; then
-            kill $DAPRD_COMPONENT_PID
-            print_success "Component Dapr sidecar stopped"
-        fi
-        rm -f $DAPRD_COMPONENT_PID_FILE
-    fi
-    
-    # Stop Component
-    if [ -f $COMPONENT_PID_FILE ]; then
-        COMPONENT_PID=$(cat $COMPONENT_PID_FILE)
-        if kill -0 $COMPONENT_PID 2>/dev/null; then
-            kill $COMPONENT_PID
-            print_success "Component stopped"
-        fi
-        rm -f $COMPONENT_PID_FILE
-    fi
-    
-    # Clean up any remaining Dapr processes
-    pkill -f "daprd.*nebulagraph-component" 2>/dev/null || true
+    # Clean up any remaining TestAPI Dapr processes
     pkill -f "daprd.*test-api" 2>/dev/null || true
     
-    print_success "All applications stopped"
+    print_success "TestAPI stopped"
 }
 
 check_status() {
     print_header "Application Status"
-    
-    # Check component
-    if [ -f $COMPONENT_PID_FILE ] && kill -0 $(cat $COMPONENT_PID_FILE) 2>/dev/null; then
-        print_success "NebulaGraph component is running (PID: $(cat $COMPONENT_PID_FILE))"
-    else
-        print_info "NebulaGraph component is not running"
-    fi
-    
-    # Check component Dapr sidecar
-    if [ -f $DAPRD_COMPONENT_PID_FILE ] && kill -0 $(cat $DAPRD_COMPONENT_PID_FILE) 2>/dev/null; then
-        print_success "Component Dapr sidecar is running (PID: $(cat $DAPRD_COMPONENT_PID_FILE))"
-    else
-        print_info "Component Dapr sidecar is not running"
-    fi
     
     # Check TestAPI
     if [ -f $DAPRD_TESTAPI_PID_FILE ] && kill -0 $(cat $DAPRD_TESTAPI_PID_FILE) 2>/dev/null; then
@@ -273,8 +199,8 @@ check_status() {
     print_info "Service Endpoints:"
     echo "  • TestAPI: http://localhost:$TESTAPI_PORT"
     echo "  • TestAPI Swagger: http://localhost:$TESTAPI_PORT/swagger"
-    echo "  • Dapr Component: http://localhost:$COMPONENT_DAPR_HTTP_PORT"
-    echo "  • Dapr TestAPI: http://localhost:$TESTAPI_DAPR_HTTP_PORT"
+    echo "  • Main Dapr Component: http://localhost:$COMPONENT_DAPR_HTTP_PORT"
+    echo "  • TestAPI Dapr: http://localhost:$TESTAPI_DAPR_HTTP_PORT"
 }
 
 test_services() {
@@ -315,9 +241,7 @@ case "${1:-help}" in
     "start")
         check_dependencies
         ensure_ports_available
-        build_component
         build_testapi
-        start_component
         start_testapi
         check_status
         test_services
@@ -330,9 +254,7 @@ case "${1:-help}" in
         sleep 2
         check_dependencies
         ensure_ports_available
-        build_component
         build_testapi
-        start_component
         start_testapi
         check_status
         ;;
@@ -343,26 +265,26 @@ case "${1:-help}" in
         test_services
         ;;
     "build")
-        build_component
         build_testapi
         ;;
     "help"|"-h"|"--help")
         echo "Usage: $0 [COMMAND]"
         echo ""
-        echo "Local Apps Management - Manages Dapr component and TestAPI"
+        echo "TestAPI Management - Manages TestAPI application locally"
         echo ""
         echo "Commands:"
-        echo "  start     Build and start all applications"
-        echo "  stop      Stop all applications"
-        echo "  restart   Restart all applications"
+        echo "  start     Build and start TestAPI application"
+        echo "  stop      Stop TestAPI application"
+        echo "  restart   Restart TestAPI application"
         echo "  status    Show application status"
         echo "  test      Test running services"
-        echo "  build     Build applications without starting"
+        echo "  build     Build TestAPI without starting"
         echo "  help      Show this help"
         echo ""
         echo "Prerequisites:"
-        echo "  • NebulaGraph dependencies must be running (./deps.sh start)"
-        echo "  • Dapr CLI, .NET 9 SDK, and Go must be installed"
+        echo "  • NebulaGraph dependencies must be running"
+        echo "  • Main Dapr component must be running on port 3501"
+        echo "  • Dapr CLI and .NET 9 SDK must be installed"
         ;;
     *)
         echo "Unknown command: $1"
