@@ -3,18 +3,16 @@
 # NebulaGraph Dapr Pluggable Component Management Script
 # Complete management of Dapr pluggable component including setup, operations, and testing
 
-set     print_info "Testing Dapr HTTP API (port 3501)..."
-    if curl -s --connect-timeout 5 http://localhost:3501/v1.0/healthz >/dev/null 2>&1; then
-        print_success "Dapr HTTP API is accessible"
-    else
-        print_error "Dapr HTTP API is not responding on port 3501" Colors for output
+set -e
+
+# Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-# Helper function          echo "  test-full     Run comprehensive tests (uses tests/test_component.sh if available)"
+# Helper functions
 print_header() {
     echo -e "\n${BLUE}======================================${NC}"
     echo -e "${BLUE}$1${NC}"
