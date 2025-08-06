@@ -40,6 +40,85 @@ command_exists() {
     command -v "$1" >/dev/null 2>&1
 }
 
+# Get docker compose command (docker-compose or docker compose)
+get_docker_compose_cmd() {
+    if command_exists docker-compose; then
+        echo "docker-compose"
+    elif command_exists docker && docker compose version >/dev/null 2>&1; then
+        echo "docker compose"
+    else
+        return 1
+    fi
+}
+
+# Install missing prerequisites
+install_prerequisites() {
+    print_header "Installing Missing Prerequisites"
+    local install_needed=0
+    
+    # Install Go if missing
+    if ! command_exists go; then
+        print_info "Installing Go 1.24.5..."
+        if wget -q https://go.dev/dl/go1.24.5.linux-amd64.tar.gz; then
+            if sudo rm -rf /usr/local/go && sudo tar -C /usr/local -xzf go1.24.5.linux-amd64.tar.gz; then
+                export PATH=$PATH:/usr/local/go/bin
+                echo 'export PATH=$PATH:/usr/local/go/bin' >> ~/.bashrc
+                rm -f go1.24.5.linux-amd64.tar.gz
+                print_success "Go 1.24.5 installed successfully"
+                install_needed=1
+            else
+                print_error "Failed to install Go"
+                return 1
+            fi
+        else
+            print_error "Failed to download Go"
+            return 1
+        fi
+    fi
+    
+    # Install Dapr if missing
+    if ! command_exists dapr; then
+        print_info "Installing Dapr runtime..."
+        if wget -q https://raw.githubusercontent.com/dapr/cli/master/install/install.sh -O - | /bin/bash; then
+            print_success "Dapr runtime installed successfully"
+            install_needed=1
+        else
+            print_error "Failed to install Dapr runtime"
+            return 1
+        fi
+    fi
+    
+    # Install grpcurl if missing (requires Go to be installed first)
+    if ! command_exists grpcurl; then
+        if command_exists go; then
+            print_info "Installing grpcurl..."
+            if go install github.com/fullstorydev/grpcurl/cmd/grpcurl@latest; then
+                # Add GOPATH/bin to PATH if not already there
+                export PATH=$PATH:$(go env GOPATH)/bin
+                echo 'export PATH=$PATH:$(go env GOPATH)/bin' >> ~/.bashrc
+                print_success "grpcurl installed successfully"
+                install_needed=1
+            else
+                print_error "Failed to install grpcurl"
+                return 1
+            fi
+        else
+            print_warning "Go is required to install grpcurl. Install Go first."
+        fi
+    fi
+    
+    if [ $install_needed -eq 1 ]; then
+        print_info "Prerequisites installation completed. Please run 'source ~/.bashrc' or restart your terminal to update PATH."
+        print_info "Alternatively, export the paths manually:"
+        print_info "  export PATH=\$PATH:/usr/local/go/bin"
+        if command_exists go; then
+            print_info "  export PATH=\$PATH:\$(go env GOPATH)/bin"
+        fi
+    else
+        print_success "All prerequisites are already installed"
+    fi
+}
+
 # Setup Docker network
 setup_docker_network() {
     print_info "Setting up Docker network..."
@@ -80,26 +159,29 @@ start_nebula_cluster() {
     print_info "Starting NebulaGraph cluster..."
     
     if [ -f "docker-compose.yml" ]; then
+        local compose_cmd
+        compose_cmd=$(get_docker_compose_cmd) || {
+            print_error "Docker Compose is not installed or not in PATH"
+            return 1
+        }
         # Try to start the cluster
-        if docker-compose up -d; then
+        if $compose_cmd up -d; then
             print_success "NebulaGraph cluster started"
             print_info "Waiting for services to initialize..."
             sleep 15
         else
             print_warning "Initial startup failed, trying to recreate..."
             # If startup fails due to network issues, try to recreate
-            docker-compose down
+            $compose_cmd down
             sleep 2
-            
             # Remove and recreate network if needed
             if docker network ls | grep -q "nebula-net"; then
                 print_info "Recreating Docker network..."
                 docker network rm nebula-net 2>/dev/null || true
                 docker network create nebula-net
             fi
-            
             # Try starting again
-            if docker-compose up -d; then
+            if $compose_cmd up -d; then
                 print_success "NebulaGraph cluster started after recreation"
                 print_info "Waiting for services to initialize..."
                 sleep 15
@@ -162,7 +244,12 @@ wait_for_nebula_ready() {
 stop_nebula_cluster() {
     print_header "Stopping NebulaGraph Dependencies"
     if [ -f "docker-compose.yml" ]; then
-        docker-compose down
+        local compose_cmd
+        compose_cmd=$(get_docker_compose_cmd) || {
+            print_error "Docker Compose is not installed or not in PATH"
+            return 1
+        }
+        $compose_cmd down
         print_success "NebulaGraph dependencies stopped"
     else
         print_error "docker-compose.yml not found in current directory"
@@ -174,7 +261,12 @@ stop_nebula_cluster() {
 show_nebula_status() {
     print_header "NebulaGraph Dependencies Status"
     if [ -f "docker-compose.yml" ]; then
-        docker-compose ps
+        local compose_cmd
+        compose_cmd=$(get_docker_compose_cmd) || {
+            print_error "Docker Compose is not installed or not in PATH"
+            return 1
+        }
+        $compose_cmd ps
     else
         print_error "docker-compose.yml not found in current directory"
         return 1
@@ -185,7 +277,12 @@ show_nebula_status() {
 show_nebula_logs() {
     print_header "NebulaGraph Dependencies Logs"
     if [ -f "docker-compose.yml" ]; then
-        docker-compose logs -f
+        local compose_cmd
+        compose_cmd=$(get_docker_compose_cmd) || {
+            print_error "Docker Compose is not installed or not in PATH"
+            return 1
+        }
+        $compose_cmd logs -f
     else
         print_error "docker-compose.yml not found in current directory"
         return 1
@@ -196,7 +293,12 @@ show_nebula_logs() {
 clean_nebula_cluster() {
     print_header "Cleaning NebulaGraph Dependencies"
     if [ -f "docker-compose.yml" ]; then
-        docker-compose down -v --remove-orphans
+        local compose_cmd
+        compose_cmd=$(get_docker_compose_cmd) || {
+            print_error "Docker Compose is not installed or not in PATH"
+            return 1
+        }
+        $compose_cmd down -v --remove-orphans
         print_success "NebulaGraph dependencies cleaned"
     else
         print_error "docker-compose.yml not found in current directory"
@@ -310,8 +412,14 @@ main() {
         overall_success=1
     fi
     
-    if command_exists docker-compose; then
-        print_success "Docker Compose is available: $(docker-compose --version)"
+    # Check for Docker Compose (both v1 and v2)
+    local compose_cmd
+    if compose_cmd=$(get_docker_compose_cmd); then
+        if [[ "$compose_cmd" == "docker-compose" ]]; then
+            print_success "Docker Compose v1 is available: $(docker-compose --version)"
+        else
+            print_success "Docker Compose v2 is available: $(docker compose version)"
+        fi
     else
         print_error "Docker Compose is not installed or not in PATH"
         print_info "Install Docker Compose: curl -L \"https://github.com/docker/compose/releases/download/v2.20.2/docker-compose-\$(uname -s)-\$(uname -m)\" -o /usr/local/bin/docker-compose && chmod +x /usr/local/bin/docker-compose"
@@ -381,6 +489,7 @@ main() {
     
     if [ $overall_success -ne 0 ]; then
         print_error "Prerequisites not met. Please install the missing components using the commands shown above."
+        print_info "Or run: ./environment_setup.sh install-prereqs"
         exit 1
     fi
     
@@ -424,6 +533,9 @@ case "${1:-setup}" in
     "setup"|"start")
         main
         ;;
+    "install-prereqs")
+        install_prerequisites
+        ;;
     "stop"|"down")
         stop_nebula_cluster
         ;;
@@ -449,14 +561,15 @@ case "${1:-setup}" in
         echo "NebulaGraph Environment Management"
         echo ""
         echo "Commands:"
-        echo "  setup, start  Set up the complete NebulaGraph environment (default)"
-        echo "  stop, down    Stop NebulaGraph dependencies"
-        echo "  status        Show dependency status"
-        echo "  logs          Show dependency logs"
-        echo "  init          Initialize NebulaGraph cluster"
-        echo "  test          Test NebulaGraph services connectivity"
-        echo "  clean         Clean up dependencies (volumes and networks)"
-        echo "  help          Show this help message"
+        echo "  setup, start      Set up the complete NebulaGraph environment (default)"
+        echo "  install-prereqs   Install missing prerequisites (Go, Dapr, grpcurl)"
+        echo "  stop, down        Stop NebulaGraph dependencies"
+        echo "  status            Show dependency status"
+        echo "  logs              Show dependency logs"
+        echo "  init              Initialize NebulaGraph cluster"
+        echo "  test              Test NebulaGraph services connectivity"
+        echo "  clean             Clean up dependencies (volumes and networks)"
+        echo "  help              Show this help message"
         echo ""
         echo "Setup will:"
         echo "  1. Check prerequisites (Docker, Docker Compose, Dapr, Go 1.24.5+, curl, grpcurl, jq)"

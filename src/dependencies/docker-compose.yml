@@ -9,8 +9,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-version: '3.9'
-
 services:
   # NebulaGraph Meta Service
   nebula-metad:
@@ -119,5 +117,5 @@ volumes:
 
 networks:
   nebula-net:
-    driver: bridge
+    external: true
     name: nebula-net
