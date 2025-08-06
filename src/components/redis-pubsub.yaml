@@ -1,0 +1,49 @@
+apiVersion: dapr.io/v1alpha1
+kind: Component
+metadata:
+  name: redis-pubsub
+  namespace: default
+spec:
+  type: pubsub.redis
+  version: v1
+  metadata:
+  - name: redisHost
+    value: "${REDIS_HOST:-localhost:6379}"
+  - name: redisPassword
+    value: "${REDIS_PASSWORD:-dapr_redis}"
+  - name: redisDB
+    value: "${REDIS_DB:-0}"
+  
+  # Connection and retry configuration
+  - name: maxRetries
+    value: "${REDIS_MAX_RETRIES:-3}"
+  - name: maxRetryBackoff
+    value: "${REDIS_MAX_RETRY_BACKOFF:-2s}"
+  - name: dialTimeout
+    value: "${REDIS_DIAL_TIMEOUT:-5s}"
+  - name: readTimeout
+    value: "${REDIS_READ_TIMEOUT:-3s}"
+  - name: writeTimeout
+    value: "${REDIS_WRITE_TIMEOUT:-3s}"
+  
+  # Connection pooling for performance
+  - name: poolSize
+    value: "${REDIS_POOL_SIZE:-20}"
+  - name: poolTimeout
+    value: "${REDIS_POOL_TIMEOUT:-5s}"
+  - name: maxConnAge
+    value: "${REDIS_MAX_CONN_AGE:-30m}"
+  - name: idleTimeout
+    value: "${REDIS_IDLE_TIMEOUT:-5m}"
+  - name: idleCheckFrequency
+    value: "${REDIS_IDLE_CHECK_FREQUENCY:-1m}"
+  
+  # Pub/Sub specific settings
+  - name: redeliverInterval
+    value: "${REDIS_REDELIVER_INTERVAL:-60s}"
+  - name: processingTimeout
+    value: "${REDIS_PROCESSING_TIMEOUT:-15s}"
+  - name: redisType
+    value: "${REDIS_TYPE:-node}"
+  - name: enableTLS
+    value: "${REDIS_ENABLE_TLS:-false}"
