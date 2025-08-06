@@ -7,7 +7,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/dapr/components-contrib/metadata"
 	"github.com/dapr/components-contrib/state"
 	nebula "github.com/vesoft-inc/nebula-go/v3"
 )
@@ -31,6 +30,13 @@ type NebulaConfig struct {
 
 func (store *NebulaStateStore) Init(ctx context.Context, metadata state.Metadata) error {
 	fmt.Printf("DEBUG: Init called on store instance %p with metadata: %+v\n", store, metadata.Properties)
+
+	// Check for context cancellation
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	default:
+	}
 
 	// Parse configuration from metadata
 	configBytes, _ := json.Marshal(metadata.Properties)
@@ -75,16 +81,28 @@ func (store *NebulaStateStore) Init(ctx context.Context, metadata state.Metadata
 }
 
 func (store *NebulaStateStore) GetComponentMetadata() map[string]string {
-	// Not used with pluggable components...
-	return map[string]string{}
+	return map[string]string{
+		"type":    "state",
+		"version": "v1",
+		"author":  "NebulaGraph Team",
+		"url":     "https://github.com/vesoft-inc/nebula",
+	}
 }
 
 func (store *NebulaStateStore) Features() []state.Feature {
-	// Return a list of features supported by the state store...
-	return []state.Feature{state.FeatureETag}
+	// Return supported features for NebulaGraph state store
+	return []state.Feature{
+		state.FeatureETag,
+		state.FeatureTransactional,
+		state.FeatureQueryAPI,
+	}
 }
 
 func (store *NebulaStateStore) Delete(ctx context.Context, req *state.DeleteRequest) error {
+	if store.pool == nil {
+		return fmt.Errorf("component not initialized: connection pool is nil")
+	}
+
 	session, err := store.pool.GetSession(store.config.Username, store.config.Password)
 	if err != nil {
 		return fmt.Errorf("failed to get session: %w", err)
@@ -107,29 +125,9 @@ func (store *NebulaStateStore) Delete(ctx context.Context, req *state.DeleteRequ
 func (store *NebulaStateStore) Get(ctx context.Context, req *state.GetRequest) (*state.GetResponse, error) {
 	fmt.Printf("DEBUG: GET called on store instance %p for key: %s\n", store, req.Key)
 
-	// Lazy initialization if Init was not called
+	// Ensure component is properly initialized
 	if store.pool == nil {
-		fmt.Printf("DEBUG: Connection pool is nil, attempting lazy initialization\n")
-
-		// Try to initialize with hardcoded config for now to test the theory
-		metadata := state.Metadata{
-			Base: metadata.Base{
-				Properties: map[string]string{
-					"hosts":    "nebula-graphd",
-					"port":     "9669",
-					"username": "root",
-					"password": "nebula",
-					"space":    "dapr_state",
-				},
-			},
-		}
-
-		err := store.Init(ctx, metadata)
-		if err != nil {
-			fmt.Printf("DEBUG: Lazy initialization failed: %v\n", err)
-			return nil, fmt.Errorf("failed to initialize component: %w", err)
-		}
-		fmt.Printf("DEBUG: Lazy initialization successful\n")
+		return nil, fmt.Errorf("component not initialized: connection pool is nil")
 	}
 
 	session, err := store.pool.GetSession(store.config.Username, store.config.Password)
@@ -218,6 +216,10 @@ func (store *NebulaStateStore) Get(ctx context.Context, req *state.GetRequest) (
 }
 
 func (store *NebulaStateStore) Set(ctx context.Context, req *state.SetRequest) error {
+	if store.pool == nil {
+		return fmt.Errorf("component not initialized: connection pool is nil")
+	}
+
 	session, err := store.pool.GetSession(store.config.Username, store.config.Password)
 	if err != nil {
 		return fmt.Errorf("failed to get session: %w", err)
