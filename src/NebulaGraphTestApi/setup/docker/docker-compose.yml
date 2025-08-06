@@ -11,12 +11,12 @@ services:
     networks:
       - nebula-net
     depends_on:
-      - daprd-test-api
+      - dapr-sidecar
 
   # Dapr sidecar for Test API
-  daprd-test-api:
-    image: "daprio/daprd:1.15.8"
-    container_name: daprd-test-api
+  # Dapr sidecar
+  dapr-sidecar:
+    image: "ghcr.io/dapr/daprd:latest"
     command: [
       "./daprd",
       "--app-id", "nebulagraph-test-api",
@@ -27,8 +27,10 @@ services:
       "--config", "/config/config.yaml",
       "--log-level", "debug"
     ]
+    env_file:
+      - "../../../.env.docker"
     volumes:
-      - "../components:/components"
+      - "../../components:/components"
       - "./config:/config"
     ports:
       - "3002:3002"  # Different port from our pluggable component
