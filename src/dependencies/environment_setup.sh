@@ -12,26 +12,15 @@ set -e
 
 # Set default values if not already set
 NEBULA_NETWORK_NAME=${NEBULA_NETWORK_NAME:-nebula-net}
-NE    # Test Redis Service
-    print_info "Testing Redis Service (port $REDIS_HOST_PORT)..."
-    if nc -z localhost $REDIS_HOST_PORT 2>/dev/null; then
-        print_success "Redis Service is responding on port $REDIS_HOST_PORT"
-        
-        # Test Redis authentication
-        if command_exists redis-cli; then
-            if redis-cli -h localhost -p $REDIS_HOST_PORT -a $REDIS_PASSWORD ping >/dev/null 2>&1; then
-                print_success "Redis authentication is working"
-            else
-                print_warning "Redis authentication failed"
-            fi
-        else
-            print_info "redis-cli not available for authentication test"
-        fi
-    else
-        print_error "Redis Service is not responding on port $REDIS_HOST_PORT"A_PORT:-9669}
+NEBULA_PORT=${NEBULA_PORT:-9669}
 NEBULA_USERNAME=${NEBULA_USERNAME:-root}
 NEBULA_PASSWORD=${NEBULA_PASSWORD:-nebula}
 NEBULA_SPACE=${NEBULA_SPACE:-dapr_state}
+NEBULA_META_PORT=${NEBULA_META_PORT:-9559}
+NEBULA_STORAGE_PORT=${NEBULA_STORAGE_PORT:-9779}
+NEBULA_HTTP_PORT=${NEBULA_HTTP_PORT:-19669}
+NEBULA_META_HTTP_PORT=${NEBULA_META_HTTP_PORT:-19559}
+NEBULA_STORAGE_HTTP_PORT=${NEBULA_STORAGE_HTTP_PORT:-19779}
 REDIS_HOST_PORT=${REDIS_HOST_PORT:-6379}
 REDIS_PASSWORD=${REDIS_PASSWORD:-dapr_redis}
 NEBULA_STUDIO_PORT=${NEBULA_STUDIO_PORT:-7001}
@@ -152,31 +141,30 @@ install_prerequisites() {
 
 # Setup Docker network
 setup_docker_network() {
-    print_info "Setting up Docker network..."
-    local network_name="nebula-net"
+    print_info "Setting up Docker network '$NEBULA_NETWORK_NAME'..."
     
-    if docker network ls | grep -q "$network_name"; then
-        print_success "Docker network '$network_name' already exists"
+    if docker network ls | grep -q "$NEBULA_NETWORK_NAME"; then
+        print_success "Docker network '$NEBULA_NETWORK_NAME' already exists"
         
         # Check if network has active endpoints
-        local active_endpoints=$(docker network inspect $network_name --format='{{range .Containers}}{{.Name}} {{end}}' 2>/dev/null || echo "")
+        local active_endpoints=$(docker network inspect $NEBULA_NETWORK_NAME --format='{{range .Containers}}{{.Name}} {{end}}' 2>/dev/null || echo "")
         if [ -n "$active_endpoints" ] && [ "$active_endpoints" != " " ]; then
-            print_warning "Network '$network_name' has active endpoints: $active_endpoints"
+            print_info "Network '$NEBULA_NETWORK_NAME' has active endpoints: $active_endpoints"
             print_info "This is expected if containers are already running"
         fi
     else
-        print_info "Creating Docker network '$network_name'..."
-        if docker network create "$network_name"; then
-            print_success "Docker network '$network_name' created"
+        print_info "Creating Docker network '$NEBULA_NETWORK_NAME'..."
+        if docker network create "$NEBULA_NETWORK_NAME"; then
+            print_success "Docker network '$NEBULA_NETWORK_NAME' created successfully"
         else
-            print_error "Failed to create Docker network '$network_name'"
+            print_error "Failed to create Docker network '$NEBULA_NETWORK_NAME'"
             print_info "This may be due to existing network conflicts"
             # Try to remove and recreate
             print_info "Attempting to remove existing network and recreate..."
-            docker network rm "$network_name" 2>/dev/null || true
+            docker network rm "$NEBULA_NETWORK_NAME" 2>/dev/null || true
             sleep 2
-            if docker network create "$network_name"; then
-                print_success "Docker network '$network_name' recreated successfully"
+            if docker network create "$NEBULA_NETWORK_NAME"; then
+                print_success "Docker network '$NEBULA_NETWORK_NAME' recreated successfully"
             else
                 print_error "Failed to create Docker network after cleanup"
                 return 1
@@ -195,29 +183,39 @@ start_nebula_cluster() {
             print_error "Docker Compose is not installed or not in PATH"
             return 1
         }
+        
+        # Ensure network exists before starting
+        setup_docker_network || {
+            print_error "Failed to setup Docker network"
+            return 1
+        }
+        
         # Try to start the cluster
+        print_info "Starting containers with docker-compose..."
         if $compose_cmd up -d; then
             print_success "NebulaGraph cluster started"
             print_info "Waiting for services to initialize..."
-            sleep 15
+            sleep 20
         else
             print_warning "Initial startup failed, trying to recreate..."
-            # If startup fails due to network issues, try to recreate
-            $compose_cmd down
+            # If startup fails, try to recreate
+            $compose_cmd down 2>/dev/null || true
             sleep 2
-            # Remove and recreate network if needed
-            if docker network ls | grep -q "nebula-net"; then
-                print_info "Recreating Docker network..."
-                docker network rm nebula-net 2>/dev/null || true
-                docker network create nebula-net
-            fi
-            # Try starting again
-            if $compose_cmd up -d; then
-                print_success "NebulaGraph cluster started after recreation"
-                print_info "Waiting for services to initialize..."
-                sleep 15
+            
+            # Recreate network if needed
+            docker network rm "$NEBULA_NETWORK_NAME" 2>/dev/null || true
+            if docker network create "$NEBULA_NETWORK_NAME"; then
+                print_info "Network recreated, attempting to start containers again..."
+                if $compose_cmd up -d; then
+                    print_success "NebulaGraph cluster started after recreation"
+                    print_info "Waiting for services to initialize..."
+                    sleep 20
+                else
+                    print_error "Failed to start NebulaGraph cluster after recreation"
+                    return 1
+                fi
             else
-                print_error "Failed to start NebulaGraph cluster after recreation"
+                print_error "Failed to recreate network"
                 return 1
             fi
         fi
@@ -349,11 +347,65 @@ clean_nebula_cluster() {
             print_error "Docker Compose is not installed or not in PATH"
             return 1
         }
+        
+        print_info "Stopping and removing containers and volumes..."
         $compose_cmd down -v --remove-orphans
+        
+        # Also remove the network if it exists
+        if docker network ls | grep -q "$NEBULA_NETWORK_NAME"; then
+            print_info "Removing Docker network '$NEBULA_NETWORK_NAME'..."
+            if docker network rm "$NEBULA_NETWORK_NAME" 2>/dev/null; then
+                print_success "Docker network '$NEBULA_NETWORK_NAME' removed"
+            else
+                print_warning "Could not remove network '$NEBULA_NETWORK_NAME' (may still be in use)"
+            fi
+        fi
+        
         print_success "NebulaGraph dependencies cleaned"
     else
         print_error "docker-compose.yml not found in current directory"
         return 1
+    fi
+}
+
+# Quick test of essential services
+quick_test_services() {
+    print_info "Running quick connectivity test..."
+    
+    local tests_passed=0
+    local total_tests=3
+    
+    # Test NebulaGraph
+    if nc -z localhost 9669 2>/dev/null; then
+        print_success "NebulaGraph Graph Service (port 9669) - OK"
+        tests_passed=$((tests_passed + 1))
+    else
+        print_error "NebulaGraph Graph Service (port 9669) - FAILED"
+    fi
+    
+    # Test Redis
+    if nc -z localhost 6379 2>/dev/null; then
+        print_success "Redis Service (port 6379) - OK"
+        tests_passed=$((tests_passed + 1))
+    else
+        print_error "Redis Service (port 6379) - FAILED"
+    fi
+    
+    # Test NebulaGraph Studio
+    if curl -s --connect-timeout 5 http://localhost:7001 >/dev/null 2>&1; then
+        print_success "NebulaGraph Studio (port 7001) - OK"
+        tests_passed=$((tests_passed + 1))
+    else
+        print_warning "NebulaGraph Studio (port 7001) - Not responding"
+    fi
+    
+    echo ""
+    if [ $tests_passed -eq $total_tests ]; then
+        print_success "All essential services are running! ($tests_passed/$total_tests)"
+    elif [ $tests_passed -gt 0 ]; then
+        print_warning "Some services are running ($tests_passed/$total_tests)"
+    else
+        print_error "No services are responding ($tests_passed/$total_tests)"
     fi
 }
 
@@ -413,16 +465,84 @@ test_nebula_services() {
     fi
 }
 
-# Check for existing containers
+# Check if all required containers are running
+check_all_containers_running() {
+    local required_containers=("nebula-metad" "nebula-storaged" "nebula-graphd" "nebula-console" "nebula-studio" "redis")
+    local running_count=0
+    local total_count=${#required_containers[@]}
+    
+    print_info "Checking if all required containers are running..."
+    
+    for container in "${required_containers[@]}"; do
+        if docker ps --filter "name=^${container}$" --filter "status=running" --format "{{.Names}}" | grep -q "^${container}$"; then
+            running_count=$((running_count + 1))
+            print_success "Container '$container' is running"
+        else
+            print_info "Container '$container' is not running"
+        fi
+    done
+    
+    if [ $running_count -eq $total_count ]; then
+        return 0  # All containers are running
+    else
+        return 1  # Not all containers are running
+    fi
+}
+
+# Check for existing containers and handle them
 check_existing_containers() {
-    print_info "Checking for existing NebulaGraph containers..."
+    print_info "Checking for existing NebulaGraph and Redis containers..."
     
-    # Check for any running containers related to nebula or dapr
-    local running_containers=$(docker ps --filter "name=nebula" --filter "name=dapr" --format "table {{.Names}}\t{{.Status}}" 2>/dev/null || echo "")
-    local all_containers=$(docker ps -a --filter "name=nebula" --filter "name=dapr" --format "table {{.Names}}\t{{.Status}}" 2>/dev/null || echo "")
+    # Define the containers we expect from docker-compose
+    local expected_containers=("nebula-metad" "nebula-storaged" "nebula-graphd" "nebula-console" "nebula-studio" "redis")
     
-    if [ -n "$running_containers" ] && [ "$running_containers" != "NAMES	STATUS" ]; then
-        print_warning "Found running containers:"
+    # Check if all containers are running
+    if check_all_containers_running; then
+        print_success "All NebulaGraph and Redis containers are already running!"
+        print_info "The environment appears to be already set up and operational."
+        echo ""
+        print_warning "Do you want to:"
+        echo "  1) Keep the current setup (recommended if working)"
+        echo "  2) Stop and clean all containers to start fresh"
+        echo "  3) Just test the current setup"
+        echo ""
+        echo -n "Enter your choice (1/2/3): "
+        read -r response
+        
+        case "$response" in
+            "1"|"")
+                print_success "Keeping current setup. Testing connectivity..."
+                quick_test_services
+                echo ""
+                print_info "Environment is ready to use!"
+                exit 0
+                ;;
+            "2")
+                print_info "Stopping and cleaning existing containers..."
+                clean_nebula_cluster
+                # Also clean up network
+                docker network rm "$NEBULA_NETWORK_NAME" 2>/dev/null || true
+                print_success "Existing containers and network cleaned"
+                return 0
+                ;;
+            "3")
+                quick_test_services
+                exit 0
+                ;;
+            *)
+                print_info "Invalid choice. Keeping current setup."
+                exit 0
+                ;;
+        esac
+    fi
+    
+    # Check for any running containers (partial setup)
+    local running_containers=$(docker ps --filter "name=nebula-" --filter "name=redis" --format "table {{.Names}}\t{{.Status}}" 2>/dev/null | grep -v "^NAMES")
+    local all_containers=$(docker ps -a --filter "name=nebula-" --filter "name=redis" --format "table {{.Names}}\t{{.Status}}" 2>/dev/null | grep -v "^NAMES")
+    
+    if [ -n "$running_containers" ] && [ "$running_containers" != "" ]; then
+        print_warning "Found some running containers (partial setup):"
+        echo "NAMES	STATUS"
         echo "$running_containers"
         echo ""
         print_info "These containers need to be stopped before setting up a clean environment."
@@ -433,15 +553,18 @@ check_existing_containers() {
             [yY]|[yY][eE][sS])
                 print_info "Stopping and cleaning existing containers..."
                 clean_nebula_cluster
-                print_success "Existing containers cleaned"
+                # Also clean up network
+                docker network rm "$NEBULA_NETWORK_NAME" 2>/dev/null || true
+                print_success "Existing containers and network cleaned"
                 ;;
             *)
                 print_info "Setup cancelled by user. Please stop containers manually or run with 'clean' option."
                 exit 0
                 ;;
         esac
-    elif [ -n "$all_containers" ] && [ "$all_containers" != "NAMES	STATUS" ]; then
+    elif [ -n "$all_containers" ] && [ "$all_containers" != "" ]; then
         print_warning "Found stopped containers:"
+        echo "NAMES	STATUS"
         echo "$all_containers"
         echo ""
         echo -n "Do you want to clean existing containers before setup? (y/N): "
@@ -451,14 +574,16 @@ check_existing_containers() {
             [yY]|[yY][eE][sS])
                 print_info "Cleaning existing containers..."
                 clean_nebula_cluster
-                print_success "Existing containers cleaned"
+                # Also clean up network  
+                docker network rm "$NEBULA_NETWORK_NAME" 2>/dev/null || true
+                print_success "Existing containers and network cleaned"
                 ;;
             *)
                 print_info "Continuing with existing containers..."
                 ;;
         esac
     else
-        print_success "No existing NebulaGraph or Dapr containers found"
+        print_success "No existing NebulaGraph or Redis containers found"
     fi
 }
 
@@ -563,23 +688,19 @@ main() {
         exit 1
     fi
     
-    # 2. Setup Docker network
-    print_header "2. Docker Network Setup"
-    setup_docker_network
-    
-    # 3. Start NebulaGraph cluster
-    print_header "3. NebulaGraph Cluster Setup"
+    # 2. Start NebulaGraph cluster (includes network setup)
+    print_header "2. NebulaGraph Cluster Setup"
     start_nebula_cluster
     
-    # 4. Initialize NebulaGraph
-    print_header "4. NebulaGraph Initialization"
+    # 3. Initialize NebulaGraph
+    print_header "3. NebulaGraph Initialization"
     initialize_nebula
     
-    # 5. Wait for NebulaGraph to be ready
-    print_header "5. NebulaGraph Readiness Check"
+    # 4. Wait for NebulaGraph to be ready
+    print_header "4. NebulaGraph Readiness Check"
     wait_for_nebula_ready
     
-    # 6. Final summary
+    # 5. Final summary
     print_header "NebulaGraph Environment Ready"
     
     print_success "🎉 NebulaGraph and Redis environment setup completed successfully!"
@@ -631,6 +752,10 @@ case "${1:-setup}" in
     "test")
         test_nebula_services
         ;;
+    "quick-test"|"qt")
+        print_header "Quick Service Test"
+        quick_test_services
+        ;;
     "help"|"-h"|"--help")
         echo "Usage: $0 [COMMAND]"
         echo ""
@@ -643,16 +768,16 @@ case "${1:-setup}" in
         echo "  status            Show dependency status"
         echo "  logs              Show dependency logs"
         echo "  init              Initialize NebulaGraph cluster"
-        echo "  test              Test NebulaGraph services connectivity"
+        echo "  test              Full test of NebulaGraph services connectivity"
+        echo "  quick-test, qt    Quick test of essential services"
         echo "  clean             Clean up dependencies (volumes and networks)"
         echo "  help              Show this help message"
         echo ""
         echo "Setup will:"
         echo "  1. Check prerequisites (Docker, Docker Compose, Dapr, Go 1.24.5+, curl, grpcurl, jq)"
-        echo "  2. Create Docker network"
-        echo "  3. Start NebulaGraph cluster and Redis"
-        echo "  4. Initialize NebulaGraph with required spaces/schemas"
-        echo "  5. Wait for NebulaGraph and Redis to be ready"
+        echo "  2. Start NebulaGraph cluster and Redis (includes network setup)"
+        echo "  3. Initialize NebulaGraph with required spaces/schemas"
+        echo "  4. Wait for NebulaGraph and Redis to be ready"
         echo ""
         echo "Access Points:"
         echo "  • NebulaGraph Studio: http://localhost:7001"
