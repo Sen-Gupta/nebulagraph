@@ -238,6 +238,26 @@ wait_for_nebula_ready() {
     else
         print_warning "dapr_state space verification failed - may need manual check"
     fi
+    
+    # Verify Redis is ready
+    print_info "Verifying Redis connectivity..."
+    local redis_attempts=10
+    local redis_attempt=0
+    
+    while [ $redis_attempt -lt $redis_attempts ]; do
+        if docker exec redis redis-cli -a dapr_redis ping >/dev/null 2>&1; then
+            print_success "Redis is ready and accepting connections"
+            break
+        else
+            redis_attempt=$((redis_attempt + 1))
+            print_info "Waiting for Redis... (attempt $redis_attempt/$redis_attempts)"
+            sleep 2
+        fi
+    done
+    
+    if [ $redis_attempt -eq $redis_attempts ]; then
+        print_warning "Redis verification failed - may need manual check"
+    fi
 }
 
 # Stop NebulaGraph cluster
@@ -308,7 +328,7 @@ clean_nebula_cluster() {
 
 # Test NebulaGraph services connectivity
 test_nebula_services() {
-    print_header "Testing NebulaGraph Dependencies"
+    print_header "Testing NebulaGraph and Redis Dependencies"
     
     # Test NebulaGraph Graph Service
     print_info "Testing NebulaGraph Graph Service (port 9669)..."
@@ -316,6 +336,25 @@ test_nebula_services() {
         print_success "NebulaGraph Graph Service is responding"
     else
         print_error "NebulaGraph Graph Service is not responding on port 9669"
+    fi
+    
+    # Test Redis Service
+    print_info "Testing Redis Service (port 6379)..."
+    if nc -z localhost 6379 2>/dev/null; then
+        print_success "Redis Service is responding on port 6379"
+        
+        # Test Redis authentication
+        if command_exists redis-cli; then
+            if redis-cli -h localhost -p 6379 -a dapr_redis ping >/dev/null 2>&1; then
+                print_success "Redis authentication is working"
+            else
+                print_warning "Redis is running but authentication failed"
+            fi
+        else
+            print_info "redis-cli not available for authentication test"
+        fi
+    else
+        print_error "Redis Service is not responding on port 6379"
     fi
     
     # Test NebulaGraph Studio
@@ -512,15 +551,21 @@ main() {
     # 6. Final summary
     print_header "NebulaGraph Environment Ready"
     
-    print_success "🎉 NebulaGraph environment setup completed successfully!"
-    echo -e "\n${GREEN}Your NebulaGraph infrastructure is ready!${NC}"
+    print_success "🎉 NebulaGraph and Redis environment setup completed successfully!"
+    echo -e "\n${GREEN}Your NebulaGraph and Redis infrastructure is ready!${NC}"
     echo -e "\n${BLUE}Available services:${NC}"
     echo -e "  • NebulaGraph Cluster: nebula-graphd:9669"
+    echo -e "  • Redis Pub/Sub: redis:6379 (password: dapr_redis)"
     echo -e "  • NebulaGraph Studio: http://localhost:7001 (if enabled)"
     echo -e "  • NebulaGraph Console: Available via docker exec nebula-console"
     
+    echo -e "\n${BLUE}Dapr Components Available:${NC}"
+    echo -e "  • State Store: nebulagraph-state (NebulaGraph backend)"
+    echo -e "  • Pub/Sub: redis-pubsub (Redis backend)"
+    
     echo -e "\n${BLUE}Next steps:${NC}"
-    echo -e "  • Start applications that use NebulaGraph"
+    echo -e "  • Start applications that use NebulaGraph and Redis"
+    echo -e "  • Test pub/sub: dapr publish --publish-app-id myapp --pubsub redis-pubsub --topic test --data '{\"message\":\"hello\"}'"
     echo -e "  • View logs: ./environment_setup.sh logs"
     echo -e "  • Stop environment: ./environment_setup.sh stop"
     echo -e "  • Status check: ./environment_setup.sh status"
@@ -574,17 +619,22 @@ case "${1:-setup}" in
         echo "Setup will:"
         echo "  1. Check prerequisites (Docker, Docker Compose, Dapr, Go 1.24.5+, curl, grpcurl, jq)"
         echo "  2. Create Docker network"
-        echo "  3. Start NebulaGraph cluster"
+        echo "  3. Start NebulaGraph cluster and Redis"
         echo "  4. Initialize NebulaGraph with required spaces/schemas"
-        echo "  5. Wait for NebulaGraph to be ready"
+        echo "  5. Wait for NebulaGraph and Redis to be ready"
         echo ""
         echo "Access Points:"
         echo "  • NebulaGraph Studio: http://localhost:7001"
         echo "  • NebulaGraph Graph Service: localhost:9669"
         echo "  • NebulaGraph Meta Service: localhost:9559"
         echo "  • NebulaGraph Storage Service: localhost:9779"
+        echo "  • Redis Pub/Sub Service: localhost:6379 (password: dapr_redis)"
         echo ""
-        echo "After running setup, you can start applications that use NebulaGraph."
+        echo "Dapr Components:"
+        echo "  • State Store: nebulagraph-state (NebulaGraph backend)"
+        echo "  • Pub/Sub: redis-pubsub (Redis backend)"
+        echo ""
+        echo "After running setup, you can start applications that use NebulaGraph and Redis."
         ;;
     *)
         echo "Unknown command: $1"
