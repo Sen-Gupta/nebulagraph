@@ -40,6 +40,17 @@ command_exists() {
     command -v "$1" >/dev/null 2>&1
 }
 
+# Get docker compose command (docker-compose or docker compose)
+get_docker_compose_cmd() {
+    if command_exists docker-compose; then
+        echo "docker-compose"
+    elif command_exists docker && docker compose version >/dev/null 2>&1; then
+        echo "docker compose"
+    else
+        return 1
+    fi
+}
+
 # Validate NebulaGraph is running
 validate_nebula() {
     print_info "Validating NebulaGraph infrastructure..."
@@ -83,7 +94,13 @@ start_component() {
         return 1
     fi
     
-    if docker-compose up -d; then
+    local compose_cmd
+    compose_cmd=$(get_docker_compose_cmd) || {
+        print_error "Docker Compose is not installed or not in PATH"
+        return 1
+    }
+    
+    if $compose_cmd up -d; then
         print_success "Dapr pluggable component started"
         
         # Wait for services to initialize
@@ -91,7 +108,7 @@ start_component() {
         sleep 10
         
         # Check if containers are running
-        if docker-compose ps | grep -q "Up"; then
+        if $compose_cmd ps | grep -q "Up"; then
             print_success "All containers are running"
         else
             print_error "Some containers failed to start"
@@ -108,7 +125,12 @@ stop_component() {
     print_header "Stopping Dapr Pluggable Component"
     
     if [ -f "docker-compose.yml" ]; then
-        docker-compose down
+        local compose_cmd
+        compose_cmd=$(get_docker_compose_cmd) || {
+            print_error "Docker Compose is not installed or not in PATH"
+            return 1
+        }
+        $compose_cmd down
         print_success "Dapr pluggable component stopped"
     else
         print_error "docker-compose.yml not found in current directory"
@@ -121,7 +143,12 @@ show_status() {
     print_header "Dapr Pluggable Component Status"
     
     if [ -f "docker-compose.yml" ]; then
-        docker-compose ps
+        local compose_cmd
+        compose_cmd=$(get_docker_compose_cmd) || {
+            print_error "Docker Compose is not installed or not in PATH"
+            return 1
+        }
+        $compose_cmd ps
     else
         print_error "docker-compose.yml not found in current directory"
         return 1
@@ -133,12 +160,17 @@ show_logs() {
     print_header "Dapr Pluggable Component Logs"
     
     if [ -f "docker-compose.yml" ]; then
+        local compose_cmd
+        compose_cmd=$(get_docker_compose_cmd) || {
+            print_error "Docker Compose is not installed or not in PATH"
+            return 1
+        }
         if [ -n "$1" ]; then
             # Show logs for specific service
-            docker-compose logs -f "$1"
+            $compose_cmd logs -f "$1"
         else
             # Show logs for all services
-            docker-compose logs -f
+            $compose_cmd logs -f
         fi
     else
         print_error "docker-compose.yml not found in current directory"
@@ -151,7 +183,12 @@ clean_component() {
     print_header "Cleaning Dapr Pluggable Component"
     
     if [ -f "docker-compose.yml" ]; then
-        docker-compose down -v --remove-orphans
+        local compose_cmd
+        compose_cmd=$(get_docker_compose_cmd) || {
+            print_error "Docker Compose is not installed or not in PATH"
+            return 1
+        }
+        $compose_cmd down -v --remove-orphans
         print_success "Dapr pluggable component cleaned"
     else
         print_error "docker-compose.yml not found in current directory"
