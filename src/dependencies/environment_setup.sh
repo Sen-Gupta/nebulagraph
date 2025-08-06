@@ -21,7 +21,7 @@ NEBULA_STORAGE_PORT=${NEBULA_STORAGE_PORT:-9779}
 NEBULA_HTTP_PORT=${NEBULA_HTTP_PORT:-19669}
 NEBULA_META_HTTP_PORT=${NEBULA_META_HTTP_PORT:-19559}
 NEBULA_STORAGE_HTTP_PORT=${NEBULA_STORAGE_HTTP_PORT:-19779}
-REDIS_HOST_PORT=${REDIS_HOST_PORT:-6379}
+REDIS_HOST_PORT=${REDIS_HOST_PORT:-6380}
 REDIS_PASSWORD=${REDIS_PASSWORD:-dapr_redis}
 NEBULA_STUDIO_PORT=${NEBULA_STUDIO_PORT:-7001}
 
@@ -383,12 +383,12 @@ quick_test_services() {
         print_error "NebulaGraph Graph Service (port 9669) - FAILED"
     fi
     
-    # Test Redis
-    if nc -z localhost 6379 2>/dev/null; then
-        print_success "Redis Service (port 6379) - OK"
+    # Test Redis on our configured port
+    if nc -z localhost $REDIS_HOST_PORT 2>/dev/null; then
+        print_success "Redis Service (port $REDIS_HOST_PORT) - OK"
         tests_passed=$((tests_passed + 1))
     else
-        print_error "Redis Service (port 6379) - FAILED"
+        print_error "Redis Service (port $REDIS_HOST_PORT) - FAILED"
     fi
     
     # Test NebulaGraph Studio
@@ -421,14 +421,14 @@ test_nebula_services() {
         print_error "NebulaGraph Graph Service is not responding on port 9669"
     fi
     
-    # Test Redis Service
-    print_info "Testing Redis Service (port 6379)..."
-    if nc -z localhost 6379 2>/dev/null; then
-        print_success "Redis Service is responding on port 6379"
+    # Test Redis Service on our configured port
+    print_info "Testing Redis Service (port $REDIS_HOST_PORT)..."
+    if nc -z localhost $REDIS_HOST_PORT 2>/dev/null; then
+        print_success "Redis Service is responding on port $REDIS_HOST_PORT"
         
         # Test Redis authentication
         if command_exists redis-cli; then
-            if redis-cli -h localhost -p 6379 -a dapr_redis ping >/dev/null 2>&1; then
+            if redis-cli -h localhost -p $REDIS_HOST_PORT -a $REDIS_PASSWORD ping >/dev/null 2>&1; then
                 print_success "Redis authentication is working"
             else
                 print_warning "Redis is running but authentication failed"
@@ -437,7 +437,7 @@ test_nebula_services() {
             print_info "redis-cli not available for authentication test"
         fi
     else
-        print_error "Redis Service is not responding on port 6379"
+        print_error "Redis Service is not responding on port $REDIS_HOST_PORT"
     fi
     
     # Test NebulaGraph Studio
@@ -707,7 +707,7 @@ main() {
     echo -e "\n${GREEN}Your NebulaGraph and Redis infrastructure is ready!${NC}"
     echo -e "\n${BLUE}Available services:${NC}"
     echo -e "  • NebulaGraph Cluster: nebula-graphd:9669"
-    echo -e "  • Redis Pub/Sub: redis:6379 (password: $REDIS_PASSWORD)"
+    echo -e "  • Redis Pub/Sub: redis:$REDIS_HOST_PORT (password: $REDIS_PASSWORD)"
     echo -e "  • NebulaGraph Studio: http://localhost:7001 (if enabled)"
     echo -e "  • NebulaGraph Console: Available via docker exec nebula-console"
     
