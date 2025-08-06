@@ -21,27 +21,30 @@ services:
     volumes:
       - socket:/var/run
     networks:
-      - nebula-net
+      - ${NEBULA_NETWORK_NAME:-nebula-net}
 
   # Dapr runtime
   daprd:
     container_name: daprd-nebulagraph
     restart: on-failure
     image: "ghcr.io/dapr/daprd:latest"
-    command: "./daprd --log-level=debug --app-id nebulagraph-test --dapr-http-port=3501 --components-path=/components --resources-path=/components"
+    command: "./daprd --log-level=debug --app-id nebulagraph-test --dapr-http-port=${NEBULA_HTTP_PORT:-3501} --components-path=/components --resources-path=/components"
     environment:
       - DAPR_COMPONENTS_SOCKETS_FOLDER=/var/run
+    env_file:
+      - ../../../.env.docker
     depends_on:
       - nebulagraph-component
     ports:
-      - "3501:3501"  # Dapr HTTP API
-      - "50001:50001"  # Dapr gRPC API
+      - "${NEBULA_HTTP_PORT:-3501}:${NEBULA_HTTP_PORT:-3501}"  # Dapr HTTP API
+      - "${NEBULA_GRPC_PORT:-50001}:${NEBULA_GRPC_PORT:-50001}"  # Dapr gRPC API
     volumes:
       - socket:/var/run
-      # Mount docker-specific component (uses nebula-graphd hostname)
-      - ../../../components/docker-component.yml:/components/component.yml
+      # Mount component files (environment variables will be substituted)
+      - ../../../components/nebulagraph-state.yaml:/components/nebulagraph-state.yaml
+      - ../../../components/redis-pubsub.yaml:/components/redis-pubsub.yaml
     networks:
-      - nebula-net
+      - ${NEBULA_NETWORK_NAME:-nebula-net}
 
   # Test application (optional)
   test-app:
@@ -50,12 +53,12 @@ services:
       context: ../../  # Point to dapr-pluggable root directory
       dockerfile: Dockerfile.test
     environment:
-      - DAPR_HTTP_ENDPOINT=http://daprd:3501
-      - DAPR_GRPC_ENDPOINT=daprd:50001
+      - DAPR_HTTP_ENDPOINT=http://daprd:${NEBULA_HTTP_PORT:-3501}
+      - DAPR_GRPC_ENDPOINT=daprd:${NEBULA_GRPC_PORT:-50001}
     depends_on:
       - daprd
     networks:
-      - nebula-net
+      - ${NEBULA_NETWORK_NAME:-nebula-net}
     profiles:
       - test
 
@@ -63,6 +66,6 @@ volumes:
   socket:
 
 networks:
-  nebula-net:
+  ${NEBULA_NETWORK_NAME:-nebula-net}:
     external: true
-    name: nebula-net
+    name: ${NEBULA_NETWORK_NAME:-nebula-net}

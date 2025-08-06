@@ -1,11 +1,25 @@
 #!/bin/bash
 
+# Load environment configuration if available
+if [ -f "../../.env" ]; then
+    source ../../.env
+fi
+
 echo "Testing NebulaGraph Dapr State Store Component - gRPC Interface"
 echo "=============================================================="
 
 # Base configuration for Dapr gRPC API
-DAPR_GRPC_PORT="50001"
+DAPR_GRPC_PORT=${NEBULA_GRPC_PORT:-50001}
+DAPR_HTTP_PORT=${NEBULA_HTTP_PORT:-3501}
+NEBULA_NETWORK_NAME=${NEBULA_NETWORK_NAME:-nebula-net}
 COMPONENT_NAME="nebulagraph-state"
+
+echo "Configuration:"
+echo "  • gRPC Port: $DAPR_GRPC_PORT"
+echo "  • HTTP Port: $DAPR_HTTP_PORT"
+echo "  • Network: $NEBULA_NETWORK_NAME"
+echo "  • Component: $COMPONENT_NAME"
+echo ""
 
 # Test counters
 TOTAL_TESTS=0
@@ -95,7 +109,7 @@ check_prerequisites() {
     fi
     
     # Verify the space and schema exist
-    verify_result=$(docker run --rm --network nebula-net vesoft/nebula-console:v3-nightly \
+    verify_result=$(docker run --rm --network $NEBULA_NETWORK_NAME vesoft/nebula-console:v3-nightly \
         --addr nebula-graphd --port 9669 --user root --password nebula \
         --eval "USE dapr_state; SHOW TAGS;" 2>&1)
     
@@ -311,7 +325,7 @@ test_cross_protocol() {
         dapr.proto.runtime.v1.Dapr/SaveState >/dev/null 2>&1
     
     # Retrieve via HTTP
-    http_response=$(curl -s "http://localhost:3501/v1.0/state/$COMPONENT_NAME/cross-protocol-test")
+    http_response=$(curl -s "http://localhost:$DAPR_HTTP_PORT/v1.0/state/$COMPONENT_NAME/cross-protocol-test")
     
     if echo "$http_response" | grep -q "Cross-protocol test data"; then
         print_pass "Cross-protocol compatibility verified (gRPC SET → HTTP GET)"
@@ -321,7 +335,7 @@ test_cross_protocol() {
     fi
     
     # Clean up cross-protocol test data
-    curl -s -X DELETE "http://localhost:3501/v1.0/state/$COMPONENT_NAME/cross-protocol-test" >/dev/null 2>&1
+    curl -s -X DELETE "http://localhost:$DAPR_HTTP_PORT/v1.0/state/$COMPONENT_NAME/cross-protocol-test" >/dev/null 2>&1
 }
 
 # Check prerequisites first

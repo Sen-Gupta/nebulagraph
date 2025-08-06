@@ -1,9 +1,40 @@
 #!/bin/bash
 
+# Load environment configuration if available
+if [ -f "../.env" ]; then
+    source ../.env
+fi
+
 # NebulaGraph Environment Management Script
 # Complete management of NebulaGraph infrastructure including setup, operations, and maintenance
 
 set -e
+
+# Set default values if not already set
+NEBULA_NETWORK_NAME=${NEBULA_NETWORK_NAME:-nebula-net}
+NE    # Test Redis Service
+    print_info "Testing Redis Service (port $REDIS_HOST_PORT)..."
+    if nc -z localhost $REDIS_HOST_PORT 2>/dev/null; then
+        print_success "Redis Service is responding on port $REDIS_HOST_PORT"
+        
+        # Test Redis authentication
+        if command_exists redis-cli; then
+            if redis-cli -h localhost -p $REDIS_HOST_PORT -a $REDIS_PASSWORD ping >/dev/null 2>&1; then
+                print_success "Redis authentication is working"
+            else
+                print_warning "Redis authentication failed"
+            fi
+        else
+            print_info "redis-cli not available for authentication test"
+        fi
+    else
+        print_error "Redis Service is not responding on port $REDIS_HOST_PORT"A_PORT:-9669}
+NEBULA_USERNAME=${NEBULA_USERNAME:-root}
+NEBULA_PASSWORD=${NEBULA_PASSWORD:-nebula}
+NEBULA_SPACE=${NEBULA_SPACE:-dapr_state}
+REDIS_HOST_PORT=${REDIS_HOST_PORT:-6379}
+REDIS_PASSWORD=${REDIS_PASSWORD:-dapr_redis}
+NEBULA_STUDIO_PORT=${NEBULA_STUDIO_PORT:-7001}
 
 # Colors for output
 RED='\033[0;31m'
@@ -555,7 +586,7 @@ main() {
     echo -e "\n${GREEN}Your NebulaGraph and Redis infrastructure is ready!${NC}"
     echo -e "\n${BLUE}Available services:${NC}"
     echo -e "  • NebulaGraph Cluster: nebula-graphd:9669"
-    echo -e "  • Redis Pub/Sub: redis:6379 (password: dapr_redis)"
+    echo -e "  • Redis Pub/Sub: redis:6379 (password: $REDIS_PASSWORD)"
     echo -e "  • NebulaGraph Studio: http://localhost:7001 (if enabled)"
     echo -e "  • NebulaGraph Console: Available via docker exec nebula-console"
     
@@ -626,9 +657,9 @@ case "${1:-setup}" in
         echo "Access Points:"
         echo "  • NebulaGraph Studio: http://localhost:7001"
         echo "  • NebulaGraph Graph Service: localhost:9669"
-        echo "  • NebulaGraph Meta Service: localhost:9559"
-        echo "  • NebulaGraph Storage Service: localhost:9779"
-        echo "  • Redis Pub/Sub Service: localhost:6379 (password: dapr_redis)"
+        echo "  • NebulaGraph Meta Service: localhost:$NEBULA_META_PORT"
+        echo "  • NebulaGraph Storage Service: localhost:$NEBULA_STORAGE_PORT"
+        echo "  • Redis Pub/Sub Service: localhost:$REDIS_HOST_PORT (password: $REDIS_PASSWORD)"
         echo ""
         echo "Dapr Components:"
         echo "  • State Store: nebulagraph-state (NebulaGraph backend)"

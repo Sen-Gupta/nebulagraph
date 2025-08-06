@@ -431,7 +431,20 @@ The project uses consolidated, single-purpose scripts:
 
 ## ⚙️ Component Configuration
 
-The component is configured through the `src/components/docker-component.yml` file:
+The component is configured through individual component files in the `src/components/` directory:
+
+**Docker/Production Components:**
+- `src/components/nebulagraph-state.yaml` - NebulaGraph state store component
+- `src/components/redis-pubsub.yaml` - Redis pub/sub component
+
+**Local Development Components:**
+- `src/components/local/nebulagraph-state.yaml` - Local NebulaGraph configuration
+- `src/components/local/redis-pubsub.yaml` - Local Redis configuration
+
+**Production Components:**
+- `src/components/production/nebulagraph-state.yaml` - Production NebulaGraph with secrets
+- `src/components/production/redis-pubsub.yaml` - Production Redis cluster configuration
+- `src/components/production/monitoring.yaml` - Observability components
 
 ```yaml
 apiVersion: dapr.io/v1alpha1

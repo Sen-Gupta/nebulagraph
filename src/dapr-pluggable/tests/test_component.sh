@@ -1,10 +1,23 @@
 #!/bin/bash
 
+# Load environment configuration if available
+if [ -f "../../.env" ]; then
+    source ../../.env
+fi
+
 echo "Testing NebulaGraph Dapr State Store Component"
 echo "=============================================="
 
-# Base URL for Dapr HTTP API
-DAPR_URL="http://localhost:3501/v1.0/state/nebulagraph-state"
+# Base configuration
+DAPR_HTTP_PORT=${NEBULA_HTTP_PORT:-3501}
+NEBULA_NETWORK_NAME=${NEBULA_NETWORK_NAME:-nebula-net}
+DAPR_URL="http://localhost:$DAPR_HTTP_PORT/v1.0/state/nebulagraph-state"
+
+echo "Configuration:"
+echo "  • HTTP Port: $DAPR_HTTP_PORT"
+echo "  • Network: $NEBULA_NETWORK_NAME"
+echo "  • Base URL: $DAPR_URL"
+echo ""
 
 # Test counters
 TOTAL_TESTS=0
@@ -74,7 +87,7 @@ check_prerequisites() {
     fi
     
     # Verify the space and schema exist
-    verify_result=$(docker run --rm --network nebula-net vesoft/nebula-console:v3-nightly \
+    verify_result=$(docker run --rm --network $NEBULA_NETWORK_NAME vesoft/nebula-console:v3-nightly \
         --addr nebula-graphd --port 9669 --user root --password nebula \
         --eval "USE dapr_state; SHOW TAGS;" 2>&1)
     
