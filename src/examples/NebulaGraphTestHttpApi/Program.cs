@@ -1,5 +1,5 @@
 using Dapr.Client;
-using NebulaGraphTestApi.Services;
+using NebulaGraphTestHttpApi.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 

@@ -2,7 +2,7 @@ using Dapr.Client;
 using Grpc.Core;
 using NebulaGraphTestApi.Protos;
 
-namespace NebulaGraphTestApi.Services;
+namespace NebulaGraphTestHttpApi.Services;
 
 public class NebulaGraphGrpcService : NebulaGraphService.NebulaGraphServiceBase
 {

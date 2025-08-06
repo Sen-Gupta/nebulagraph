@@ -1,7 +1,7 @@
 using Dapr.Client;
 using Microsoft.AspNetCore.Mvc;
 
-namespace NebulaGraphTestApi.Controllers;
+namespace NebulaGraphTestHttpApi.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
@@ -142,24 +142,6 @@ public class ListKeysResponse
     public string? Prefix { get; set; }
     public string? Error { get; set; }
 }
-public class GetValueResponse
-{
-    public string? Value { get; set; }
-    public bool Found { get; set; }
-    public string? Error { get; set; }
-
-public class SetValueResponse
-{
-    public bool Success { get; set; }
-    public string? Error { get; set; }
-}
-
-public class DeleteValueResponse
-{
-    public bool Success { get; set; }
-    public string? Error { get; set; }
-}
-    }
 
     [HttpGet]
     [Route("list")]
@@ -207,36 +189,4 @@ public class DeleteValueResponse
         }
     }
     // End of StateController
-
-public class SetValueRequest
-{
-    public string Value { get; set; } = string.Empty;
-}
-
-public class BulkOperationRequest
-{
-    public List<BulkOperation> Operations { get; set; } = new();
-}
-
-public class BulkOperationResponse
-{
-    public bool Success { get; set; }
-    public int OperationsCount { get; set; }
-    public string? Error { get; set; }
-}
-
-public class BulkOperation
-{
-    public string Key { get; set; } = string.Empty;
-    public string? Value { get; set; }
-    public string Operation { get; set; } = "set"; // "set" or "delete"
-}
-
-public class ListKeysResponse
-{
-    public List<string> Keys { get; set; } = new();
-    public string? Prefix { get; set; }
-    public string? Error { get; set; }
-}
-
 }

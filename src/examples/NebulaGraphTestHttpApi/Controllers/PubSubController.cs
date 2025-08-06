@@ -3,7 +3,7 @@ using Dapr;
 using Dapr.Client;
 using System.Text.Json;
 
-namespace NebulaGraphTestApi.Controllers;
+namespace NebulaGraphTestHttpApi.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
