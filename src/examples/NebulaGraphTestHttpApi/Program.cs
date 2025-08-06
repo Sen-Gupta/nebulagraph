@@ -1,5 +1,4 @@
 using Dapr.Client;
-using NebulaGraphTestHttpApi.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -14,9 +13,6 @@ builder.Services.AddControllers().AddDapr(builder =>
 
 // Add DaprClient
 builder.Services.AddDaprClient();
-
-// Add gRPC services
-builder.Services.AddGrpc();
 
 // Add Swagger/OpenAPI
 builder.Services.AddEndpointsApiExplorer();
@@ -36,8 +32,5 @@ app.UseCloudEvents();
 app.UseRouting();
 app.MapControllers();
 app.MapSubscribeHandler();
-
-// Map gRPC service
-app.MapGrpcService<NebulaGraphGrpcService>();
 
 app.Run();

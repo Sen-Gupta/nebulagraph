@@ -4,15 +4,19 @@
     <TargetFramework>net9.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <AssemblyName>NebulaGraphTestHttpApi</AssemblyName>
-    <RootNamespace>NebulaGraphTestHttpApi</RootNamespace>
+    <AssemblyName>NebulaGraphTestGrpcApi</AssemblyName>
+    <RootNamespace>NebulaGraphTestGrpcApi</RootNamespace>
   </PropertyGroup>
+
+  <ItemGroup>
+    <Protobuf Include="Protos\nebulagraph.proto" GrpcServices="Server" />
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Dapr.AspNetCore" Version="1.15.4" />
     <PackageReference Include="Dapr.Client" Version="1.15.4" />
-    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="9.0.7" />
-    <PackageReference Include="Swashbuckle.AspNetCore" Version="9.0.3" />
+    <PackageReference Include="Grpc.AspNetCore" Version="2.71.0" />
+    <PackageReference Include="Grpc.Net.Client" Version="2.71.0" />
   </ItemGroup>
 
 </Project>

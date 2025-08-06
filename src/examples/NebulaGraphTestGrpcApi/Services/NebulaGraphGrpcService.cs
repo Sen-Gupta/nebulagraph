@@ -1,8 +1,8 @@
 using Dapr.Client;
 using Grpc.Core;
-using NebulaGraphTestApi.Protos;
+using NebulaGraphTestGrpcApi.Protos;
 
-namespace NebulaGraphTestHttpApi.Services;
+namespace NebulaGraphTestGrpcApi.Services;
 
 public class NebulaGraphGrpcService : NebulaGraphService.NebulaGraphServiceBase
 {

@@ -1,22 +1,20 @@
-# NebulaGraph Dapr Component Test API
+# NebulaGraph Dapr Component Test HTTP API
 
-This is a .NET 9 test API for validating the NebulaGraph Dapr state store component. It provides both HTTP REST and gRPC endpoints to test all CRUD operations through Dapr.
+This is a .NET 9 HTTP REST API for validating the NebulaGraph Dapr state store component. It provides HTTP REST endpoints to test all CRUD operations and pub/sub functionality through Dapr.
 
 ## Project Structure
 
 ```
 src/
-├── NebulaGraphTestApi/                 # .NET 9 Web API project
+├── NebulaGraphTestHttpApi/            # .NET 9 Web API project
 │   ├── Controllers/
-│   │   └── StateController.cs         # HTTP REST API controller
-│   ├── Services/
-│   │   └── NebulaGraphGrpcService.cs  # gRPC service implementation
-│   ├── Protos/
-│   │   └── nebulagraph.proto          # gRPC service definition
+│   │   ├── StateController.cs         # HTTP REST API controller for state operations
+│   │   └── PubSubController.cs        # HTTP REST API controller for pub/sub operations
 │   ├── setup/local/
 │   │   └── apps.sh                    # TestAPI management with Dapr sidecar
 │   ├── Program.cs                     # Application startup configuration
 │   └── README.md                      # This file
+├── NebulaGraphTestGrpcApi/            # Separate gRPC API project
 ├── dapr-pluggable/                    # NebulaGraph Dapr component
 ├── dependencies/                      # NebulaGraph infrastructure
 └── components/                        # Dapr component configurations

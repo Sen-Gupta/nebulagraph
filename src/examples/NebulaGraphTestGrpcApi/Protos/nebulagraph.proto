@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-option csharp_namespace = "NebulaGraphTestApi.Protos";
+option csharp_namespace = "NebulaGraphTestGrpcApi.Protos";
 
 package nebulagraph;
 
