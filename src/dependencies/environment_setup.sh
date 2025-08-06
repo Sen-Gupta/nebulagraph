@@ -96,15 +96,85 @@ install_prerequisites() {
         fi
     fi
     
-    # Install Dapr if missing
+    # Install Dapr CLI and initialize if missing
     if ! command_exists dapr; then
-        print_info "Installing Dapr runtime..."
+        print_info "Installing Dapr CLI..."
         if wget -q https://raw.githubusercontent.com/dapr/cli/master/install/install.sh -O - | /bin/bash; then
-            print_success "Dapr runtime installed successfully"
-            install_needed=1
+            print_success "Dapr CLI installed successfully"
+            
+            # Add dapr to PATH if not already there
+            export PATH=$PATH:$HOME/.dapr/bin
+            echo 'export PATH=$PATH:$HOME/.dapr/bin' >> ~/.bashrc
+            
+            # Initialize Dapr with Docker Desktop compatibility
+            print_info "Initializing Dapr runtime..."
+            if dapr init; then
+                print_success "Dapr runtime initialized successfully"
+                print_info "Dapr Redis runs on port 6379, our Redis will use port $REDIS_HOST_PORT"
+                install_needed=1
+            else
+                print_warning "Standard Dapr init failed (likely Docker Desktop compatibility issue)"
+                print_info "Trying Dapr slim mode (no containers)..."
+                if dapr init --slim; then
+                    print_success "Dapr runtime initialized successfully in slim mode"
+                    print_info "Dapr will run without containers (compatible with Docker Desktop)"
+                    install_needed=1
+                else
+                    print_error "Failed to initialize Dapr runtime in both standard and slim modes"
+                    return 1
+                fi
+            fi
         else
-            print_error "Failed to install Dapr runtime"
+            print_error "Failed to install Dapr CLI"
             return 1
+        fi
+    else
+        # Check if Dapr is initialized by checking for Dapr directory
+        print_info "Checking if Dapr runtime is initialized..."
+        if [ -d "$HOME/.dapr" ] && [ -f "$HOME/.dapr/config.yaml" ]; then
+            # Check if Dapr containers are running (full installation)
+            local dapr_containers=$(docker ps --filter "name=dapr_" --format "{{.Names}}" 2>/dev/null)
+            if [ -n "$dapr_containers" ]; then
+                print_success "Dapr runtime is already initialized (full installation with containers)"
+                print_info "Dapr Redis runs on port 6379, our Redis will use port $REDIS_HOST_PORT"
+            else
+                print_warning "Dapr configuration exists but no containers are running"
+                print_info "Re-initializing Dapr with Docker Desktop compatibility..."
+                if dapr init; then
+                    print_success "Dapr runtime initialized successfully with containers"
+                    print_info "Dapr Redis runs on port 6379, our Redis will use port $REDIS_HOST_PORT"
+                    install_needed=1
+                else
+                    print_warning "Standard Dapr init failed (likely Docker Desktop compatibility issue)"
+                    print_info "Trying Dapr slim mode (no containers)..."
+                    if dapr init --slim; then
+                        print_success "Dapr runtime initialized successfully in slim mode"
+                        print_info "Dapr will run without containers (compatible with Docker Desktop)"
+                        install_needed=1
+                    else
+                        print_error "Failed to initialize Dapr runtime in both standard and slim modes"
+                        return 1
+                    fi
+                fi
+            fi
+        else
+            print_info "Dapr CLI found but runtime not initialized. Initializing with Docker Desktop compatibility..."
+            if dapr init; then
+                print_success "Dapr runtime initialized successfully"
+                print_info "Dapr Redis runs on port 6379, our Redis will use port $REDIS_HOST_PORT"
+                install_needed=1
+            else
+                print_warning "Standard Dapr init failed (likely Docker Desktop compatibility issue)"
+                print_info "Trying Dapr slim mode (no containers)..."
+                if dapr init --slim; then
+                    print_success "Dapr runtime initialized successfully in slim mode"
+                    print_info "Dapr will run without containers (compatible with Docker Desktop)"
+                    install_needed=1
+                else
+                    print_error "Failed to initialize Dapr runtime in both standard and slim modes"
+                    return 1
+                fi
+            fi
         fi
     fi
     
@@ -622,10 +692,34 @@ main() {
     fi
     
     if command_exists dapr; then
-        print_success "Dapr runtime is available: $(dapr --version | head -n1)"
+        local dapr_version=$(dapr --version | head -n1)
+        print_success "Dapr CLI is available: $dapr_version"
+        
+        # Check if Dapr runtime is initialized by checking for runtime directory
+        if [ -d "$HOME/.dapr" ] && [ -f "$HOME/.dapr/config.yaml" ]; then
+            # Check if Dapr containers are running (full installation)
+            local dapr_containers=$(docker ps --filter "name=dapr_" --format "{{.Names}}" 2>/dev/null)
+            if [ -n "$dapr_containers" ]; then
+                print_success "Dapr runtime is initialized (full installation with containers)"
+                print_info "Dapr Redis runs on port 6379, our Redis will use port $REDIS_HOST_PORT"
+            else
+                # Check if it's slim mode by looking for specific files
+                if [ -f "$HOME/.dapr/bin/daprd" ]; then
+                    print_success "Dapr runtime is initialized (slim mode - no containers)"
+                    print_info "Dapr will run in standalone mode (compatible with Docker Desktop)"
+                else
+                    print_warning "Dapr configuration exists but no containers are running"
+                    print_info "Dapr will be re-initialized during setup process"
+                fi
+            fi
+        else
+            print_warning "Dapr CLI found but runtime not initialized"
+            print_info "Runtime will be initialized during setup process"
+        fi
     else
-        print_error "Dapr runtime is not installed or not in PATH"
+        print_error "Dapr CLI is not installed or not in PATH"
         print_info "Install Dapr: wget -q https://raw.githubusercontent.com/dapr/cli/master/install/install.sh -O - | /bin/bash"
+        print_info "           dapr init  # Initialize runtime (with containers)"
         overall_success=1
     fi
     
@@ -756,6 +850,33 @@ case "${1:-setup}" in
         print_header "Quick Service Test"
         quick_test_services
         ;;
+    "dapr-status"|"ds")
+        print_header "Dapr Runtime Status"
+        if command_exists dapr; then
+            dapr_containers=$(docker ps --filter "name=dapr_" --format "{{.Names}}" 2>/dev/null)
+            if [ -n "$dapr_containers" ]; then
+                docker ps --filter "name=dapr_" --format "table {{.Names}}\t{{.Image}}\t{{.Status}}\t{{.Ports}}"
+                echo ""
+                print_success "Dapr runtime is running (container mode)"
+            else
+                # Check if slim mode is installed
+                if [ -f "$HOME/.dapr/bin/daprd" ]; then
+                    print_success "Dapr runtime is installed (slim mode - no containers)"
+                    print_info "Runtime version: $(dapr --version | grep 'Runtime version' | cut -d' ' -f3)"
+                    print_info "CLI version: $(dapr --version | grep 'CLI version' | cut -d' ' -f3)"
+                    print_info "Dapr binary location: $HOME/.dapr/bin/daprd"
+                elif [ -d "$HOME/.dapr" ]; then
+                    print_warning "Dapr configuration directory exists but runtime may not be fully installed"
+                    print_info "Run './environment_setup.sh install-prereqs' to complete installation"
+                else
+                    print_warning "Dapr CLI is installed but no containers are running and no slim mode detected"
+                    print_info "Run 'dapr init' or 'dapr init --slim' to initialize Dapr runtime"
+                fi
+            fi
+        else
+            print_error "Dapr CLI is not installed"
+        fi
+        ;;
     "help"|"-h"|"--help")
         echo "Usage: $0 [COMMAND]"
         echo ""
@@ -763,18 +884,19 @@ case "${1:-setup}" in
         echo ""
         echo "Commands:"
         echo "  setup, start      Set up the complete NebulaGraph environment (default)"
-        echo "  install-prereqs   Install missing prerequisites (Go, Dapr, grpcurl)"
+        echo "  install-prereqs   Install missing prerequisites (Go, Dapr CLI + init, grpcurl)"
         echo "  stop, down        Stop NebulaGraph dependencies"
         echo "  status            Show dependency status"
         echo "  logs              Show dependency logs"
         echo "  init              Initialize NebulaGraph cluster"
         echo "  test              Full test of NebulaGraph services connectivity"
         echo "  quick-test, qt    Quick test of essential services"
+        echo "  dapr-status, ds   Show Dapr runtime status and containers"
         echo "  clean             Clean up dependencies (volumes and networks)"
         echo "  help              Show this help message"
         echo ""
         echo "Setup will:"
-        echo "  1. Check prerequisites (Docker, Docker Compose, Dapr, Go 1.24.5+, curl, grpcurl, jq)"
+        echo "  1. Check prerequisites (Docker, Docker Compose, Dapr CLI + runtime, Go 1.24.5+, curl, grpcurl, jq)"
         echo "  2. Start NebulaGraph cluster and Redis (includes network setup)"
         echo "  3. Initialize NebulaGraph with required spaces/schemas"
         echo "  4. Wait for NebulaGraph and Redis to be ready"
