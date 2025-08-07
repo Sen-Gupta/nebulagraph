@@ -77,12 +77,43 @@ show_current_env() {
     fi
 }
 
+# Export environment variables from .env file
+export_env_vars() {
+    local env_file="$1"
+    
+    if [ -f "$env_file" ]; then
+        print_info "Exporting environment variables from $env_file"
+        
+        # Export variables (skip comments and empty lines)
+        while IFS='=' read -r key value; do
+            # Skip comments and empty lines
+            if [[ "$key" =~ ^[[:space:]]*# ]] || [[ -z "$key" ]]; then
+                continue
+            fi
+            
+            # Remove any quotes and export
+            value=$(echo "$value" | sed 's/^"//;s/"$//')
+            export "$key=$value"
+            echo "  ✓ $key=$value"
+        done < <(grep -E '^[^#]*=' "$env_file")
+        
+        print_success "Environment variables exported to current session"
+    else
+        print_error "Environment file $env_file not found"
+        return 1
+    fi
+}
+
 # Set local environment
 set_local_env() {
     print_header "Setting Local Development Environment"
     
     if cp .env.local .env; then
-        print_success "Local environment activated"
+        print_success "Local environment file activated"
+        
+        # Export variables to current shell
+        export_env_vars ".env.local"
+        
         print_info "Components will connect to services running on localhost"
         echo ""
         echo "Key settings:"
@@ -90,7 +121,8 @@ set_local_env() {
         echo "  • Redis: localhost:6379"
         echo "  • Connection pool: 5 connections (local optimized)"
         echo ""
-        print_info "Usage: dapr run --components-path ./components ..."
+        print_info "Usage: source ./env-config.sh set-local && dapr run --components-path ./components ..."
+        print_warning "Note: Use 'source ./env-config.sh set-local' to export variables to your shell"
     else
         print_error "Failed to activate local environment"
         exit 1
@@ -102,7 +134,11 @@ set_docker_env() {
     print_header "Setting Docker Development Environment"
     
     if cp .env.docker .env; then
-        print_success "Docker environment activated"
+        print_success "Docker environment file activated"
+        
+        # Export variables to current shell  
+        export_env_vars ".env.docker"
+        
         print_info "Components will connect to services running in Docker containers"
         echo ""
         echo "Key settings:"
@@ -110,7 +146,8 @@ set_docker_env() {
         echo "  • Redis: redis:6379"
         echo "  • Connection pool: 20 connections (container optimized)"
         echo ""
-        print_info "Usage: docker-compose up (environment automatically applied)"
+        print_info "Usage: source ./env-config.sh set-docker && docker-compose up"
+        print_warning "Note: Use 'source ./env-config.sh set-docker' to export variables to your shell"
     else
         print_error "Failed to activate docker environment"
         exit 1

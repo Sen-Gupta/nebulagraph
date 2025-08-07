@@ -8,42 +8,42 @@ spec:
   version: v1
   metadata:
   - name: redisHost
-    value: "${REDIS_HOST:-localhost:6379}"
+    value: "${REDIS_HOST}"
   - name: redisPassword
-    value: "${REDIS_PASSWORD:-dapr_redis}"
+    value: "${REDIS_PASSWORD}"
   - name: redisDB
-    value: "${REDIS_DB:-0}"
+    value: "${REDIS_DB}"
   
   # Connection and retry configuration
   - name: maxRetries
-    value: "${REDIS_MAX_RETRIES:-3}"
+    value: "${REDIS_MAX_RETRIES}"
   - name: maxRetryBackoff
-    value: "${REDIS_MAX_RETRY_BACKOFF:-2s}"
+    value: "${REDIS_MAX_RETRY_BACKOFF}"
   - name: dialTimeout
-    value: "${REDIS_DIAL_TIMEOUT:-5s}"
+    value: "${REDIS_DIAL_TIMEOUT}"
   - name: readTimeout
-    value: "${REDIS_READ_TIMEOUT:-3s}"
+    value: "${REDIS_READ_TIMEOUT}"
   - name: writeTimeout
-    value: "${REDIS_WRITE_TIMEOUT:-3s}"
+    value: "${REDIS_WRITE_TIMEOUT}"
   
   # Connection pooling for performance
   - name: poolSize
-    value: "${REDIS_POOL_SIZE:-20}"
+    value: "${REDIS_POOL_SIZE}"
   - name: poolTimeout
-    value: "${REDIS_POOL_TIMEOUT:-5s}"
+    value: "${REDIS_POOL_TIMEOUT}"
   - name: maxConnAge
-    value: "${REDIS_MAX_CONN_AGE:-30m}"
+    value: "${REDIS_MAX_CONN_AGE}"
   - name: idleTimeout
-    value: "${REDIS_IDLE_TIMEOUT:-5m}"
+    value: "${REDIS_IDLE_TIMEOUT}"
   - name: idleCheckFrequency
-    value: "${REDIS_IDLE_CHECK_FREQUENCY:-1m}"
+    value: "${REDIS_IDLE_CHECK_FREQUENCY}"
   
   # Pub/Sub specific settings
   - name: redeliverInterval
-    value: "${REDIS_REDELIVER_INTERVAL:-60s}"
+    value: "${REDIS_REDELIVER_INTERVAL}"
   - name: processingTimeout
-    value: "${REDIS_PROCESSING_TIMEOUT:-15s}"
+    value: "${REDIS_PROCESSING_TIMEOUT}"
   - name: redisType
-    value: "${REDIS_TYPE:-node}"
+    value: "${REDIS_TYPE}"
   - name: enableTLS
-    value: "${REDIS_ENABLE_TLS:-false}"
+    value: "${REDIS_ENABLE_TLS}"

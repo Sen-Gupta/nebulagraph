@@ -8,18 +8,18 @@ spec:
   version: v1
   metadata:
   - name: hosts
-    value: "${NEBULA_HOST:-localhost}"
+    value: "${NEBULA_HOST}"
   - name: port
-    value: "${NEBULA_PORT:-9669}"
+    value: "${NEBULA_PORT}"
   - name: username
-    value: "${NEBULA_USERNAME:-root}"
+    value: "${NEBULA_USERNAME}"
   - name: password
-    value: "${NEBULA_PASSWORD:-nebula}"
+    value: "${NEBULA_PASSWORD}"
   - name: space
-    value: "${NEBULA_SPACE:-dapr_state}"
+    value: "${NEBULA_SPACE}"
   
   # Configuration with environment variable support
   - name: connectionTimeout
-    value: "${NEBULA_CONNECTION_TIMEOUT:-10s}"
+    value: "${NEBULA_CONNECTION_TIMEOUT}"
   - name: executionTimeout
-    value: "${NEBULA_EXECUTION_TIMEOUT:-30s}"
+    value: "${NEBULA_EXECUTION_TIMEOUT}"
