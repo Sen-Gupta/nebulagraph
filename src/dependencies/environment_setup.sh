@@ -71,6 +71,203 @@ get_docker_compose_cmd() {
     fi
 }
 
+# Initialize Dapr with Docker Desktop workarounds
+# Addresses Docker Desktop connectivity issues documented in:
+# https://github.com/dapr/dapr/issues/5011
+initialize_dapr_with_workarounds() {
+    print_info "Initializing Dapr runtime with Docker Desktop compatibility..."
+    
+    # Pre-check: Ensure Docker is accessible
+    if ! docker ps >/dev/null 2>&1; then
+        print_warning "Docker connectivity issue detected - applying workarounds before Dapr init"
+        if ! fix_docker_connectivity; then
+            print_error "Could not establish Docker connectivity"
+            return 1
+        fi
+    fi
+    
+    # First, try standard dapr init
+    if dapr init; then
+        print_success "Dapr runtime initialized successfully"
+        print_info "Dapr Redis runs on port 6379, our Redis will use port $REDIS_HOST_PORT"
+        return 0
+    fi
+    
+    print_warning "Standard Dapr init failed - applying Docker Desktop workarounds..."
+    
+    # Apply Docker fixes and retry
+    if fix_docker_connectivity && dapr init; then
+        print_success "Dapr runtime initialized successfully after Docker connectivity fix"
+        print_info "Dapr Redis runs on port 6379, our Redis will use port $REDIS_HOST_PORT"
+        return 0
+    fi
+    
+    # Fallback: Use slim mode (no containers) - ONLY if explicitly requested
+    print_warning "All Docker connectivity workarounds failed"
+    print_error "Cannot initialize Dapr in container mode (required for Docker-based applications)"
+    print_info "This setup requires full Dapr init with containers for proper Docker integration"
+    
+    print_info "Manual steps to resolve (choose one):"
+    local docker_endpoint=$(get_docker_endpoint)
+    if [ -n "$docker_endpoint" ]; then
+        print_info "  1. Set DOCKER_HOST manually: export DOCKER_HOST=$docker_endpoint && dapr init"
+        print_info "  2. Create socket symlink: sudo ln -s ${docker_endpoint#unix://} /var/run/docker.sock && dapr init"
+    else
+        print_info "  1. Set DOCKER_HOST manually: export DOCKER_HOST=unix://\$HOME/.docker/desktop/docker.sock && dapr init"
+        print_info "  2. Create socket symlink: sudo ln -s \$HOME/.docker/desktop/docker.sock /var/run/docker.sock && dapr init"
+    fi
+    print_info "  3. Enable 'Allow the default Docker socket to be used' in Docker Desktop Settings > Advanced"
+    print_info "  4. Install Docker Engine instead of Docker Desktop"
+    print_info "  5. Use Kubernetes mode: dapr init -k"
+    print_info "  6. Reference: https://github.com/dapr/dapr/issues/5011"
+    
+    print_warning "Attempting slim mode as last resort (may not work with Docker applications)..."
+    
+    if dapr init --slim; then
+        print_warning "Dapr runtime initialized in slim mode"
+        print_warning "WARNING: Slim mode may not work properly with Docker-based applications"
+        print_warning "Consider fixing Docker connectivity and re-running with container mode"
+        return 0
+    fi
+    
+    # Final failure
+    print_error "Failed to initialize Dapr runtime in any mode"
+    return 1
+}
+
+# Get Docker endpoint from current context
+get_docker_endpoint() {
+    if ! command_exists docker; then
+        return 1
+    fi
+    
+    local docker_endpoint=""
+    if command_exists jq; then
+        docker_endpoint=$(docker context ls --format json 2>/dev/null | jq -r '.[] | select(.Current == true) | .DockerEndpoint' 2>/dev/null || echo "")
+    else
+        # For Docker Desktop, try common paths as fallback
+        local current_context=$(docker context ls 2>/dev/null | grep -E '^\S+\s+\*' | awk '{print $1}' 2>/dev/null || echo "unknown")
+        if [[ "$current_context" == "desktop-linux" ]]; then
+            docker_endpoint="unix://$HOME/.docker/desktop/docker.sock"
+        fi
+    fi
+    echo "$docker_endpoint"
+}
+
+# Fix Docker connectivity issues
+fix_docker_connectivity() {
+    print_info "Attempting Docker connectivity fixes..."
+    
+    # Check Docker context - common issue with Docker Desktop
+    local current_context=""
+    if command_exists docker; then
+        # Try with jq first, fall back to basic parsing if jq not available
+        if command_exists jq; then
+            current_context=$(docker context ls --format json 2>/dev/null | jq -r '.[] | select(.Current == true) | .Name' 2>/dev/null || echo "unknown")
+        else
+            # Fallback: basic grep parsing when jq not available
+            current_context=$(docker context ls 2>/dev/null | grep -E '^\S+\s+\*' | awk '{print $1}' 2>/dev/null || echo "unknown")
+        fi
+        print_info "Current Docker context: $current_context"
+        
+        # Get Docker endpoint for potential DOCKER_HOST fix
+        local docker_endpoint=$(get_docker_endpoint)
+        if [ -n "$docker_endpoint" ]; then
+            print_info "Docker endpoint: $docker_endpoint"
+        fi
+    fi
+    
+    # Workaround 1: Set DOCKER_HOST for Docker Desktop contexts
+    if [[ "$current_context" == "desktop-linux" ]] || [[ "$docker_endpoint" == *"/.docker/desktop/"* ]]; then
+        print_info "Detected Docker Desktop context - applying DOCKER_HOST workaround..."
+        
+        if [ -n "$docker_endpoint" ]; then
+            export DOCKER_HOST="$docker_endpoint"
+            print_info "Set DOCKER_HOST=$DOCKER_HOST"
+            
+            # Test Docker connectivity
+            if docker ps >/dev/null 2>&1; then
+                print_success "Docker connectivity restored with DOCKER_HOST"
+                return 0
+            fi
+            
+            # Reset DOCKER_HOST if it didn't work
+            unset DOCKER_HOST
+        fi
+    fi
+    
+    # Workaround 2: Create symlink for Docker socket (Linux/macOS)
+    local default_socket="/var/run/docker.sock"
+    if [ ! -S "$default_socket" ] && [ -n "$docker_endpoint" ] && [[ "$docker_endpoint" == unix://* ]]; then
+        local actual_socket="${docker_endpoint#unix://}"
+        if [ -S "$actual_socket" ]; then
+            print_info "Attempting Docker socket symlink workaround..."
+            print_info "Creating symlink: $default_socket -> $actual_socket"
+            
+            if sudo ln -sf "$actual_socket" "$default_socket" 2>/dev/null; then
+                print_success "Created Docker socket symlink"
+                
+                # Test Docker connectivity
+                if docker ps >/dev/null 2>&1; then
+                    print_success "Docker connectivity restored with socket symlink"
+                    return 0
+                fi
+            else
+                print_warning "Could not create Docker socket symlink (may need sudo access)"
+                print_info "Please run manually: sudo ln -sf $actual_socket $default_socket"
+            fi
+        fi
+    elif [ ! -S "$default_socket" ]; then
+        # Try common Docker Desktop paths when endpoint detection fails
+        local common_sockets=(
+            "$HOME/.docker/desktop/docker.sock"
+            "$HOME/.docker/run/docker.sock"
+            "/usr/local/var/run/docker.sock"
+        )
+        
+        for socket in "${common_sockets[@]}"; do
+            if [ -S "$socket" ]; then
+                print_info "Found Docker socket at $socket"
+                print_info "Creating symlink: $default_socket -> $socket"
+                
+                if sudo ln -sf "$socket" "$default_socket" 2>/dev/null; then
+                    print_success "Created Docker socket symlink"
+                    
+                    # Test Docker connectivity
+                    if docker ps >/dev/null 2>&1; then
+                        print_success "Docker connectivity restored with socket symlink"
+                        return 0
+                    fi
+                else
+                    print_warning "Could not create Docker socket symlink (may need sudo access)"
+                    print_info "Please run manually: sudo ln -sf $socket $default_socket"
+                fi
+                break
+            fi
+        done
+    fi
+    
+    # Workaround 3: Try setting Docker context to default
+    if [ "$current_context" != "default" ] && command_exists docker; then
+        print_info "Attempting to switch to default Docker context..."
+        if docker context use default 2>/dev/null; then
+            print_success "Switched to default Docker context"
+            
+            # Test Docker connectivity
+            if docker ps >/dev/null 2>&1; then
+                print_success "Docker connectivity restored with default context"
+                return 0
+            fi
+            
+            # Switch back to original context
+            docker context use "$current_context" 2>/dev/null || true
+        fi
+    fi
+    
+    print_warning "Could not fix Docker connectivity automatically"
+    return 1
+}
+
 # Install missing prerequisites
 install_prerequisites() {
     print_header "Installing Missing Prerequisites"
@@ -107,23 +304,8 @@ install_prerequisites() {
             echo 'export PATH=$PATH:$HOME/.dapr/bin' >> ~/.bashrc
             
             # Initialize Dapr with Docker Desktop compatibility
-            print_info "Initializing Dapr runtime..."
-            if dapr init; then
-                print_success "Dapr runtime initialized successfully"
-                print_info "Dapr Redis runs on port 6379, our Redis will use port $REDIS_HOST_PORT"
-                install_needed=1
-            else
-                print_warning "Standard Dapr init failed (likely Docker Desktop compatibility issue)"
-                print_info "Trying Dapr slim mode (no containers)..."
-                if dapr init --slim; then
-                    print_success "Dapr runtime initialized successfully in slim mode"
-                    print_info "Dapr will run without containers (compatible with Docker Desktop)"
-                    install_needed=1
-                else
-                    print_error "Failed to initialize Dapr runtime in both standard and slim modes"
-                    return 1
-                fi
-            fi
+            initialize_dapr_with_workarounds
+            install_needed=1
         else
             print_error "Failed to install Dapr CLI"
             return 1
@@ -140,41 +322,13 @@ install_prerequisites() {
             else
                 print_warning "Dapr configuration exists but no containers are running"
                 print_info "Re-initializing Dapr with Docker Desktop compatibility..."
-                if dapr init; then
-                    print_success "Dapr runtime initialized successfully with containers"
-                    print_info "Dapr Redis runs on port 6379, our Redis will use port $REDIS_HOST_PORT"
-                    install_needed=1
-                else
-                    print_warning "Standard Dapr init failed (likely Docker Desktop compatibility issue)"
-                    print_info "Trying Dapr slim mode (no containers)..."
-                    if dapr init --slim; then
-                        print_success "Dapr runtime initialized successfully in slim mode"
-                        print_info "Dapr will run without containers (compatible with Docker Desktop)"
-                        install_needed=1
-                    else
-                        print_error "Failed to initialize Dapr runtime in both standard and slim modes"
-                        return 1
-                    fi
-                fi
+                initialize_dapr_with_workarounds
+                install_needed=1
             fi
         else
             print_info "Dapr CLI found but runtime not initialized. Initializing with Docker Desktop compatibility..."
-            if dapr init; then
-                print_success "Dapr runtime initialized successfully"
-                print_info "Dapr Redis runs on port 6379, our Redis will use port $REDIS_HOST_PORT"
-                install_needed=1
-            else
-                print_warning "Standard Dapr init failed (likely Docker Desktop compatibility issue)"
-                print_info "Trying Dapr slim mode (no containers)..."
-                if dapr init --slim; then
-                    print_success "Dapr runtime initialized successfully in slim mode"
-                    print_info "Dapr will run without containers (compatible with Docker Desktop)"
-                    install_needed=1
-                else
-                    print_error "Failed to initialize Dapr runtime in both standard and slim modes"
-                    return 1
-                fi
-            fi
+            initialize_dapr_with_workarounds
+            install_needed=1
         fi
     fi
     
@@ -861,10 +1015,12 @@ case "${1:-setup}" in
             else
                 # Check if slim mode is installed
                 if [ -f "$HOME/.dapr/bin/daprd" ]; then
-                    print_success "Dapr runtime is installed (slim mode - no containers)"
+                    print_warning "Dapr runtime is installed (slim mode - no containers)"
                     print_info "Runtime version: $(dapr --version | grep 'Runtime version' | cut -d' ' -f3)"
                     print_info "CLI version: $(dapr --version | grep 'CLI version' | cut -d' ' -f3)"
                     print_info "Dapr binary location: $HOME/.dapr/bin/daprd"
+                    print_warning "WARNING: Slim mode may not work properly with Docker-based applications"
+                    print_info "Consider running './environment_setup.sh dapr-reinit' to switch to container mode"
                 elif [ -d "$HOME/.dapr" ]; then
                     print_warning "Dapr configuration directory exists but runtime may not be fully installed"
                     print_info "Run './environment_setup.sh install-prereqs' to complete installation"
@@ -875,6 +1031,23 @@ case "${1:-setup}" in
             fi
         else
             print_error "Dapr CLI is not installed"
+        fi
+        ;;
+    "dapr-reinit"|"dr")
+        print_header "Forcing Dapr Reinitialization in Container Mode"
+        if command_exists dapr; then
+            print_info "Stopping existing Dapr runtime..."
+            dapr uninstall 2>/dev/null || true
+            
+            print_info "Cleaning up Dapr containers..."
+            docker stop $(docker ps -q --filter "name=dapr_") 2>/dev/null || true
+            docker rm $(docker ps -aq --filter "name=dapr_") 2>/dev/null || true
+            
+            print_info "Re-initializing Dapr in container mode with Docker Desktop compatibility..."
+            initialize_dapr_with_workarounds
+        else
+            print_error "Dapr CLI is not installed"
+            print_info "Run './environment_setup.sh install-prereqs' first"
         fi
         ;;
     "help"|"-h"|"--help")
@@ -892,6 +1065,7 @@ case "${1:-setup}" in
         echo "  test              Full test of NebulaGraph services connectivity"
         echo "  quick-test, qt    Quick test of essential services"
         echo "  dapr-status, ds   Show Dapr runtime status and containers"
+        echo "  dapr-reinit, dr   Force reinitialize Dapr in container mode (fixes slim mode)"
         echo "  clean             Clean up dependencies (volumes and networks)"
         echo "  help              Show this help message"
         echo ""
