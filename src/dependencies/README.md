@@ -1,52 +1,26 @@
-# NebulaGraph Dependencies
+# NebulaGraph Infrastructure
 
-This folder contains all the infrastructure setup files for NebulaGraph dependencies.
-
-## Structure
-
-```
-dependencies/                  # Docker infrastructure files
-├── docker-compose.yml         # NebulaGraph cluster (metad, storaged, graphd, studio)
-├── environment_setup.sh       # Complete environment management script
-├── init_nebula.sh             # Cluster initialization script
-└── README.md                  # This file
-```
+NebulaGraph database cluster setup and management for the Dapr component.
 
 ## Quick Start
 
-### Complete Environment Setup
 ```bash
+# Setup and start everything
 ./environment_setup.sh
+
+# Daily operations
+./environment_setup.sh start    # Start services
+./environment_setup.sh status   # Check status  
+./environment_setup.sh stop     # Stop services
+./environment_setup.sh clean    # Clean reset
 ```
 
-This comprehensive script will:
-- Check all prerequisites (Docker, Docker Compose, Dapr, Go 1.24.5+, curl, grpcurl, jq)
-- Provide installation commands for missing components
-- Set up Docker network
-- Start NebulaGraph cluster
-- Initialize the cluster with required spaces/schemas
-- Wait for services to be ready
+## What's Included
 
-### Daily Operations
-```bash
-# Start environment
-./environment_setup.sh start
-
-# Check status
-./environment_setup.sh status
-
-# View logs
-./environment_setup.sh logs
-
-# Stop environment
-./environment_setup.sh stop
-
-# Test connectivity
-./environment_setup.sh test
-
-# Clean reset
-./environment_setup.sh clean
-```
+- **NebulaGraph Cluster**: metad, storaged, graphd services
+- **NebulaGraph Studio**: Web UI for database management
+- **Automatic Initialization**: Required spaces and schemas
+- **Health Checks**: Service readiness verification
 
 ## Typical Workflow
 

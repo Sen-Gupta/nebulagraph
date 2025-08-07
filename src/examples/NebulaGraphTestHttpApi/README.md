@@ -1,53 +1,51 @@
-# NebulaGraph Dapr Component Test HTTP API
+# NebulaGraph Test HTTP API
 
-This is a .NET 9 HTTP REST API for validating the NebulaGraph Dapr state store component. It provides HTTP REST endpoints to test all CRUD operations and pub/sub functionality through Dapr.
+.NET 9 HTTP REST API for testing the NebulaGraph Dapr state store component.
 
-## Project Structure
+## Quick Start
 
+### Prerequisites
+- .NET 9.0
+- NebulaGraph infrastructure running (see `src/dependencies/`)
+- Dapr component running (see `src/dapr-pluggable-components/`)
+
+### Run the API
+
+**Docker (Recommended):**
+```bash
+docker-compose up --build
 ```
-src/
-├── NebulaGraphTestHttpApi/            # .NET 9 Web API project
-│   ├── Controllers/
-│   │   ├── StateController.cs         # HTTP REST API controller for state operations
-│   │   └── PubSubController.cs        # HTTP REST API controller for pub/sub operations
-│   ├── setup/local/
-│   │   └── apps.sh                    # TestAPI management with Dapr sidecar
-│   ├── Program.cs                     # Application startup configuration
-│   └── README.md                      # This file
-├── NebulaGraphTestGrpcApi/            # Separate gRPC API project
-├── dapr-pluggable/                    # NebulaGraph Dapr component
-├── dependencies/                      # NebulaGraph infrastructure
-└── components/                        # Dapr component configurations
+API available at: `http://localhost:5092` (or `$TEST_HTTP_API_HOST_PORT`)
+
+**Local Development:**
+```bash
+dotnet run
+```
+API available at: `http://localhost:5090`
+
+### Test the API
+```bash
+./test_http.sh
 ```
 
-## Architecture
+## API Endpoints
 
-The TestAPI uses Dapr's service invocation pattern with pluggable components:
+### State Operations
+- `GET /state/{key}` - Get value by key
+- `POST /state` - Set key-value pair
+- `DELETE /state/{key}` - Delete key
+- `GET /state/keys?prefix={prefix}` - List keys with optional prefix
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    Dapr Microservices Architecture          │
-├─────────────────────────────────────────────────────────────┤
-│                                                             │
-│  ┌─────────────────┐    ┌──────────────────┐               │
-│  │   TestAPI       │◄──►│ TestAPI Dapr     │               │
-│  │ (.NET 9 App)    │    │ Sidecar          │               │
-│  │ Port: 5090      │    │ HTTP: 3002       │               │
-│  │                 │    │ gRPC: 50002      │               │
-│  └─────────────────┘    └──────────────────┘               │
-│                                │                           │
-│                                ▼ Service Discovery         │
-│  ┌─────────────────┐    ┌──────────────────┐               │
-│  │ NebulaGraph     │◄──►│ Main Dapr        │               │
-│  │ Pluggable       │    │ Component        │               │
-│  │ Component       │    │ Sidecar          │               │
-│  │ (Unix Socket)   │    │ HTTP: 3501       │               │
-│  └─────────────────┘    │ gRPC: 50001      │               │
-│                         └──────────────────┘               │
-│                                │                           │
-│                                ▼ Database Connection       │
-│                    ┌──────────────────┐                    │
-│                    │ NebulaGraph      │                    │
+### Pub/Sub Operations  
+- `POST /pubsub/publish` - Publish message
+- `GET /pubsub/subscribe` - Subscribe to messages
+
+## Configuration
+
+Environment variables (set in `.env`):
+- `TEST_HTTP_API_HOST_PORT` - External port (default: 5092)
+- `DAPR_HTTP_ENDPOINT` - Dapr HTTP endpoint
+- `DAPR_GRPC_ENDPOINT` - Dapr gRPC endpoint
 │                    │ Database Cluster │                    │
 │                    │ Ports: 9669,     │                    │
 │                    │        9559,     │                    │
