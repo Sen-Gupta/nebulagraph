@@ -6,16 +6,16 @@ EXPOSE 80
 # Use the .NET 9.0 SDK for building
 FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
 WORKDIR /src
-COPY ["NebulaGraphTestApi.csproj", "./"]
-RUN dotnet restore "NebulaGraphTestApi.csproj"
+COPY ["NebulaGraphTestHttpApi.csproj", "./"]
+RUN dotnet restore "NebulaGraphTestHttpApi.csproj"
 COPY . .
 WORKDIR "/src"
-RUN dotnet build "NebulaGraphTestApi.csproj" -c Release -o /app/build
+RUN dotnet build "NebulaGraphTestHttpApi.csproj" -c Release -o /app/build
 
 FROM build AS publish
-RUN dotnet publish "NebulaGraphTestApi.csproj" -c Release -o /app/publish
+RUN dotnet publish "NebulaGraphTestHttpApi.csproj" -c Release -o /app/publish
 
 FROM base AS final
 WORKDIR /app
 COPY --from=publish /app/publish .
-ENTRYPOINT ["dotnet", "NebulaGraphTestApi.dll"]
+ENTRYPOINT ["dotnet", "NebulaGraphTestHttpApi.dll"]
