@@ -127,7 +127,7 @@ yarn-debug.log*
 yarn-error.log*
 
 # Docker
-.env
+# .env (commented out for sample project)
 
 # Temporary files
 *.temp
