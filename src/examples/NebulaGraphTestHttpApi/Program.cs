@@ -11,8 +11,11 @@ builder.Services.AddControllers().AddDapr(builder =>
     });
 });
 
-// Add DaprClient
-builder.Services.AddDaprClient();
+// Add DaprClient configured for HTTP only
+builder.Services.AddDaprClient(daprClientBuilder =>
+{
+    daprClientBuilder.UseHttpEndpoint(Environment.GetEnvironmentVariable("DAPR_HTTP_ENDPOINT") ?? "http://localhost:3500");
+});
 
 // Add Swagger/OpenAPI
 builder.Services.AddEndpointsApiExplorer();

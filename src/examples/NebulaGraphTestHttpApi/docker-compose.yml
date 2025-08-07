@@ -1,0 +1,65 @@
+services:
+  # NebulaGraph Dapr Pluggable Component
+  nebulagraph-component:
+    container_name: nebulagraph-test-component
+    build:
+      context: ../../dapr-pluggable-components
+      dockerfile: Dockerfile
+    environment:
+      - DAPR_COMPONENT_SOCKETS_FOLDER=/var/run
+    volumes:
+      - socket:/var/run
+    networks:
+      - nebula-net
+
+  # NebulaGraph Test API
+  nebulagraph-test-api:
+    build: .
+    container_name: nebulagraph-test-api
+    ports:
+      - "${TEST_API_HOST_PORT:-5090}:${TEST_API_APP_PORT:-80}"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:${TEST_API_APP_PORT:-80}
+      - DAPR_HTTP_ENDPOINT=http://nebulagraph-test-api-sidecar:${TEST_API_HTTP_PORT:-3502}
+    env_file:
+      - "../../.env"
+    networks:
+      - nebula-net
+    depends_on:
+      - nebulagraph-test-api-sidecar
+
+  # Dapr sidecar for Test API
+  nebulagraph-test-api-sidecar:
+    image: "ghcr.io/dapr/daprd:latest"
+    container_name: nebulagraph-test-api-sidecar
+    command: [
+      "./daprd",
+      "--app-id", "nebulagraph-test-api",
+      "--app-port", "${TEST_API_APP_PORT:-80}",
+      "--dapr-http-port", "${TEST_API_HTTP_PORT:-3502}",
+      "--components-path", "/components",
+      "--config", "/components/config.yaml",
+      "--log-level", "debug"
+    ]
+    environment:
+      - DAPR_COMPONENTS_SOCKETS_FOLDER=/var/run
+    env_file:
+      - "../../.env"
+    depends_on:
+      - nebulagraph-component
+    volumes:
+      - socket:/var/run
+      - "../../components:/components:ro"
+      - "../../secrets:/secrets:ro"
+    ports:
+      - "${TEST_API_HTTP_PORT:-3502}:${TEST_API_HTTP_PORT:-3502}"
+    networks:
+      - nebula-net
+
+volumes:
+  socket:
+
+networks:
+  nebula-net:
+    external: true
