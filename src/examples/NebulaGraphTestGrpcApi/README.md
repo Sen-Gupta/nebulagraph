@@ -116,7 +116,7 @@ The service expects Dapr to be running and configured with the NebulaGraph state
 - `DAPR_HTTP_ENDPOINT` - Dapr HTTP endpoint for service communication
 - `DAPR_GRPC_ENDPOINT` - Dapr gRPC endpoint for service communication
 
-All ports are configurable via environment variables defined in `.env.docker`.
+All ports are configurable via environment variables defined in `.env`.
 
 ### Architecture
 

@@ -1,23 +1,14 @@
 # Dapr Components Configuration Guide
 
-This comprehensive guide covers the Dapr component configurations for the NebulaGraph project, including both detailed documentation and quick reference information.
+This guide covers the Dapr component configurations for the NebulaGraph project using Docker-based development.
 
 ## 🚀 Quick Start
 
-### For Docker Development
+### Docker Development Setup
 ```bash
 cd src/
-./env-config.sh set-docker
-cd dapr-pluggable/tests/
-./test_all.sh
-```
-
-### For Local Development  
-```bash
-cd src/
-./env-config.sh set-local
-# Start NebulaGraph and Redis locally first
-cd dapr-pluggable/tests/
+# Environment is pre-configured in .env file
+cd dapr-pluggable-components/tests/
 ./test_all.sh
 ```
 
@@ -25,29 +16,29 @@ cd dapr-pluggable/tests/
 
 ```
 src/
-├── .env.local                   # Local development environment variables
-├── .env.docker                  # Docker development environment variables  
-├── .env                         # Active environment (created by env-config.sh)
-├── env-config.sh               # Environment configuration script
+├── .env                         # Environment configuration for Docker development
 └── components/
-    ├── nebulagraph-state.yaml  # NebulaGraph state store component
-    ├── redis-pubsub.yaml       # Redis pub/sub component
-    └── config.yaml              # Dapr configuration file
+    ├── nebulagraph-state.yaml   # NebulaGraph state store component
+    ├── redis-pubsub.yaml        # Redis pub/sub component
+    ├── config.yaml               # Dapr configuration file
+    └── local-secret-store.yaml   # Local secret store component
 ```
 
-## Environment-Driven Configuration
+## Environment Configuration
 
-The component files use environment variables with sensible defaults, allowing a single set of YAML files to work across different environments. Environment configuration is managed at the src/ level.
+The component files use environment variables from the `.env` file, allowing configuration without changing YAML files. All configuration is optimized for Docker-based development with container networking.
 
 ### Component Files
 
 #### `nebulagraph-state.yaml`
 - **Type**: `state.nebulagraph-state`
 - **Purpose**: Graph-based state storage using NebulaGraph
-- **Variables**: `${NEBULA_HOST}`, `${NEBULA_PORT}`, `${NEBULA_USERNAME}`, etc.
+- **Configuration**: Uses Docker container networking (`nebula-graphd:9669`)
 
 #### `redis-pubsub.yaml`
 - **Type**: `pubsub.redis`
+- **Purpose**: Redis-based pub/sub messaging  
+- **Configuration**: Uses Docker container networking (`redis:6379`)
 - **Purpose**: Message publishing and subscription via Redis  
 - **Variables**: `${REDIS_HOST}`, `${REDIS_PASSWORD}`, `${REDIS_POOL_SIZE}`, etc.
 
@@ -76,54 +67,21 @@ Environment configuration is managed at the `src/` level:
 
 #### `../env.local` - Local Development
 - **NebulaGraph**: `localhost:9669`
-- **Redis**: `localhost:6379`  
-- **Pool Size**: 5 (optimized for local)
-- **Timeouts**: Shorter (fast local connections)
-
-#### `../.env.docker` - Docker Development
-- **NebulaGraph**: `nebula-graphd:9669`
-- **Redis**: `redis:6379`
+#### Environment Variables
+Key configuration variables in `.env`:
+- **NebulaGraph**: `nebula-graphd:9669` (container networking)
+- **Redis**: `redis:6379` (container networking)
 - **Pool Size**: 20 (optimized for containers)
 - **Timeouts**: Standard (container networking)
 
 ## 📋 Usage Patterns
 
-### Environment Configuration
-Environment management is done from the `src/` directory:
-
-```bash
-# From src/ directory
-cd src/
-
-# Set environment for local development
-./env-config.sh set-local
-
-# Set environment for Docker development  
-./env-config.sh set-docker
-
-# Show current environment
-./env-config.sh show
-
-# Compare environments
-./env-config.sh compare
-```
-
-### Local Development
-```bash
-# Configure for local development
-cd src/
-./env-config.sh set-local
-
-# Run with Dapr CLI
-dapr run --app-id myapp --components-path ./components/ ...
-```
-
 ### Docker Development
 ```bash
-# Configure for Docker development (from src/)
+# Navigate to source directory
 cd src/
-./env-config.sh set-docker
 
+# Configuration is pre-set in .env file
 # Components are auto-loaded in docker-compose.yml
 docker-compose up
 ```
@@ -138,18 +96,9 @@ dapr run --components-path ./components/ ...
 
 ## 📋 Commands Reference
 
-### Environment Management
-```bash
-./env-config.sh show          # Show current environment
-./env-config.sh set-local     # Switch to local development
-./env-config.sh set-docker    # Switch to Docker development
-./env-config.sh compare       # Compare environments
-./env-config.sh test          # Test current configuration
-```
-
 ### Component Testing
 ```bash
-cd ../dapr-pluggable/tests/
+cd dapr-pluggable-components/tests/
 ./test_all.sh                 # Full test suite
 ./test_component.sh           # HTTP interface only
 ./test_component_grpc.sh      # gRPC interface only
@@ -251,10 +200,10 @@ curl -X POST http://localhost:3500/v1.0/publish/redis-pubsub/test \
 
 ### Common Issues
 
-1. **Wrong Environment**: Use `./env-config.sh set-docker` or `set-local`
-2. **Missing Infrastructure**: Run `../dependencies/environment_setup.sh`  
-3. **Component Not Loading**: Check `curl http://localhost:3500/v1.0/metadata`
-4. **Connection Failed**: Verify services with `docker ps` or local processes
+1. **Infrastructure Missing**: Run `dependencies/environment_setup.sh` to start NebulaGraph and Redis  
+2. **Component Not Loading**: Check `curl http://localhost:3500/v1.0/metadata`
+3. **Connection Failed**: Verify services with `docker ps` or check container logs
+4. **Environment Variables**: Ensure `.env` file exists and contains proper Docker networking configuration
 
 ### Detailed Troubleshooting
 
