@@ -65,7 +65,7 @@ get_docker_compose_cmd() {
 validate_nebula() {
     print_info "Validating NebulaGraph infrastructure..."
     
-    local nebula_deps_dir="../../../dependencies"
+    local nebula_deps_dir="../dependencies"
     
     if [ ! -f "$nebula_deps_dir/environment_setup.sh" ]; then
         print_error "NebulaGraph environment_setup.sh not found at $nebula_deps_dir"

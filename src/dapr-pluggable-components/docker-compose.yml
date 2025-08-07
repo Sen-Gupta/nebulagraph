@@ -32,7 +32,7 @@ services:
     environment:
       - DAPR_COMPONENTS_SOCKETS_FOLDER=/var/run
     env_file:
-      - ../../../.env.docker
+      - ../.env
     depends_on:
       - nebulagraph-component
     ports:
@@ -40,9 +40,9 @@ services:
       - "${NEBULA_GRPC_PORT:-50001}:${NEBULA_GRPC_PORT:-50001}"  # Dapr gRPC API
     volumes:
       - socket:/var/run
-      # Mount component files (environment variables will be substituted)
-      - ../../../components/nebulagraph-state.yaml:/components/nebulagraph-state.yaml
-      - ../../../components/redis-pubsub.yaml:/components/redis-pubsub.yaml
+      # Mount component files and secrets
+      - ../components:/components:ro
+      - ../secrets:/secrets:ro
     networks:
       - nebula-net
 
