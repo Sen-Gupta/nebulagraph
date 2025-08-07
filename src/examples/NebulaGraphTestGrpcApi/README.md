@@ -37,20 +37,89 @@ service NebulaGraphService {
 
 ## Running the Service
 
+### Local Development
+
 ```bash
 dotnet run
 ```
 
-The gRPC service will be available on the configured port (default: 5000 for HTTP, 5001 for HTTPS).
+The gRPC service will be available on port 5000 (HTTP/2).
+
+### Docker Environment
+
+Use Docker Compose to run the complete setup with Dapr sidecar:
+
+```bash
+docker-compose up --build
+```
+
+This will start:
+- NebulaGraph component
+- Test gRPC API service (accessible on port from `TEST_GRPC_API_HOST_PORT` env var, default: 5093)
+- Dapr sidecar with gRPC protocol support
+
+The service uses components and configurations from the `../../components` folder.
 
 ## Testing with gRPC Client
 
+### Automated Testing
+
+Use the provided test script to test all endpoints:
+
+```bash
+./test_grpc.sh
+```
+
+This script will automatically:
+- Install grpcurl if needed
+- Test all gRPC service methods
+- Demonstrate CRUD operations
+
+### Manual Testing
+
 To test this service, you'll need a gRPC client. You can use tools like:
 
-- [grpcurl](https://github.com/fullstorydev/grpcurl)
+- [grpcurl](https://github.com/fullstorydev/grpcurl) - included in test script
 - [BloomRPC](https://github.com/uw-labs/bloomrpc)
 - Custom .NET gRPC client
+
+#### Using grpcurl
+
+Install grpcurl:
+```bash
+go install github.com/fullstorydev/grpcurl/cmd/grpcurl@latest
+```
+
+Example commands:
+```bash
+# For local development (port 5000)
+grpcurl -plaintext \
+    -d '{"key": "test-key", "value": "test-value"}' \
+    localhost:5000 nebulagraph.NebulaGraphService/SetValue
+
+# For Docker environment (use TEST_GRPC_API_HOST_PORT, default: 5093)
+grpcurl -plaintext \
+    -d '{"key": "test-key", "value": "test-value"}' \
+    localhost:5093 nebulagraph.NebulaGraphService/SetValue
+```
 
 ## Configuration
 
 The service expects Dapr to be running and configured with the NebulaGraph state store component.
+
+### Environment Variables
+
+- `TEST_GRPC_API_HOST_PORT` - Host port for accessing the gRPC API (Docker: default 5093)
+- `TEST_GRPC_API_APP_PORT` - Internal application port (Docker: default 80) 
+- `TEST_GRPC_API_HTTP_PORT` - Dapr HTTP port (Docker: default 3503)
+- `TEST_GRPC_API_GRPC_PORT` - Dapr gRPC port (Docker: default 50003)
+- `DAPR_HTTP_ENDPOINT` - Dapr HTTP endpoint for service communication
+- `DAPR_GRPC_ENDPOINT` - Dapr gRPC endpoint for service communication
+
+All ports are configurable via environment variables defined in `.env.docker`.
+
+### Architecture
+
+The gRPC API acts as a client to the main NebulaGraph component, making service invocation calls through Dapr. This allows testing of the component's gRPC interface while maintaining separation of concerns.
+
+The application is configured to use HTTP/2 for gRPC communication as defined in `appsettings.json`.

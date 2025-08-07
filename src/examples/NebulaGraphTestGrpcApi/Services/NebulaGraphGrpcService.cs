@@ -8,7 +8,7 @@ public class NebulaGraphGrpcService : NebulaGraphService.NebulaGraphServiceBase
 {
     private readonly DaprClient _daprClient;
     private readonly ILogger<NebulaGraphGrpcService> _logger;
-    private const string MainComponentAppId = "nebulagraph-test";
+    private const string StateStoreName = "nebulagraph-state";
 
     public NebulaGraphGrpcService(DaprClient daprClient, ILogger<NebulaGraphGrpcService> logger)
     {
@@ -20,13 +20,16 @@ public class NebulaGraphGrpcService : NebulaGraphService.NebulaGraphServiceBase
     {
         try
         {
-            _logger.LogInformation("gRPC: Getting value for key: {Key} via Dapr gRPC service invocation", request.Key);
-            var response = await _daprClient.InvokeMethodGrpcAsync<GetValueRequest, GetValueResponse>(
-                appId: MainComponentAppId,
-                methodName: "GetValue",
-                data: request
-            );
-            return response;
+            _logger.LogInformation("gRPC: Getting value for key: {Key} from NebulaGraph state store", request.Key);
+            var value = await _daprClient.GetStateAsync<string>(StateStoreName, request.Key);
+            
+            var found = !string.IsNullOrEmpty(value);
+            return new GetValueResponse
+            {
+                Value = value ?? "",
+                Found = found,
+                Error = ""
+            };
         }
         catch (Exception ex)
         {
@@ -44,13 +47,14 @@ public class NebulaGraphGrpcService : NebulaGraphService.NebulaGraphServiceBase
     {
         try
         {
-            _logger.LogInformation("gRPC: Setting value for key: {Key} via Dapr gRPC service invocation", request.Key);
-            var response = await _daprClient.InvokeMethodGrpcAsync<SetValueRequest, SetValueResponse>(
-                appId: MainComponentAppId,
-                methodName: "SetValue",
-                data: request
-            );
-            return response;
+            _logger.LogInformation("gRPC: Setting value for key: {Key} in NebulaGraph state store", request.Key);
+            await _daprClient.SaveStateAsync(StateStoreName, request.Key, request.Value);
+            
+            return new SetValueResponse
+            {
+                Success = true,
+                Error = ""
+            };
         }
         catch (Exception ex)
         {
@@ -67,13 +71,14 @@ public class NebulaGraphGrpcService : NebulaGraphService.NebulaGraphServiceBase
     {
         try
         {
-            _logger.LogInformation("gRPC: Deleting value for key: {Key} via Dapr gRPC service invocation", request.Key);
-            var response = await _daprClient.InvokeMethodGrpcAsync<DeleteValueRequest, DeleteValueResponse>(
-                appId: MainComponentAppId,
-                methodName: "DeleteValue",
-                data: request
-            );
-            return response;
+            _logger.LogInformation("gRPC: Deleting value for key: {Key} from NebulaGraph state store", request.Key);
+            await _daprClient.DeleteStateAsync(StateStoreName, request.Key);
+            
+            return new DeleteValueResponse
+            {
+                Success = true,
+                Error = ""
+            };
         }
         catch (Exception ex)
         {
@@ -90,13 +95,18 @@ public class NebulaGraphGrpcService : NebulaGraphService.NebulaGraphServiceBase
     {
         try
         {
-            _logger.LogInformation("gRPC: Listing keys with prefix: {Prefix}, limit: {Limit} via Dapr gRPC service invocation", request.Prefix, request.Limit);
-            var response = await _daprClient.InvokeMethodGrpcAsync<ListKeysRequest, ListKeysResponse>(
-                appId: MainComponentAppId,
-                methodName: "ListKeys",
-                data: request
-            );
-            return response;
+            _logger.LogInformation("gRPC: Listing keys with prefix: {Prefix}, limit: {Limit} from NebulaGraph state store", request.Prefix, request.Limit);
+            
+            // Note: Dapr's state store API doesn't have a direct "list keys" method
+            // This is a simplified implementation that would need to be enhanced
+            // based on the actual NebulaGraph implementation capabilities
+            
+            _logger.LogWarning("gRPC: ListKeys operation not fully implemented - NebulaGraph state store doesn't expose key listing through standard Dapr state API");
+            
+            return new ListKeysResponse
+            {
+                Error = "ListKeys operation not available through standard Dapr state store API"
+            };
         }
         catch (Exception ex)
         {
