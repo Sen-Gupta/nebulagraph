@@ -39,14 +39,13 @@ check_directory() {
     if [ ! -f ".env.local" ] || [ ! -f ".env.docker" ]; then
         print_error "Environment files not found. Please run this script from the src/ directory."
         print_info "Expected files: .env.local, .env.docker"
-        print_info "Expected directory: components/ with nebulagraph-state.yaml, redis-pubsub.yaml"
         exit 1
     fi
     
-    if [ ! -d "components" ] || [ ! -f "components/nebulagraph-state.yaml" ] || [ ! -f "components/redis-pubsub.yaml" ]; then
+    if [ ! -d "components" ] || [ ! -f "components/nebulagraph-state.yaml" ] || [ ! -f "components/redis-pubsub.yaml" ] || [ ! -f "components/local-secret-store.yaml" ]; then
         print_error "Components directory or files not found."
         print_info "Expected directory: components/"
-        print_info "Expected files: components/nebulagraph-state.yaml, components/redis-pubsub.yaml"
+        print_info "Expected files: components/nebulagraph-state.yaml, components/redis-pubsub.yaml, components/local-secret-store.yaml"
         exit 1
     fi
 }
@@ -77,31 +76,59 @@ show_current_env() {
     fi
 }
 
-# Export environment variables from .env file
-export_env_vars() {
+# Generate secrets file directly from environment variables
+generate_secrets_file() {
     local env_file="$1"
     
-    if [ -f "$env_file" ]; then
-        print_info "Exporting environment variables from $env_file"
-        
-        # Export variables (skip comments and empty lines)
-        while IFS='=' read -r key value; do
-            # Skip comments and empty lines
-            if [[ "$key" =~ ^[[:space:]]*# ]] || [[ -z "$key" ]]; then
-                continue
-            fi
-            
-            # Remove any quotes and export
-            value=$(echo "$value" | sed 's/^"//;s/"$//')
-            export "$key=$value"
-            echo "  ✓ $key=$value"
-        done < <(grep -E '^[^#]*=' "$env_file")
-        
-        print_success "Environment variables exported to current session"
-    else
+    if [ ! -f "$env_file" ]; then
         print_error "Environment file $env_file not found"
         return 1
     fi
+    
+    print_info "Generating secrets file from environment variables"
+    
+    # Create secrets directory if it doesn't exist
+    mkdir -p secrets
+    
+    # Source environment variables
+    source "$env_file"
+    
+    # Generate secrets.json directly
+    cat > secrets/secrets.json << EOF
+{
+  "nebulagraph": {
+    "host": "$NEBULA_HOST",
+    "port": "$NEBULA_PORT",
+    "username": "$NEBULA_USERNAME",
+    "password": "$NEBULA_PASSWORD",
+    "space": "$NEBULA_SPACE",
+    "connectionTimeout": "$NEBULA_CONNECTION_TIMEOUT",
+    "executionTimeout": "$NEBULA_EXECUTION_TIMEOUT"
+  },
+  "redis": {
+    "host": "$REDIS_HOST",
+    "password": "$REDIS_PASSWORD",
+    "db": "$REDIS_DB",
+    "maxRetries": "$REDIS_MAX_RETRIES",
+    "maxRetryBackoff": "$REDIS_MAX_RETRY_BACKOFF",
+    "dialTimeout": "$REDIS_DIAL_TIMEOUT",
+    "readTimeout": "$REDIS_READ_TIMEOUT",
+    "writeTimeout": "$REDIS_WRITE_TIMEOUT",
+    "poolSize": "$REDIS_POOL_SIZE",
+    "poolTimeout": "$REDIS_POOL_TIMEOUT",
+    "maxConnAge": "$REDIS_MAX_CONN_AGE",
+    "idleTimeout": "$REDIS_IDLE_TIMEOUT",
+    "idleCheckFrequency": "$REDIS_IDLE_CHECK_FREQUENCY",
+    "redeliverInterval": "$REDIS_REDELIVER_INTERVAL",
+    "processingTimeout": "$REDIS_PROCESSING_TIMEOUT",
+    "type": "$REDIS_TYPE",
+    "enableTLS": "$REDIS_ENABLE_TLS"
+  }
+}
+EOF
+    
+    print_success "Generated secrets/secrets.json"
+    print_success "Secrets file generation completed"
 }
 
 # Set local environment
@@ -111,8 +138,8 @@ set_local_env() {
     if cp .env.local .env; then
         print_success "Local environment file activated"
         
-        # Export variables to current shell
-        export_env_vars ".env.local"
+        # Generate secrets file from environment variables
+        generate_secrets_file ".env.local"
         
         print_info "Components will connect to services running on localhost"
         echo ""
@@ -121,8 +148,7 @@ set_local_env() {
         echo "  • Redis: localhost:6379"
         echo "  • Connection pool: 5 connections (local optimized)"
         echo ""
-        print_info "Usage: source ./env-config.sh set-local && dapr run --components-path ./components ..."
-        print_warning "Note: Use 'source ./env-config.sh set-local' to export variables to your shell"
+        print_info "Usage: dapr run --components-path ./components ..."
     else
         print_error "Failed to activate local environment"
         exit 1
@@ -136,8 +162,8 @@ set_docker_env() {
     if cp .env.docker .env; then
         print_success "Docker environment file activated"
         
-        # Export variables to current shell  
-        export_env_vars ".env.docker"
+        # Generate secrets file from environment variables
+        generate_secrets_file ".env.docker"
         
         print_info "Components will connect to services running in Docker containers"
         echo ""
@@ -146,8 +172,7 @@ set_docker_env() {
         echo "  • Redis: redis:6379"
         echo "  • Connection pool: 20 connections (container optimized)"
         echo ""
-        print_info "Usage: source ./env-config.sh set-docker && docker-compose up"
-        print_warning "Note: Use 'source ./env-config.sh set-docker' to export variables to your shell"
+        print_info "Usage: docker-compose up"
     else
         print_error "Failed to activate docker environment"
         exit 1
@@ -174,8 +199,8 @@ compare_environments() {
     echo "  • Timeouts: Standard (container network latency)"
     echo ""
     
-    print_info "Both environments use the same component YAML files"
-    print_info "Only the environment variables change between them"
+    print_info "Both environments use the same static component YAML files"
+    print_info "Only the generated secrets file changes between environments"
 }
 
 # Test current configuration
@@ -251,8 +276,10 @@ show_help() {
     echo "  docker-compose up"
     echo ""
     echo "Component Files:"
-    echo "  components/nebulagraph-state.yaml    Uses \${NEBULA_*} variables"
-    echo "  components/redis-pubsub.yaml         Uses \${REDIS_*} variables"
+    echo "  components/nebulagraph-state.yaml    Static component using secret store"
+    echo "  components/redis-pubsub.yaml         Static component using secret store"
+    echo "  components/local-secret-store.yaml   Secret store component"
+    echo "  secrets/secrets.json                 Generated secrets file from environment variables"
 }
 
 # Main function
