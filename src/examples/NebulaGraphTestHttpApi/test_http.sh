@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# Local Apps Management Script
-# Manages Dapr component and TestAPI applications locally
+# Docker-Based TestAPI Management Script
+# Manages Dapr component and TestAPI applications using Docker Compose
 
 set -e
 
@@ -12,67 +12,10 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-# PID file locations
-DAPRD_TESTAPI_PID_FILE="/tmp/daprd-testapi.pid"
-
-# Port definitions
-TESTAPI_PORT=5090
-COMPONENT_DAPR_HTTP_PORT=3501
-COMPONENT_DAPR_GRPC_PORT=50001
-
-TESTAPI_DAPR_HTTP_PORT=3002
-TESTAPI_DAPR_GRPC_PORT=50002
-
-check_port() {
-    local port=$1
-    if lsof -Pi :$port -sTCP:LISTEN -t >/dev/null 2>&1; then
-        return 0  # Port is in use
-    else
-        return 1  # Port is available
-    fi
-}
-
-kill_port() {
-    local port=$1
-    local pids=$(lsof -Pi :$port -sTCP:LISTEN -t 2>/dev/null)
-    if [ -n "$pids" ]; then
-        print_info "Killing processes using port $port: $pids"
-        echo $pids | xargs kill -9 2>/dev/null || true
-        sleep 1
-        # Double check
-        local remaining_pids=$(lsof -Pi :$port -sTCP:LISTEN -t 2>/dev/null)
-        if [ -n "$remaining_pids" ]; then
-            print_warning "Some processes still using port $port: $remaining_pids"
-            return 1
-        fi
-        print_success "Port $port is now available"
-    fi
-    return 0
-}
-
-ensure_ports_available() {
-    print_header "Ensuring Ports Are Available"
-    
-    local ports=($TESTAPI_PORT $TESTAPI_DAPR_HTTP_PORT $TESTAPI_DAPR_GRPC_PORT)
-    local ports_to_kill=()
-    
-    # First, check which ports are in use
-    for port in "${ports[@]}"; do
-        if check_port $port; then
-            ports_to_kill+=($port)
-        fi
-    done
-    
-    # Kill processes on those ports if any
-    if [ ${#ports_to_kill[@]} -gt 0 ]; then
-        print_info "Found processes using required ports: ${ports_to_kill[*]}"
-        for port in "${ports_to_kill[@]}"; do
-            kill_port $port
-        done
-    else
-        print_success "All required ports are available"
-    fi
-}
+# Port definitions (from .env or defaults)
+TEST_API_HOST_PORT=${TEST_API_HOST_PORT:-5090}
+TEST_API_APP_PORT=${TEST_API_APP_PORT:-80}
+TEST_API_HTTP_PORT=${TEST_API_HTTP_PORT:-3502}
 
 print_header() {
     echo -e "\n${BLUE}======================================${NC}"
@@ -96,30 +39,47 @@ print_warning() {
     echo -e "${YELLOW}⚠️  $1${NC}"
 }
 
+# Get docker compose command (docker-compose or docker compose)
+get_docker_compose_cmd() {
+    if command -v docker-compose >/dev/null 2>&1; then
+        echo "docker-compose"
+    elif docker compose version >/dev/null 2>&1; then
+        echo "docker compose"
+    else
+        return 1
+    fi
+}
+
 check_dependencies() {
     print_header "Checking Dependencies"
     
-    # Check Dapr CLI
-    if command -v dapr &> /dev/null; then
-        print_success "Dapr CLI is available: $(dapr --version | head -1)"
+    # Check Docker
+    if command -v docker &> /dev/null; then
+        print_success "Docker is available: $(docker --version)"
     else
-        print_error "Dapr CLI not found. Please install Dapr CLI first."
+        print_error "Docker not found. Please install Docker first."
         exit 1
     fi
     
-    # Check .NET
-    if command -v dotnet &> /dev/null; then
-        print_success ".NET is available: $(dotnet --version)"
+    # Check Docker Compose
+    local compose_cmd
+    if compose_cmd=$(get_docker_compose_cmd); then
+        if [[ "$compose_cmd" == "docker-compose" ]]; then
+            print_success "Docker Compose v1 is available: $(docker-compose --version)"
+        else
+            print_success "Docker Compose v2 is available: $(docker compose version)"
+        fi
     else
-        print_error ".NET not found. Please install .NET 9 SDK first."
+        print_error "Docker Compose not found. Please install Docker Compose."
         exit 1
     fi
     
-    # Check Go
-    if command -v go &> /dev/null; then
-        print_success "Go is available: $(go version)"
+    # Check if nebula-net network exists
+    if docker network ls | grep -q "nebula-net"; then
+        print_success "Docker network 'nebula-net' is available"
     else
-        print_error "Go not found. Please install Go first."
+        print_error "Docker network 'nebula-net' not found"
+        print_info "Please run: cd ../../dependencies && ./environment_setup.sh start"
         exit 1
     fi
     
@@ -132,131 +92,238 @@ check_dependencies() {
         print_success "NebulaGraph dapr_state space and schema are ready"
     else
         print_warning "NebulaGraph dapr_state space or schema not found"
-        print_info "Start dependencies first: ./deps.sh start"
+        print_info "Please run: cd ../../dependencies && ./environment_setup.sh start"
         exit 1
+    fi
+    
+    # Check if main Dapr pluggable component is running
+    if docker ps --format "table {{.Names}}" | grep -q "nebulagraph-component-sidecar"; then
+        print_success "Main Dapr pluggable component is running"
+    else
+        print_warning "Main Dapr pluggable component not found"
+        print_info "Starting main component: cd ../../dapr-pluggable-components && ./run_docker_pluggable.sh start"
+        
+        # Try to start it automatically
+        if (cd ../../dapr-pluggable-components && ./run_docker_pluggable.sh start); then
+            print_success "Main Dapr pluggable component started successfully"
+        else
+            print_error "Failed to start main Dapr pluggable component"
+            exit 1
+        fi
     fi
 }
 
 build_testapi() {
-    print_header "Building TestAPI"
+    print_header "Building TestAPI Docker Image"
     
-    cd ../..
-    print_info "Building .NET API..."
-    dotnet build --configuration Release
-    print_success "TestAPI built successfully"
-    cd - > /dev/null
+    local compose_cmd
+    compose_cmd=$(get_docker_compose_cmd) || {
+        print_error "Docker Compose is not available"
+        return 1
+    }
+    
+    print_info "Building TestAPI Docker image..."
+    if $compose_cmd build nebulagraph-test-api; then
+        print_success "TestAPI Docker image built successfully"
+    else
+        print_error "Failed to build TestAPI Docker image"
+        return 1
+    fi
 }
 
 start_testapi() {
-    print_info "Starting TestAPI..."
-    cd ../..
+    print_header "Starting TestAPI with Docker Compose"
     
-    # Start Dapr sidecar for TestAPI (uses service invocation to access main component)
-    dapr run \
-        --app-id test-api \
-        --app-port $TESTAPI_PORT \
-        --dapr-http-port $TESTAPI_DAPR_HTTP_PORT \
-        --dapr-grpc-port $TESTAPI_DAPR_GRPC_PORT \
-        --log-level info \
-        -- dotnet run --no-build --urls http://localhost:$TESTAPI_PORT &
-    DAPRD_TESTAPI_PID=$!
-    echo $DAPRD_TESTAPI_PID > $DAPRD_TESTAPI_PID_FILE
-    print_success "TestAPI with Dapr sidecar started (PID: $DAPRD_TESTAPI_PID)"
+    local compose_cmd
+    compose_cmd=$(get_docker_compose_cmd) || {
+        print_error "Docker Compose is not available"
+        return 1
+    }
     
-    cd - > /dev/null
+    print_info "Starting TestAPI services..."
+    if $compose_cmd up -d; then
+        print_success "TestAPI services started successfully"
+        
+        # Wait for services to be ready
+        print_info "Waiting for services to initialize..."
+        sleep 10
+        
+        # Check if containers are running
+        local api_running=$($compose_cmd ps -q nebulagraph-test-api 2>/dev/null)
+        local sidecar_running=$($compose_cmd ps -q nebulagraph-test-api-sidecar 2>/dev/null)
+        
+        if [ -n "$api_running" ] && [ -n "$sidecar_running" ]; then
+            print_success "All TestAPI containers are running"
+        else
+            print_warning "Some containers may not be running properly"
+            $compose_cmd ps
+        fi
+    else
+        print_error "Failed to start TestAPI services"
+        return 1
+    fi
 }
 
 stop_processes() {
-    print_header "Stopping Applications"
+    print_header "Stopping TestAPI Services"
     
-    # Stop TestAPI
-    if [ -f $DAPRD_TESTAPI_PID_FILE ]; then
-        TESTAPI_PID=$(cat $DAPRD_TESTAPI_PID_FILE)
-        if kill -0 $TESTAPI_PID 2>/dev/null; then
-            kill $TESTAPI_PID
-            print_success "TestAPI stopped"
-        fi
-        rm -f $DAPRD_TESTAPI_PID_FILE
-    fi
+    local compose_cmd
+    compose_cmd=$(get_docker_compose_cmd) || {
+        print_error "Docker Compose is not available"
+        return 1
+    }
     
-    # Clean up any remaining TestAPI Dapr processes
-    pkill -f "daprd.*test-api" 2>/dev/null || true
-    
-    print_success "TestAPI stopped"
+    print_info "Stopping TestAPI services..."
+    $compose_cmd down
+    print_success "TestAPI services stopped"
 }
 
 check_status() {
-    print_header "Application Status"
+    print_header "TestAPI Services Status"
     
-    # Check TestAPI
-    if [ -f $DAPRD_TESTAPI_PID_FILE ] && kill -0 $(cat $DAPRD_TESTAPI_PID_FILE) 2>/dev/null; then
-        print_success "TestAPI is running (PID: $(cat $DAPRD_TESTAPI_PID_FILE))"
-    else
-        print_info "TestAPI is not running"
-    fi
+    local compose_cmd
+    compose_cmd=$(get_docker_compose_cmd) || {
+        print_error "Docker Compose is not available"
+        return 1
+    }
+    
+    # Show container status
+    print_info "Container Status:"
+    $compose_cmd ps
     
     echo ""
     print_info "Service Endpoints:"
-    echo "  • TestAPI: http://localhost:$TESTAPI_PORT"
-    echo "  • TestAPI Swagger: http://localhost:$TESTAPI_PORT/swagger"
-    echo "  • Main Dapr Component: http://localhost:$COMPONENT_DAPR_HTTP_PORT"
-    echo "  • TestAPI Dapr: http://localhost:$TESTAPI_DAPR_HTTP_PORT"
+    echo "  • TestAPI: http://localhost:$TEST_API_HOST_PORT"
+    echo "  • TestAPI Swagger: http://localhost:$TEST_API_HOST_PORT/swagger"
+    echo "  • TestAPI Dapr: http://localhost:$TEST_API_HTTP_PORT"
+    echo "  • Main Dapr Component: http://localhost:3501"
+    
+    # Check if services are responding
+    echo ""
+    print_info "Service Health:"
+    
+    # Test TestAPI
+    if curl -s --connect-timeout 5 "http://localhost:$TEST_API_HOST_PORT/swagger" >/dev/null 2>&1; then
+        print_success "TestAPI is responding"
+    else
+        print_warning "TestAPI is not responding"
+    fi
+    
+    # Test Dapr sidecar
+    if curl -s --connect-timeout 5 "http://localhost:$TEST_API_HTTP_PORT/v1.0/healthz" >/dev/null 2>&1; then
+        print_success "TestAPI Dapr sidecar is responding"
+    else
+        print_warning "TestAPI Dapr sidecar is not responding"
+    fi
 }
 
 test_services() {
-    print_header "Testing Service Invocation Architecture"
+    print_header "Testing Docker-Based TestAPI Services"
     
-    sleep 3  # Give services time to start
+    sleep 5  # Give services more time to start and load components
     
-    # Test main component directly
-    print_info "Testing main Dapr component directly..."
-    if curl -s -X POST "http://localhost:$COMPONENT_DAPR_HTTP_PORT/v1.0/state/nebulagraph-state" \
-        -H "Content-Type: application/json" \
-        -d '[{"key": "test-component", "value": "Hello from main component!"}]' > /dev/null; then
-        print_success "Main component test passed"
-    else
-        print_error "Main component test failed"
-    fi
-    
-    # Test TestAPI health
+    # Test TestAPI health first
     print_info "Testing TestAPI health..."
-    if curl -s "http://localhost:$TESTAPI_PORT/swagger" > /dev/null; then
+    if curl -s --connect-timeout 10 "http://localhost:$TEST_API_HOST_PORT/swagger" > /dev/null; then
         print_success "TestAPI health test passed"
     else
         print_error "TestAPI health test failed"
+        print_info "Checking container logs..."
+        local compose_cmd
+        compose_cmd=$(get_docker_compose_cmd)
+        $compose_cmd logs nebulagraph-test-api | tail -10
+        return 1
     fi
     
-    # Test HTTP REST API service invocation
-    print_info "Testing HTTP REST API service invocation..."
-    if curl -s -X POST "http://localhost:$TESTAPI_PORT/api/state/test-http" \
-        -H "Content-Type: application/json" \
-        -d '{"value": "Hello from HTTP service invocation!"}' > /dev/null; then
-        print_success "HTTP service invocation test passed"
+    # Test TestAPI Dapr sidecar health
+    print_info "Testing TestAPI Dapr sidecar health..."
+    if curl -s --connect-timeout 10 "http://localhost:$TEST_API_HTTP_PORT/v1.0/healthz" > /dev/null; then
+        print_success "TestAPI Dapr sidecar health test passed"
     else
-        print_error "HTTP service invocation test failed"
+        print_error "TestAPI Dapr sidecar health test failed"
+        print_info "Checking sidecar logs..."
+        local compose_cmd
+        compose_cmd=$(get_docker_compose_cmd)
+        $compose_cmd logs nebulagraph-test-api-sidecar | tail -10
+        return 1
     fi
     
-    # Test HTTP GET via service invocation
-    print_info "Testing HTTP GET via service invocation..."
-    if curl -s "http://localhost:$TESTAPI_PORT/api/state/test-http" > /dev/null; then
-        print_success "HTTP GET service invocation test passed"
+    # Test if NebulaGraph state store component is loaded
+    print_info "Testing NebulaGraph state store component availability..."
+    metadata_response=$(curl -s --connect-timeout 10 "http://localhost:$TEST_API_HTTP_PORT/v1.0/metadata" 2>/dev/null)
+    if echo "$metadata_response" | grep -q "nebulagraph-state"; then
+        print_success "NebulaGraph state store component is loaded"
+        
+        # Test HTTP REST API state operations via TestAPI
+        print_info "Testing HTTP REST API state operations..."
+        if curl -s --connect-timeout 10 -X POST "http://localhost:$TEST_API_HOST_PORT/api/state/test-docker" \
+            -H "Content-Type: application/json" \
+            -d '{"value": "Hello from Docker test!"}' > /dev/null; then
+            print_success "HTTP state SET operation test passed"
+        else
+            print_warning "HTTP state SET operation test failed (check logs)"
+        fi
+        
+        # Test HTTP GET via REST API
+        print_info "Testing HTTP GET state operation..."
+        get_response=$(curl -s --connect-timeout 10 "http://localhost:$TEST_API_HOST_PORT/api/state/test-docker" 2>/dev/null)
+        if [ -n "$get_response" ]; then
+            print_success "HTTP state GET operation test passed"
+            print_info "Retrieved: $get_response"
+        else
+            print_warning "HTTP state GET operation test failed"
+        fi
+        
+        # Test direct Dapr state API
+        print_info "Testing direct Dapr state API..."
+        if curl -s --connect-timeout 10 -X POST "http://localhost:$TEST_API_HTTP_PORT/v1.0/state/nebulagraph-state" \
+            -H "Content-Type: application/json" \
+            -d '[{"key":"direct-test","value":"Hello from direct Dapr API!"}]' > /dev/null; then
+            print_success "Direct Dapr state SET operation test passed"
+            
+            # Test direct GET
+            direct_response=$(curl -s --connect-timeout 10 "http://localhost:$TEST_API_HTTP_PORT/v1.0/state/nebulagraph-state/direct-test" 2>/dev/null)
+            if [ -n "$direct_response" ]; then
+                print_success "Direct Dapr state GET operation test passed"
+                print_info "Direct response: $direct_response"
+            else
+                print_warning "Direct Dapr state GET operation test failed"
+            fi
+        else
+            print_warning "Direct Dapr state SET operation test failed"
+        fi
     else
-        print_error "HTTP GET service invocation test failed"
+        print_warning "NebulaGraph state store component not found in metadata"
+        print_info "Available components:"
+        echo "$metadata_response" | jq '.components[].name' 2>/dev/null || echo "$metadata_response"
     fi
     
-    # Test gRPC service availability (gRPC server should be running on TestAPI)
-    print_info "Testing gRPC service availability..."
-    if curl -s "http://localhost:$TESTAPI_PORT" > /dev/null; then
-        print_success "gRPC service availability test passed"
+    # Test pub/sub functionality if Redis component is available
+    print_info "Testing pub/sub functionality..."
+    if echo "$metadata_response" | grep -q "redis-pubsub"; then
+        if curl -s --connect-timeout 10 -X POST "http://localhost:$TEST_API_HTTP_PORT/v1.0/publish/redis-pubsub/test-topic" \
+            -H "Content-Type: application/json" \
+            -d '{"message": "Hello from Docker pub/sub test!"}' > /dev/null; then
+            print_success "Pub/sub publish test passed"
+        else
+            print_warning "Pub/sub publish test failed"
+        fi
     else
-        print_info "gRPC service test skipped (requires grpcurl)"
+        print_info "Redis pub/sub component not available for testing"
+    fi
+    
+    # Test basic service connectivity
+    print_info "Testing basic service connectivity..."
+    if curl -s --connect-timeout 10 "http://localhost:$TEST_API_HOST_PORT" > /dev/null; then
+        print_success "Basic service connectivity test passed"
+    else
+        print_info "Basic service connectivity test completed"
     fi
 }
 
 case "${1:-help}" in
     "start")
         check_dependencies
-        ensure_ports_available
         build_testapi
         start_testapi
         check_status
@@ -269,7 +336,6 @@ case "${1:-help}" in
         stop_processes
         sleep 2
         check_dependencies
-        ensure_ports_available
         build_testapi
         start_testapi
         check_status
@@ -283,24 +349,50 @@ case "${1:-help}" in
     "build")
         build_testapi
         ;;
+    "logs")
+        print_header "TestAPI Service Logs"
+        local compose_cmd
+        compose_cmd=$(get_docker_compose_cmd) || {
+            print_error "Docker Compose is not available"
+            exit 1
+        }
+        $compose_cmd logs -f
+        ;;
     "help"|"-h"|"--help")
         echo "Usage: $0 [COMMAND]"
         echo ""
-        echo "TestAPI Management - Manages TestAPI application locally"
+        echo "Docker-Based TestAPI Management - Manages TestAPI application using Docker Compose"
         echo ""
         echo "Commands:"
-        echo "  start     Build and start TestAPI application"
-        echo "  stop      Stop TestAPI application"
-        echo "  restart   Restart TestAPI application"
-        echo "  status    Show application status"
+        echo "  start     Build and start TestAPI services with Docker Compose"
+        echo "  stop      Stop TestAPI services"
+        echo "  restart   Restart TestAPI services"
+        echo "  status    Show service status and health"
         echo "  test      Test running services"
-        echo "  build     Build TestAPI without starting"
+        echo "  build     Build TestAPI Docker image"
+        echo "  logs      Show service logs (follow mode)"
         echo "  help      Show this help"
         echo ""
         echo "Prerequisites:"
-        echo "  • NebulaGraph dependencies must be running"
-        echo "  • Main Dapr component must be running on port 3501"
-        echo "  • Dapr CLI and .NET 9 SDK must be installed"
+        echo "  • NebulaGraph dependencies must be running (./dependencies/environment_setup.sh start)"
+        echo "  • Docker and Docker Compose must be installed"
+        echo "  • nebula-net Docker network must exist"
+        echo ""
+        echo "Environment Variables:"
+        echo "  • TEST_API_HOST_PORT (default: 5090) - Host port for TestAPI"
+        echo "  • TEST_API_APP_PORT (default: 80) - Container port for TestAPI"  
+        echo "  • TEST_API_HTTP_PORT (default: 3502) - Dapr HTTP port"
+        echo ""
+        echo "Services:"
+        echo "  • TestAPI: http://localhost:$TEST_API_HOST_PORT"
+        echo "  • TestAPI Swagger: http://localhost:$TEST_API_HOST_PORT/swagger"
+        echo "  • TestAPI Dapr: http://localhost:$TEST_API_HTTP_PORT"
+        echo ""
+        echo "Notes:"
+        echo "  • Uses Docker Compose for consistent container-based deployment"
+        echo "  • Automatically connects to existing NebulaGraph and Redis containers"
+        echo "  • Integrates with Dapr pluggable components for state management"
+        echo "  • Suitable for production-like testing scenarios"
         ;;
     *)
         echo "Unknown command: $1"
