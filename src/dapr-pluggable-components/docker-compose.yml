@@ -14,7 +14,7 @@ services:
   nebulagraph-component:
     container_name: nebulagraph-dapr-component
     build:
-      context: ../../  # Point to dapr-pluggable-components root directory
+      context: .  # Current directory contains the Dockerfile
       dockerfile: Dockerfile
     environment:
       - DAPR_COMPONENT_SOCKETS_FOLDER=/var/run

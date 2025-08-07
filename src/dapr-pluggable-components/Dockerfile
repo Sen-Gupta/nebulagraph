@@ -15,7 +15,7 @@ RUN go mod download
 COPY . .
 
 # Build the component
-RUN CGO_ENABLED=0 go build -o /component .
+RUN CGO_ENABLED=0 go build -o /nebula_dapr_pluggable .
 
 # Deploy
 FROM gcr.io/distroless/static-debian11
@@ -23,6 +23,6 @@ FROM gcr.io/distroless/static-debian11
 WORKDIR /
 
 # Copy the binary from build stage
-COPY --from=build /component /component
+COPY --from=build /nebula_dapr_pluggable /nebula_dapr_pluggable
 
-ENTRYPOINT ["/component"]
+ENTRYPOINT ["/nebula_dapr_pluggable"]
