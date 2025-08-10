@@ -35,11 +35,11 @@ var _ state.Querier = (*NebulaStateStore)(nil)
 var _ state.BulkStore = (*NebulaStateStore)(nil)
 
 type NebulaConfig struct {
-	Hosts    string `json:"hosts"` // Changed to string for comma-separated values
-	Port     string `json:"port"`  // Changed to string to handle Dapr metadata
-	Username string `json:"username"`
-	Password string `json:"password"`
-	Space    string `json:"space"`
+	Hosts    string `json:"hosts" mapstructure:"hosts"`       // Changed to string for comma-separated values
+	Port     string `json:"port" mapstructure:"port"`         // Changed to string to handle Dapr metadata
+	Username string `json:"username" mapstructure:"username"`
+	Password string `json:"password" mapstructure:"password"`
+	Space    string `json:"space" mapstructure:"space"`
 }
 
 // NewNebulaStateStore creates a new instance of NebulaStateStore.
@@ -72,6 +72,20 @@ func (store *NebulaStateStore) Init(ctx context.Context, metadata state.Metadata
 	if err := json.Unmarshal(configBytes, &store.config); err != nil {
 		store.logger.Errorf("Failed to parse config: %v", err)
 		return fmt.Errorf("failed to parse configuration: %w", err)
+	}
+
+	// Additional validation for required fields
+	if store.config.Hosts == "" {
+		return errors.New("hosts configuration is required")
+	}
+	if store.config.Space == "" {
+		return errors.New("space configuration is required")
+	}
+	if store.config.Username == "" {
+		return errors.New("username configuration is required")
+	}
+	if store.config.Password == "" {
+		return errors.New("password configuration is required")
 	}
 
 	store.logger.Infof("Parsed config: hosts=%s, port=%s, space=%s", 
@@ -114,7 +128,7 @@ func (store *NebulaStateStore) GetComponentMetadata() map[string]string {
 	return map[string]string{
 		"type":    "state",
 		"version": "v1",
-		"author":  "NebulaGraph Team",
+		"author":  "NebulaGraph Team", 
 		"url":     "https://github.com/vesoft-inc/nebula",
 	}
 }
@@ -190,32 +204,7 @@ func (store *NebulaStateStore) Get(ctx context.Context, req *state.GetRequest) (
 	}
 	defer session.Release()
 
-	// First, let's see what vertices exist to debug the key format
-	debugQuery := fmt.Sprintf("USE %s; MATCH (v:state) RETURN id(v) LIMIT 10", store.config.Space)
-	store.logger.Debugf("Executing debug query: %s", debugQuery)
-	debugResp, err := session.Execute(debugQuery)
-	if err != nil {
-		store.logger.Errorf("Debug query failed: %v", err)
-		return nil, fmt.Errorf("debug query failed: %w", err)
-	}
-
-	if debugResp != nil && debugResp.IsSucceed() && debugResp.GetRowSize() > 0 {
-		store.logger.Debugf("Found %d vertices in database", debugResp.GetRowSize())
-		for i := 0; i < debugResp.GetRowSize(); i++ {
-			if record, err := debugResp.GetRowValuesByIndex(i); err == nil {
-				if idVal, err := record.GetValueByIndex(0); err == nil {
-					if idStr, err := idVal.AsString(); err == nil {
-						store.logger.Debugf("Vertex ID: %s", idStr)
-					}
-				}
-			}
-		}
-	} else {
-		store.logger.Debug("No vertices found or query failed")
-	}
-
-	// Try multiple approaches to find the vertex since Dapr adds prefixes
-	// First try with CONTAINS for the key
+	// Try to fetch the vertex with the key
 	query := fmt.Sprintf("USE %s; MATCH (v:state) WHERE id(v) CONTAINS '%s' RETURN v.state.data AS data", store.config.Space, req.Key)
 	store.logger.Debugf("Executing query: %s", query)
 	resp, err := session.Execute(query)
