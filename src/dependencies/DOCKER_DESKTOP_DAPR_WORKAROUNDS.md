@@ -175,7 +175,7 @@ Test your NebulaGraph + Redis Dapr setup:
 ```bash
 # Test state store (NebulaGraph backend)
 cd ../examples/NebulaGraphTestHttpApi
-./test_http.sh test
+./test_net.sh test
 
 # Test pub/sub (Redis backend)  
 dapr run --app-id test-app --components-path ../../components \
