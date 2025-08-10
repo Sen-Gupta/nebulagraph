@@ -202,117 +202,39 @@ check_status() {
     fi
 }
 
-run_testsuite_tests() {
-    print_header "Running Comprehensive StateStore Controller Tests"
+run_controller_tests() {
+    print_header "Running StateStore Controller Test Suites"
     
-    local test_base_url="http://localhost:$TEST_API_HOST_PORT/api/statestore"
-    local test_count=0
-    local passed_count=0
-    local failed_count=0
+    local api_base_url="http://localhost:$TEST_API_HOST_PORT/api/statestore"
     
-    # Array of test endpoints to execute
-    local test_endpoints=(
-        "basic-crud"
-        "json-handling" 
-        "bulk-operations"
-        "unicode-support"
-        "large-data"
-        "empty-values"
-        "special-characters"
-        "numeric-data"
-        "boolean-data"
-        "complex-json"
-        "array-data"
-        "nested-objects"
-        "data-consistency"
-        "error-handling"
-        "performance-basic"
-        "concurrent-read-write"
-        "concurrent-bulk-ops"
-        "edge-case-keys"
-        "edge-case-values"
-        "edge-case-operations"
-        "stress-sequential"
-        "stress-concurrent"
-        "integrity-validation"
-        "integrity-recovery"
-        "schema-basic"
-        "schema-complex"
-        "transaction-simulation"
-        "query-simulation"
-        "cleanup-performance"
-        "final-cleanup"
-    )
+    print_info "Running comprehensive test suite..."
     
-    print_info "Executing ${#test_endpoints[@]} comprehensive test cases..."
+    # Run the comprehensive test suite endpoint
+    response=$(curl -s --connect-timeout 60 -w "%{http_code}" \
+        -X POST "$api_base_url/run/comprehensive" \
+        -H "Content-Type: application/json" 2>/dev/null)
     
-    for endpoint in "${test_endpoints[@]}"; do
-        test_count=$((test_count + 1))
-        print_info "[$test_count/${#test_endpoints[@]}] Running test: $endpoint"
+    # Extract HTTP status code (last 3 characters)
+    http_code="${response: -3}"
+    # Extract response body (everything except last 3 characters) 
+    response_body="${response%???}"
+    
+    if [[ "$http_code" == "200" ]]; then
+        print_success "✅ Comprehensive test suite completed successfully"
         
-        # Execute the test endpoint
-        response=$(curl -s --connect-timeout 15 -w "%{http_code}" \
-            -X POST "$test_base_url/$endpoint" \
-            -H "Content-Type: application/json" 2>/dev/null)
-        
-        # Extract HTTP status code (last 3 characters)
-        http_code="${response: -3}"
-        # Extract response body (everything except last 3 characters)
-        response_body="${response%???}"
-        
-        if [[ "$http_code" == "200" ]]; then
-            # Check if response indicates success
-            if echo "$response_body" | grep -qi "success\|passed\|completed"; then
-                print_success "✅ Test $endpoint passed"
-                passed_count=$((passed_count + 1))
-            else
-                print_warning "⚠️ Test $endpoint completed with warnings"
-                if [[ ${#response_body} -lt 200 ]]; then
-                    print_info "Response: $response_body"
-                fi
-                passed_count=$((passed_count + 1))
-            fi
-        elif [[ "$http_code" == "404" ]]; then
-            print_warning "⚠️ Test endpoint $endpoint not found (may not be implemented)"
-            failed_count=$((failed_count + 1))
+        # Try to extract summary from response
+        if echo "$response_body" | grep -qi "passed.*failed"; then
+            print_info "Test Results Summary:"
+            echo "$response_body" | grep -i "passed\|failed\|success" | head -5
         else
-            print_error "❌ Test $endpoint failed (HTTP $http_code)"
-            if [[ ${#response_body} -lt 200 ]]; then
-                print_info "Response: $response_body"
-            fi
-            failed_count=$((failed_count + 1))
+            print_info "Test suite completed - check logs for detailed results"
         fi
-        
-        # Brief pause between tests
-        sleep 0.5
-    done
-    
-    # Summary
-    print_header "StateStore Controller Results Summary"
-    print_info "Total Tests: $test_count"
-    print_success "Passed: $passed_count"
-    if [[ $failed_count -gt 0 ]]; then
-        print_error "Failed: $failed_count"
-    else
-        print_success "Failed: $failed_count"
-    fi
-    
-    # Calculate success rate
-    if [[ $test_count -gt 0 ]]; then
-        local success_rate=$((passed_count * 100 / test_count))
-        if [[ $success_rate -ge 90 ]]; then
-            print_success "Success Rate: $success_rate% - Excellent!"
-        elif [[ $success_rate -ge 75 ]]; then
-            print_success "Success Rate: $success_rate% - Good"
-        else
-            print_warning "Success Rate: $success_rate% - Needs attention"
-        fi
-    fi
-    
-    # Return success if most tests passed
-    if [[ $passed_count -gt $((test_count / 2)) ]]; then
         return 0
     else
+        print_error "❌ Comprehensive test suite failed (HTTP $http_code)"
+        if [[ ${#response_body} -lt 500 ]]; then
+            print_info "Response: $response_body"
+        fi
         return 1
     fi
 }
@@ -395,7 +317,7 @@ test_services() {
         
         # Run comprehensive StateStore controller tests
         print_info "Running comprehensive StateStore controller tests..."
-        run_testsuite_tests
+        run_controller_tests
     else
         print_warning "NebulaGraph state store component not found in metadata"
         print_info "Available components:"
