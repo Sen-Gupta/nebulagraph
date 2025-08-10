@@ -13,7 +13,7 @@ func main() {
 
 	dapr.Register("nebulagraph-state", dapr.WithStateStore(func() state.Store {
 		fmt.Println("DEBUG: Factory function called - creating new NebulaStateStore instance")
-		store := &stores.NebulaStateStore{}
+		store := stores.NewNebulaStateStore(nil) // Use the proper constructor
 		fmt.Printf("DEBUG: Created store instance: %p\n", store)
 		return store
 	}))
