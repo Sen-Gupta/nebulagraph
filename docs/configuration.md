@@ -12,7 +12,7 @@ cd src/dependencies
 
 # 2. Run component
 cd ../dapr-pluggable-components  
-./run_docker_pluggable.sh start
+./run_nebula.sh start
 
 # 3. Test
 ./tests/test_all.sh
@@ -279,7 +279,7 @@ cd src/dependencies
 
 # Start component
 cd ../dapr-pluggable-components
-./run_docker_pluggable.sh start
+./run_nebula.sh start
 
 # Run tests
 ./tests/test_all.sh

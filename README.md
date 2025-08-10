@@ -35,7 +35,7 @@ cd src/dependencies
 
 # 2. Run the Dapr component
 cd ../dapr-pluggable-components
-./run_docker_pluggable.sh start
+./run_nebula.sh start
 
 # 3. Test all operations
 ./tests/test_all.sh

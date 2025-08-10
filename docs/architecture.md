@@ -306,7 +306,7 @@ graph LR
 cd src/dependencies && ./environment_setup.sh
 
 # Component
-cd src/dapr-pluggable-components && ./run_docker_pluggable.sh start
+cd src/dapr-pluggable-components && ./run_nebula.sh start
 ```
 
 ### Kubernetes Deployment

@@ -127,9 +127,9 @@ else
     
     echo ""
     echo "General troubleshooting:"
-    echo "  • Component status: ./run_docker_pluggable.sh status"
+    echo "  • Component status: ./run_nebula.sh status"
     echo "  • NebulaGraph deps: cd ../dependencies && ./environment_setup.sh status"
-    echo "  • Component logs: ./run_docker_pluggable.sh logs"
+    echo "  • Component logs: ./run_nebula.sh logs"
     echo "  • Network check: docker network ls | grep $NEBULA_NETWORK_NAME"
     
     exit 1

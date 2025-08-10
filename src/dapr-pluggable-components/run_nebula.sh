@@ -386,11 +386,11 @@ main() {
     
     echo -e "\n${BLUE}Next steps:${NC}"
     echo -e "  • Test state operations: curl http://localhost:$NEBULA_HTTP_PORT/v1.0/state/nebulagraph-state/your-key"
-    echo -e "  • View logs: ./run_docker_pluggable.sh logs"
-    echo -e "  • Stop component: ./run_docker_pluggable.sh stop"
-    echo -e "  • Check status: ./run_docker_pluggable.sh status"
-    echo -e "  • Run comprehensive tests: ./run_docker_pluggable.sh test (54 tests via tests/test_all.sh)"
-    echo -e "  • Quick health check: ./run_docker_pluggable.sh health"
+    echo -e "  • View logs: ./run_nebula.sh logs"
+    echo -e "  • Stop component: ./run_nebula.sh stop"
+    echo -e "  • Check status: ./run_nebula.sh status"
+    echo -e "  • Run comprehensive tests: ./run_nebula.sh test (54 tests via tests/test_all.sh)"
+    echo -e "  • Quick health check: ./run_nebula.sh health"
     
     echo ""
 }

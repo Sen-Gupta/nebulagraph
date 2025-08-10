@@ -17,7 +17,7 @@ cd ../dependencies
 
 # Run the component
 cd ../dapr-pluggable-components
-./run_docker_pluggable.sh start
+./run_nebula.sh start
 
 # Test all operations
 ./tests/test_all.sh
@@ -50,7 +50,7 @@ The component implements the Dapr pluggable state store interface and connects t
 
 ## Management Scripts
 
-- `./run_docker_pluggable.sh start` - Deploy component
-- `./run_docker_pluggable.sh status` - Check status
-- `./run_docker_pluggable.sh stop` - Stop component
-- `./run_docker_pluggable.sh clean` - Clean reset
+- `./run_nebula.sh start` - Deploy component
+- `./run_nebula.sh status` - Check status
+- `./run_nebula.sh stop` - Stop component
+- `./run_nebula.sh clean` - Clean reset

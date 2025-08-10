@@ -110,7 +110,7 @@ check_prerequisites() {
     # Check if Dapr gRPC is running
     if ! nc -z localhost $DAPR_GRPC_PORT 2>/dev/null; then
         print_fail "Dapr gRPC is not running on localhost:$DAPR_GRPC_PORT"
-        print_info "Please start the Dapr component with: ./run_docker_pluggable.sh start"
+        print_info "Please start the Dapr component with: ./run_nebula.sh start"
         return 1
     else
         print_pass "Dapr gRPC runtime is accessible on localhost:$DAPR_GRPC_PORT"
