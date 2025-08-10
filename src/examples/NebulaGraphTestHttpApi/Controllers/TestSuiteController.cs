@@ -58,8 +58,8 @@ public class TestSuiteController : ControllerBase
             {
                 var jsonObj = new { message = "This is a JSON value", timestamp = "2025-07-30" };
                 await _daprClient.SaveStateAsync(StateStoreName, "test-key-2", jsonObj);
-                var retrieved = await _daprClient.GetStateAsync<dynamic>(StateStoreName, "test-key-2");
-                return retrieved != null;
+                var retrieved = await _daprClient.GetStateAsync<JsonElement>(StateStoreName, "test-key-2");
+                return retrieved.ValueKind != JsonValueKind.Undefined;
             });
 
             // Test 4: BULK GET Operation
@@ -67,11 +67,15 @@ public class TestSuiteController : ControllerBase
             {
                 var keys = new[] { "test-key-1", "test-key-2" };
                 var foundCount = 0;
-                foreach (var key in keys)
-                {
-                    var value = await _daprClient.GetStateAsync<string>(StateStoreName, key);
-                    if (!string.IsNullOrEmpty(value)) foundCount++;
-                }
+                
+                // Get string value
+                var stringValue = await _daprClient.GetStateAsync<string>(StateStoreName, "test-key-1");
+                if (!string.IsNullOrEmpty(stringValue)) foundCount++;
+                
+                // Get JSON value  
+                var jsonValue = await _daprClient.GetStateAsync<JsonElement>(StateStoreName, "test-key-2");
+                if (jsonValue.ValueKind != JsonValueKind.Undefined) foundCount++;
+                
                 return foundCount == 2;
             });
 
@@ -118,22 +122,36 @@ public class TestSuiteController : ControllerBase
             // Test 9: Verifying BULK SET with Individual GETs
             await RunTestStep(testResults, "9. Verifying BULK SET with Individual GETs", async () =>
             {
-                var keys = new[] { "bulk-test-1", "bulk-test-2", "bulk-test-3", "bulk-test-4", "bulk-test-5" };
+                var stringKeys = new[] { "bulk-test-1", "bulk-test-3", "bulk-test-5" };
+                var jsonKeys = new[] { "bulk-test-2", "bulk-test-4" };
                 var foundCount = 0;
-                foreach (var key in keys)
+                
+                // Check string values
+                foreach (var key in stringKeys)
                 {
                     var value = await _daprClient.GetStateAsync<string>(StateStoreName, key);
                     if (!string.IsNullOrEmpty(value)) foundCount++;
                 }
+                
+                // Check JSON values
+                foreach (var key in jsonKeys)
+                {
+                    var value = await _daprClient.GetStateAsync<JsonElement>(StateStoreName, key);
+                    if (value.ValueKind != JsonValueKind.Undefined) foundCount++;
+                }
+                
                 return foundCount == 5;
             });
 
             // Test 10: Testing BULK GET Operation
             await RunTestStep(testResults, "10. Testing BULK GET Operation", async () =>
             {
-                var keys = new[] { "bulk-test-1", "bulk-test-2", "bulk-test-3", "bulk-test-4", "bulk-test-5" };
+                var stringKeys = new[] { "bulk-test-1", "bulk-test-3", "bulk-test-5" };
+                var jsonKeys = new[] { "bulk-test-2", "bulk-test-4" };
                 var results = new List<object>();
-                foreach (var key in keys)
+                
+                // Get string values
+                foreach (var key in stringKeys)
                 {
                     var value = await _daprClient.GetStateAsync<string>(StateStoreName, key);
                     if (!string.IsNullOrEmpty(value))
@@ -141,6 +159,17 @@ public class TestSuiteController : ControllerBase
                         results.Add(new { key, data = value });
                     }
                 }
+                
+                // Get JSON values  
+                foreach (var key in jsonKeys)
+                {
+                    var value = await _daprClient.GetStateAsync<JsonElement>(StateStoreName, key);
+                    if (value.ValueKind != JsonValueKind.Undefined)
+                    {
+                        results.Add(new { key, data = value.ToString() });
+                    }
+                }
+                
                 return results.Count == 5;
             });
 
@@ -201,13 +230,22 @@ public class TestSuiteController : ControllerBase
             await RunTestStep(testResults, "14. Testing Basic Query API", async () =>
             {
                 // Simulate query functionality by checking known data
-                var queryKeys = new[] { "query-user-001", "query-product-001" };
+                var stringKeys = new[] { "query-user-001" };
+                var jsonKeys = new[] { "query-product-001" };
                 var foundCount = 0;
-                foreach (var key in queryKeys)
+                
+                foreach (var key in stringKeys)
                 {
-                    var value = await _daprClient.GetStateAsync<string>(StateStoreName, key);
-                    if (!string.IsNullOrEmpty(value)) foundCount++;
+                    var value = await _daprClient.GetStateAsync<JsonElement>(StateStoreName, key);
+                    if (value.ValueKind != JsonValueKind.Undefined) foundCount++;
                 }
+                
+                foreach (var key in jsonKeys)
+                {
+                    var value = await _daprClient.GetStateAsync<JsonElement>(StateStoreName, key);
+                    if (value.ValueKind != JsonValueKind.Undefined) foundCount++;
+                }
+                
                 return foundCount >= 1; // At least one query result
             });
 
@@ -316,9 +354,9 @@ public class TestSuiteController : ControllerBase
                 var testKey = "quick-test-json";
                 var jsonObj = new { message = "quick test", timestamp = DateTime.UtcNow };
                 await _daprClient.SaveStateAsync(StateStoreName, testKey, jsonObj);
-                var retrieved = await _daprClient.GetStateAsync<dynamic>(StateStoreName, testKey);
+                var retrieved = await _daprClient.GetStateAsync<JsonElement>(StateStoreName, testKey);
                 await _daprClient.DeleteStateAsync(StateStoreName, testKey);
-                return retrieved != null;
+                return retrieved.ValueKind != JsonValueKind.Undefined;
             });
 
             // Quick Test 3: Performance
