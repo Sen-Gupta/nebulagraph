@@ -16,6 +16,8 @@ import (
 
 // NebulaStateStore is a production-ready state store implementation for NebulaGraph.
 type NebulaStateStore struct {
+	state.BulkStore
+	
 	pool   *nebula.ConnectionPool
 	config NebulaConfig
 	logger logger.Logger
@@ -28,6 +30,9 @@ var _ state.Store = (*NebulaStateStore)(nil)
 
 // Compile time check to ensure NebulaStateStore implements state.Querier
 var _ state.Querier = (*NebulaStateStore)(nil)
+
+// Compile time check to ensure NebulaStateStore implements state.BulkStore
+var _ state.BulkStore = (*NebulaStateStore)(nil)
 
 type NebulaConfig struct {
 	Hosts    string `json:"hosts"` // Changed to string for comma-separated values
@@ -52,6 +57,14 @@ func (store *NebulaStateStore) Init(ctx context.Context, metadata state.Metadata
 	case <-ctx.Done():
 		return ctx.Err()
 	default:
+	}
+
+	// Validate required metadata properties
+	requiredProps := []string{"hosts", "port", "space", "username", "password"}
+	for _, prop := range requiredProps {
+		if value, exists := metadata.Properties[prop]; !exists || value == "" {
+			return fmt.Errorf("required metadata property '%s' is missing or empty", prop)
+		}
 	}
 
 	// Parse configuration from metadata
@@ -108,8 +121,8 @@ func (store *NebulaStateStore) GetComponentMetadata() map[string]string {
 
 func (store *NebulaStateStore) Features() []state.Feature {
 	// Return supported features for NebulaGraph state store
+	// Remove ETag support since we don't implement it
 	return []state.Feature{
-		state.FeatureETag,
 		state.FeatureTransactional,
 		state.FeatureQueryAPI,
 	}
