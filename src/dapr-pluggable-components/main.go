@@ -6,6 +6,7 @@ import (
 
 	dapr "github.com/dapr-sandbox/components-go-sdk"
 	"github.com/dapr-sandbox/components-go-sdk/state/v1"
+	"github.com/dapr/kit/logger"
 )
 
 func main() {
@@ -13,7 +14,7 @@ func main() {
 
 	dapr.Register("nebulagraph-state", dapr.WithStateStore(func() state.Store {
 		fmt.Println("DEBUG: Factory function called - creating new NebulaStateStore instance")
-		store := stores.NewNebulaStateStore(nil) // Use the proper constructor
+		store := stores.NewNebulaStateStore(logger.NewLogger("nebulagraph-state"))
 		fmt.Printf("DEBUG: Created store instance: %p\n", store)
 		return store
 	}))

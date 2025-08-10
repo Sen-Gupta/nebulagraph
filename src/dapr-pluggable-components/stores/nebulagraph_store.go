@@ -5,9 +5,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math/rand"
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/dapr/components-contrib/state"
 	"github.com/dapr/kit/logger"
@@ -35,11 +37,16 @@ var _ state.Querier = (*NebulaStateStore)(nil)
 var _ state.BulkStore = (*NebulaStateStore)(nil)
 
 type NebulaConfig struct {
-	Hosts    string `json:"hosts" mapstructure:"hosts"`       // Changed to string for comma-separated values
-	Port     string `json:"port" mapstructure:"port"`         // Changed to string to handle Dapr metadata
-	Username string `json:"username" mapstructure:"username"`
-	Password string `json:"password" mapstructure:"password"`
-	Space    string `json:"space" mapstructure:"space"`
+	Hosts               string `json:"hosts" mapstructure:"hosts"`             // Changed to string for comma-separated values
+	Port                string `json:"port" mapstructure:"port"`               // Changed to string to handle Dapr metadata
+	Username            string `json:"username" mapstructure:"username"`
+	Password            string `json:"password" mapstructure:"password"`
+	Space               string `json:"space" mapstructure:"space"`
+	ConnectionTimeout   string `json:"connectionTimeout" mapstructure:"connectionTimeout"`
+	ExecutionTimeout    string `json:"executionTimeout" mapstructure:"executionTimeout"`
+	MaxConnPoolSize     string `json:"maxConnPoolSize" mapstructure:"maxConnPoolSize"`
+	MinConnPoolSize     string `json:"minConnPoolSize" mapstructure:"minConnPoolSize"`
+	IdleTime            string `json:"idleTime" mapstructure:"idleTime"`
 }
 
 // NewNebulaStateStore creates a new instance of NebulaStateStore.
@@ -117,6 +124,51 @@ func (store *NebulaStateStore) Init(ctx context.Context, metadata state.Metadata
 	}
 
 	poolConfig := nebula.GetDefaultConf()
+	
+	// Parse and apply connection pool configuration from metadata
+	if store.config.MaxConnPoolSize != "" {
+		if maxSize, err := strconv.Atoi(store.config.MaxConnPoolSize); err == nil {
+			poolConfig.MaxConnPoolSize = maxSize
+		} else {
+			store.logger.Warnf("Invalid maxConnPoolSize value: %s, using default: %d", store.config.MaxConnPoolSize, poolConfig.MaxConnPoolSize)
+		}
+	} else {
+		poolConfig.MaxConnPoolSize = 50 // Default enhanced value
+	}
+	
+	if store.config.MinConnPoolSize != "" {
+		if minSize, err := strconv.Atoi(store.config.MinConnPoolSize); err == nil {
+			poolConfig.MinConnPoolSize = minSize
+		} else {
+			store.logger.Warnf("Invalid minConnPoolSize value: %s, using default: %d", store.config.MinConnPoolSize, poolConfig.MinConnPoolSize)
+		}
+	} else {
+		poolConfig.MinConnPoolSize = 5 // Default enhanced value
+	}
+	
+	if store.config.ConnectionTimeout != "" {
+		if timeout, err := time.ParseDuration(store.config.ConnectionTimeout); err == nil {
+			poolConfig.TimeOut = timeout
+		} else {
+			store.logger.Warnf("Invalid connectionTimeout value: %s, using default: %s", store.config.ConnectionTimeout, poolConfig.TimeOut)
+		}
+	} else {
+		poolConfig.TimeOut = 10 * time.Second // 10 second default
+	}
+	
+	if store.config.IdleTime != "" {
+		if idleTime, err := time.ParseDuration(store.config.IdleTime); err == nil {
+			poolConfig.IdleTime = idleTime
+		} else {
+			store.logger.Warnf("Invalid idleTime value: %s, using default: %s", store.config.IdleTime, poolConfig.IdleTime)
+		}
+	} else {
+		poolConfig.IdleTime = 8 * time.Hour // 8 hours default
+	}
+	
+	store.logger.Infof("NebulaGraph connection pool configuration: maxSize=%d, minSize=%d, timeout=%s, idleTime=%s", 
+		poolConfig.MaxConnPoolSize, poolConfig.MinConnPoolSize, poolConfig.TimeOut, poolConfig.IdleTime)
+	
 	pool, err := nebula.NewConnectionPool(hostList, poolConfig, nebula.DefaultLogger{})
 	if err != nil {
 		store.logger.Errorf("Failed to create connection pool: %v", err)
@@ -146,6 +198,50 @@ func (store *NebulaStateStore) Features() []state.Feature {
 	}
 }
 
+// getSessionWithRetry attempts to get a session with retry logic for connection pool exhaustion
+func (store *NebulaStateStore) getSessionWithRetry(maxRetries int) (*nebula.Session, error) {
+	var session *nebula.Session
+	var err error
+	
+	for retry := 0; retry <= maxRetries; retry++ {
+		session, err = store.pool.GetSession(store.config.Username, store.config.Password)
+		if err == nil {
+			// Validate session health with a simple query
+			if session != nil {
+				resp, pingErr := session.Execute("YIELD 1")
+				if pingErr == nil && resp.IsSucceed() {
+					return session, nil
+				} else {
+					// Session is unhealthy, release and retry
+					session.Release()
+					err = errors.New("session ping failed: session unhealthy")
+				}
+			}
+		}
+		
+		// Check if it's a connection pool exhaustion error or connection issue
+		if strings.Contains(err.Error(), "pool capacity") || 
+		   strings.Contains(err.Error(), "No valid connection") ||
+		   strings.Contains(err.Error(), "connection") ||
+		   strings.Contains(err.Error(), "ping failed") {
+			if retry < maxRetries {
+				store.logger.Warnf("Connection issue, retrying (%d/%d): %v", retry+1, maxRetries, err)
+				// Enhanced exponential backoff with jitter
+				baseWait := time.Duration(100*(retry+1)) * time.Millisecond
+				jitter := time.Duration(rand.Intn(50)) * time.Millisecond
+				waitTime := baseWait + jitter
+				time.Sleep(waitTime)
+				continue
+			}
+		}
+		
+		// For other errors or max retries reached, return the error
+		return nil, err
+	}
+	
+	return nil, err
+}
+
 func (store *NebulaStateStore) Delete(ctx context.Context, req *state.DeleteRequest) error {
 	if req.Key == "" {
 		return errors.New("key cannot be empty")
@@ -162,7 +258,7 @@ func (store *NebulaStateStore) Delete(ctx context.Context, req *state.DeleteRequ
 		return errors.New("connection pool not initialized")
 	}
 
-	session, err := store.pool.GetSession(store.config.Username, store.config.Password)
+	session, err := store.getSessionWithRetry(3) // Retry up to 3 times
 	if err != nil {
 		store.logger.Errorf("Failed to get session for delete: %v", err)
 		return fmt.Errorf("failed to get session: %w", err)
@@ -201,7 +297,7 @@ func (store *NebulaStateStore) Get(ctx context.Context, req *state.GetRequest) (
 		return nil, errors.New("connection pool not initialized")
 	}
 
-	session, err := store.pool.GetSession(store.config.Username, store.config.Password)
+	session, err := store.getSessionWithRetry(3) // Retry up to 3 times
 	if err != nil {
 		store.logger.Errorf("Failed to get session: %v", err)
 		return nil, fmt.Errorf("failed to get session: %w", err)
@@ -279,7 +375,7 @@ func (store *NebulaStateStore) Set(ctx context.Context, req *state.SetRequest) e
 
 	store.logger.Debugf("Setting value for key: %s", req.Key)
 
-	session, err := store.pool.GetSession(store.config.Username, store.config.Password)
+	session, err := store.getSessionWithRetry(3) // Retry up to 3 times
 	if err != nil {
 		store.logger.Errorf("Failed to get session for set: %v", err)
 		return fmt.Errorf("failed to get session: %w", err)
@@ -329,7 +425,7 @@ func (store *NebulaStateStore) BulkGet(ctx context.Context, req []state.GetReque
 		return nil, errors.New("connection pool not initialized")
 	}
 
-	session, err := store.pool.GetSession(store.config.Username, store.config.Password)
+	session, err := store.getSessionWithRetry(3) // Retry up to 3 times
 	if err != nil {
 		store.logger.Errorf("Failed to get session for bulk get: %v", err)
 		return nil, fmt.Errorf("failed to get session: %w", err)
@@ -457,7 +553,7 @@ func (store *NebulaStateStore) BulkDelete(ctx context.Context, req []state.Delet
 		return errors.New("connection pool not initialized")
 	}
 
-	session, err := store.pool.GetSession(store.config.Username, store.config.Password)
+	session, err := store.getSessionWithRetry(3) // Retry up to 3 times
 	if err != nil {
 		store.logger.Errorf("Failed to get session for bulk delete: %v", err)
 		return fmt.Errorf("failed to get session: %w", err)
@@ -530,7 +626,7 @@ func (store *NebulaStateStore) BulkSet(ctx context.Context, req []state.SetReque
 		return errors.New("connection pool not initialized")
 	}
 
-	session, err := store.pool.GetSession(store.config.Username, store.config.Password)
+	session, err := store.getSessionWithRetry(3) // Retry up to 3 times
 	if err != nil {
 		store.logger.Errorf("Failed to get session for bulk set: %v", err)
 		return fmt.Errorf("failed to get session: %w", err)
@@ -610,7 +706,7 @@ func (store *NebulaStateStore) Query(ctx context.Context, req *state.QueryReques
 		return nil, errors.New("connection pool not initialized")
 	}
 
-	session, err := store.pool.GetSession(store.config.Username, store.config.Password)
+	session, err := store.getSessionWithRetry(3) // Retry up to 3 times
 	if err != nil {
 		store.logger.Errorf("Failed to get session for query: %v", err)
 		return nil, fmt.Errorf("failed to get session: %w", err)
