@@ -132,7 +132,7 @@ start_testapi() {
         
         # Wait for services to be ready
         print_info "Waiting for services to initialize..."
-        sleep 10
+        sleep 15
         
         # Check if containers are running
         local api_running=$($compose_cmd ps -q nebulagraph-net-example 2>/dev/null)
@@ -242,7 +242,7 @@ run_controller_tests() {
 test_services() {
     print_header "Testing Docker-Based TestAPI Services"
     
-    sleep 5  # Give services more time to start and load components
+    sleep 15  # Give services more time to start and load components - Dapr needs time for init
     
     # Test TestAPI health first
     print_info "Testing TestAPI health..."
@@ -317,6 +317,8 @@ test_services() {
         
         # Run comprehensive StateStore controller tests
         print_info "Running comprehensive StateStore controller tests..."
+        print_info "Waiting additional 10 seconds for NebulaGraph component initialization..."
+        sleep 10
         run_controller_tests
     else
         print_warning "NebulaGraph state store component not found in metadata"
