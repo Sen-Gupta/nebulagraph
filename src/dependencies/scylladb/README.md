@@ -32,11 +32,10 @@ This directory contains the Docker Compose setup for ScyllaDB to be used as a Da
 - **7199**: JMX monitoring
 - **10000**: REST API
 - **9180**: Prometheus metrics
-- **7000**: Inter-node communication
-- **7001**: SSL Inter-node communication
-- **5080**: ScyllaDB Manager Web UI
-- **5090**: ScyllaDB Manager API
-- **6381**: Redis (for pub/sub)
+- **7002**: Inter-node communication (host port, maps to container 7000)
+- **7003**: SSL Inter-node communication (host port, maps to container 7001)
+- **5081**: ScyllaDB Manager Web UI (changed from 5080 to avoid conflicts)
+- **5091**: ScyllaDB Manager API (changed from 5090 to avoid conflicts)
 
 ## Database Details
 
@@ -50,7 +49,7 @@ This directory contains the Docker Compose setup for ScyllaDB to be used as a Da
 
 ## Management
 
-- **Web UI**: http://localhost:5080 (ScyllaDB Manager)
+- **Web UI**: http://localhost:5081 (ScyllaDB Manager - updated port)
 - **CQL Shell**: `docker exec -it scylladb-node1 cqlsh`
 - **Logs**: `docker-compose logs -f scylladb-node1`
 

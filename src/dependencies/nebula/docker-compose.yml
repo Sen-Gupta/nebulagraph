@@ -1,0 +1,142 @@
+# Copyright 2022 The Dapr Authors
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#     http://www.apache.org/licenses/LICENSE-2.0
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+services:
+  # NebulaGraph Meta Service
+  nebula-metad:
+    image: vesoft/nebula-metad:v3.8.0
+    container_name: nebula-metad
+    restart: unless-stopped
+    ports:
+      - "${NEBULA_META_PORT:-9559}:${NEBULA_META_PORT:-9559}"
+      - "${NEBULA_META_HTTP_PORT:-19559}:${NEBULA_META_HTTP_PORT:-19559}"
+    environment:
+      - USER=root
+    volumes:
+      - nebula-meta:/usr/local/nebula/data
+      - nebula-logs:/usr/local/nebula/logs
+    networks:
+      - nebula-net
+    command:
+      - --meta_server_addrs=nebula-metad:${NEBULA_META_PORT:-9559}
+      - --local_ip=nebula-metad
+      - --ws_ip=nebula-metad
+      - --port=${NEBULA_META_PORT:-9559}
+      - --ws_http_port=${NEBULA_META_HTTP_PORT:-19559}
+
+  # NebulaGraph Storage Service
+  nebula-storaged:
+    image: vesoft/nebula-storaged:v3.8.0
+    container_name: nebula-storaged
+    restart: unless-stopped
+    ports:
+      - "${NEBULA_STORAGE_PORT:-9779}:${NEBULA_STORAGE_PORT:-9779}"
+      - "${NEBULA_STORAGE_HTTP_PORT:-19779}:${NEBULA_STORAGE_HTTP_PORT:-19779}"
+    environment:
+      - USER=root
+    volumes:
+      - nebula-storage:/usr/local/nebula/data
+      - nebula-logs:/usr/local/nebula/logs
+    networks:
+      - nebula-net
+    depends_on:
+      - nebula-metad
+    command:
+      - --meta_server_addrs=nebula-metad:${NEBULA_META_PORT:-9559}
+      - --local_ip=nebula-storaged
+      - --ws_ip=nebula-storaged
+      - --port=${NEBULA_STORAGE_PORT:-9779}
+      - --ws_http_port=${NEBULA_STORAGE_HTTP_PORT:-19779}
+
+  # NebulaGraph Graph Service
+  nebula-graphd:
+    image: vesoft/nebula-graphd:v3.8.0
+    container_name: nebula-graphd
+    restart: unless-stopped
+    ports:
+      - "${NEBULA_PORT:-9669}:${NEBULA_PORT:-9669}"
+      - "${NEBULA_HTTP_PORT:-19669}:${NEBULA_HTTP_PORT:-19669}"
+    environment:
+      - USER=root
+    volumes:
+      - nebula-data:/usr/local/nebula/data
+      - nebula-logs:/usr/local/nebula/logs
+    networks:
+      - nebula-net
+    depends_on:
+      - nebula-metad
+      - nebula-storaged
+    command:
+      - --meta_server_addrs=nebula-metad:${NEBULA_META_PORT:-9559}
+      - --local_ip=nebula-graphd
+      - --ws_ip=nebula-graphd
+      - --port=${NEBULA_PORT:-9669}
+      - --ws_http_port=${NEBULA_HTTP_PORT:-19669}
+
+  # NebulaGraph Console (for management)
+  nebula-console:
+    image: vesoft/nebula-console:v3.8.0
+    container_name: nebula-console
+    networks:
+      - nebula-net
+    depends_on:
+      - nebula-graphd
+    stdin_open: true
+    tty: true
+    command: ["nebula-console", "-addr", "nebula-graphd", "-port", "${NEBULA_PORT:-9669}", "-u", "root", "-p", "nebula"]
+
+  # NebulaGraph Studio (web-based management interface)
+  nebula-studio:
+    image: vesoft/nebula-graph-studio:v3.8.0
+    container_name: nebula-studio
+    environment:
+      - USER=root
+    networks:
+      - nebula-net
+    ports:
+      - "${NEBULA_STUDIO_PORT:-7001}:7001"
+    depends_on:
+      - nebula-graphd
+    volumes:
+      - nebula-studio-data:/root/nebula-graph-studio/db
+
+  # Redis for Pub/Sub messaging
+  redis:
+    image: redis:7.0-alpine
+    container_name: redis
+    restart: unless-stopped
+    ports:
+      - "${REDIS_HOST_PORT:-6380}:6379"
+    environment:
+      - REDIS_ARGS=--requirepass ${REDIS_PASSWORD:-dapr_redis}
+    networks:
+      - nebula-net
+    volumes:
+      - redis-data:/data
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD:-dapr_redis}", "--appendonly", "yes"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-dapr_redis}", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+volumes:
+  nebula-data:
+  nebula-meta:
+  nebula-storage:
+  nebula-logs:
+  nebula-studio-data:
+  redis-data:
+
+networks:
+  nebula-net:
+    external: true
+    name: ${NEBULA_NETWORK_NAME:-nebula-net}

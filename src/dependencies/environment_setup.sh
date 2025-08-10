@@ -522,7 +522,7 @@ setup_docker_network() {
 start_nebula_cluster() {
     print_info "Starting NebulaGraph cluster..."
     
-    if [ -f "docker-compose.yml" ]; then
+    if [ -f "nebula/docker-compose.yml" ]; then
         local compose_cmd
         compose_cmd=$(get_docker_compose_cmd) || {
             print_error "Docker Compose is not installed or not in PATH"
@@ -537,6 +537,7 @@ start_nebula_cluster() {
         
         # Try to start the cluster
         print_info "Starting containers with docker-compose..."
+        cd nebula
         if $compose_cmd up -d; then
             print_success "NebulaGraph cluster started"
             print_info "Waiting for services to initialize..."
@@ -557,15 +558,18 @@ start_nebula_cluster() {
                     sleep 20
                 else
                     print_error "Failed to start NebulaGraph cluster after recreation"
+                    cd ..
                     return 1
                 fi
             else
                 print_error "Failed to recreate network"
+                cd ..
                 return 1
             fi
         fi
+        cd ..
     else
-        print_error "docker-compose.yml not found in current directory"
+        print_error "nebula/docker-compose.yml not found"
         return 1
     fi
 }
@@ -574,11 +578,13 @@ start_nebula_cluster() {
 initialize_nebula() {
     print_info "Initializing NebulaGraph cluster..."
     
-    if [ -f "init_nebula.sh" ]; then
+    if [ -f "nebula/init_nebula.sh" ]; then
+        cd nebula
         ./init_nebula.sh
+        cd ..
         print_success "NebulaGraph cluster initialized"
     else
-        print_error "init_nebula.sh not found in current directory"
+        print_error "nebula/init_nebula.sh not found"
         return 1
     fi
 }
@@ -637,16 +643,18 @@ wait_for_nebula_ready() {
 # Stop NebulaGraph cluster
 stop_nebula_cluster() {
     print_header "Stopping NebulaGraph Dependencies"
-    if [ -f "docker-compose.yml" ]; then
+    if [ -f "nebula/docker-compose.yml" ]; then
         local compose_cmd
         compose_cmd=$(get_docker_compose_cmd) || {
             print_error "Docker Compose is not installed or not in PATH"
             return 1
         }
+        cd nebula
         $compose_cmd down
+        cd ..
         print_success "NebulaGraph dependencies stopped"
     else
-        print_error "docker-compose.yml not found in current directory"
+        print_error "nebula/docker-compose.yml not found"
         return 1
     fi
 }
@@ -654,15 +662,17 @@ stop_nebula_cluster() {
 # Show cluster status
 show_nebula_status() {
     print_header "NebulaGraph Dependencies Status"
-    if [ -f "docker-compose.yml" ]; then
+    if [ -f "nebula/docker-compose.yml" ]; then
         local compose_cmd
         compose_cmd=$(get_docker_compose_cmd) || {
             print_error "Docker Compose is not installed or not in PATH"
             return 1
         }
+        cd nebula
         $compose_cmd ps
+        cd ..
     else
-        print_error "docker-compose.yml not found in current directory"
+        print_error "nebula/docker-compose.yml not found"
         return 1
     fi
 }
@@ -670,15 +680,17 @@ show_nebula_status() {
 # Show cluster logs
 show_nebula_logs() {
     print_header "NebulaGraph Dependencies Logs"
-    if [ -f "docker-compose.yml" ]; then
+    if [ -f "nebula/docker-compose.yml" ]; then
         local compose_cmd
         compose_cmd=$(get_docker_compose_cmd) || {
             print_error "Docker Compose is not installed or not in PATH"
             return 1
         }
+        cd nebula
         $compose_cmd logs -f
+        cd ..
     else
-        print_error "docker-compose.yml not found in current directory"
+        print_error "nebula/docker-compose.yml not found"
         return 1
     fi
 }
@@ -686,7 +698,7 @@ show_nebula_logs() {
 # Clean cluster (remove volumes and networks)
 clean_nebula_cluster() {
     print_header "Cleaning NebulaGraph Dependencies"
-    if [ -f "docker-compose.yml" ]; then
+    if [ -f "nebula/docker-compose.yml" ]; then
         local compose_cmd
         compose_cmd=$(get_docker_compose_cmd) || {
             print_error "Docker Compose is not installed or not in PATH"
@@ -694,7 +706,9 @@ clean_nebula_cluster() {
         }
         
         print_info "Stopping and removing containers and volumes..."
+        cd nebula
         $compose_cmd down -v --remove-orphans
+        cd ..
         
         # Also remove the network if it exists
         if docker network ls | grep -q "$NEBULA_NETWORK_NAME"; then
@@ -708,7 +722,7 @@ clean_nebula_cluster() {
         
         print_success "NebulaGraph dependencies cleaned"
     else
-        print_error "docker-compose.yml not found in current directory"
+        print_error "nebula/docker-compose.yml not found"
         return 1
     fi
 }
