@@ -135,6 +135,47 @@ initialize_dapr_with_workarounds() {
     return 1
 }
 
+# Connect Dapr containers to nebula-net network for Docker-based applications
+connect_dapr_to_nebula_network() {
+    print_info "Connecting Dapr containers to nebula-net network..."
+    
+    # Check if nebula-net exists
+    if ! docker network ls --filter "name=^${NEBULA_NETWORK_NAME}$" --format "{{.Name}}" | grep -q "^${NEBULA_NETWORK_NAME}$"; then
+        print_warning "nebula-net network does not exist yet"
+        return 0
+    fi
+    
+    # List of Dapr containers that need to be connected to nebula-net
+    local dapr_containers=("dapr_placement" "dapr_redis" "dapr_zipkin" "dapr_scheduler")
+    local connected_count=0
+    
+    for container in "${dapr_containers[@]}"; do
+        # Check if container exists and is running
+        if docker ps --filter "name=^${container}$" --format "{{.Names}}" | grep -q "^${container}$"; then
+            # Check if already connected to nebula-net
+            local networks=$(docker inspect "$container" --format '{{range $k, $v := .NetworkSettings.Networks}}{{$k}} {{end}}' 2>/dev/null)
+            if [[ $networks == *"$NEBULA_NETWORK_NAME"* ]]; then
+                print_info "Container $container already connected to $NEBULA_NETWORK_NAME"
+            else
+                # Connect to nebula-net
+                if docker network connect "$NEBULA_NETWORK_NAME" "$container" 2>/dev/null; then
+                    print_success "Connected $container to $NEBULA_NETWORK_NAME network"
+                    ((connected_count++))
+                else
+                    print_warning "Failed to connect $container to $NEBULA_NETWORK_NAME network"
+                fi
+            fi
+        else
+            print_info "Container $container not running, skipping..."
+        fi
+    done
+    
+    if [ $connected_count -gt 0 ]; then
+        print_success "Connected $connected_count Dapr container(s) to $NEBULA_NETWORK_NAME network"
+        print_info "Dapr placement service is now accessible at dapr_placement:50005"
+    fi
+}
+
 # Get Docker endpoint from current context
 get_docker_endpoint() {
     if ! command_exists docker; then
@@ -272,6 +313,7 @@ fix_docker_connectivity() {
 install_prerequisites() {
     print_header "Installing Missing Prerequisites"
     local install_needed=0
+    local install_failed=0
     
     # Install Go if missing
     if ! command_exists go; then
@@ -285,11 +327,11 @@ install_prerequisites() {
                 install_needed=1
             else
                 print_error "Failed to install Go"
-                return 1
+                install_failed=1
             fi
         else
             print_error "Failed to download Go"
-            return 1
+            install_failed=1
         fi
     fi
     
@@ -304,11 +346,15 @@ install_prerequisites() {
             echo 'export PATH=$PATH:$HOME/.dapr/bin' >> ~/.bashrc
             
             # Initialize Dapr with Docker Desktop compatibility
-            initialize_dapr_with_workarounds
-            install_needed=1
+            if initialize_dapr_with_workarounds; then
+                install_needed=1
+            else
+                print_error "Failed to initialize Dapr runtime"
+                install_failed=1
+            fi
         else
             print_error "Failed to install Dapr CLI"
-            return 1
+            install_failed=1
         fi
     else
         # Check if Dapr is initialized by checking for Dapr directory
@@ -319,16 +365,30 @@ install_prerequisites() {
             if [ -n "$dapr_containers" ]; then
                 print_success "Dapr runtime is already initialized (full installation with containers)"
                 print_info "Dapr Redis runs on port 6379, our Redis will use port $REDIS_HOST_PORT"
+                # Connect Dapr containers to nebula-net for Docker-based applications
+                connect_dapr_to_nebula_network
             else
                 print_warning "Dapr configuration exists but no containers are running"
                 print_info "Re-initializing Dapr with Docker Desktop compatibility..."
-                initialize_dapr_with_workarounds
-                install_needed=1
+                if initialize_dapr_with_workarounds; then
+                    install_needed=1
+                    # Connect Dapr containers to nebula-net after initialization
+                    connect_dapr_to_nebula_network
+                else
+                    print_error "Failed to re-initialize Dapr runtime"
+                    install_failed=1
+                fi
             fi
         else
             print_info "Dapr CLI found but runtime not initialized. Initializing with Docker Desktop compatibility..."
-            initialize_dapr_with_workarounds
-            install_needed=1
+            if initialize_dapr_with_workarounds; then
+                install_needed=1
+                # Connect Dapr containers to nebula-net after initialization
+                connect_dapr_to_nebula_network
+            else
+                print_error "Failed to initialize Dapr runtime"
+                install_failed=1
+            fi
         fi
     fi
     
@@ -344,11 +404,70 @@ install_prerequisites() {
                 install_needed=1
             else
                 print_error "Failed to install grpcurl"
-                return 1
+                install_failed=1
             fi
         else
             print_warning "Go is required to install grpcurl. Install Go first."
+            install_failed=1
         fi
+    fi
+    
+    # Install missing system packages
+    local missing_packages=()
+    
+    if ! command_exists curl; then
+        missing_packages+=("curl")
+    fi
+    
+    if ! command_exists jq; then
+        missing_packages+=("jq")
+    fi
+    
+    if [ ${#missing_packages[@]} -gt 0 ]; then
+        print_info "Installing missing system packages: ${missing_packages[*]}"
+        
+        # Detect package manager and install
+        if command_exists apt-get; then
+            if sudo apt-get update && sudo apt-get install -y "${missing_packages[@]}"; then
+                print_success "System packages installed successfully: ${missing_packages[*]}"
+                install_needed=1
+            else
+                print_error "Failed to install system packages: ${missing_packages[*]}"
+                install_failed=1
+            fi
+        elif command_exists yum; then
+            if sudo yum install -y "${missing_packages[@]}"; then
+                print_success "System packages installed successfully: ${missing_packages[*]}"
+                install_needed=1
+            else
+                print_error "Failed to install system packages: ${missing_packages[*]}"
+                install_failed=1
+            fi
+        elif command_exists dnf; then
+            if sudo dnf install -y "${missing_packages[@]}"; then
+                print_success "System packages installed successfully: ${missing_packages[*]}"
+                install_needed=1
+            else
+                print_error "Failed to install system packages: ${missing_packages[*]}"
+                install_failed=1
+            fi
+        elif command_exists brew; then
+            if brew install "${missing_packages[@]}"; then
+                print_success "System packages installed successfully: ${missing_packages[*]}"
+                install_needed=1
+            else
+                print_error "Failed to install system packages: ${missing_packages[*]}"
+                install_failed=1
+            fi
+        else
+            print_error "No supported package manager found. Please install manually: ${missing_packages[*]}"
+            install_failed=1
+        fi
+    fi
+    
+    if [ $install_failed -eq 1 ]; then
+        print_error "Some prerequisites failed to install"
+        return 1
     fi
     
     if [ $install_needed -eq 1 ]; then
@@ -361,6 +480,8 @@ install_prerequisites() {
     else
         print_success "All prerequisites are already installed"
     fi
+    
+    return 0
 }
 
 # Setup Docker network
@@ -863,12 +984,14 @@ main() {
                     print_info "Dapr will run in standalone mode (compatible with Docker Desktop)"
                 else
                     print_warning "Dapr configuration exists but no containers are running"
-                    print_info "Dapr will be re-initialized during setup process"
+                    print_info "Dapr runtime needs to be re-initialized"
+                    overall_success=1
                 fi
             fi
         else
             print_warning "Dapr CLI found but runtime not initialized"
-            print_info "Runtime will be initialized during setup process"
+            print_info "Runtime needs to be initialized"
+            overall_success=1
         fi
     else
         print_error "Dapr CLI is not installed or not in PATH"
@@ -931,9 +1054,17 @@ main() {
     fi
     
     if [ $overall_success -ne 0 ]; then
-        print_error "Prerequisites not met. Please install the missing components using the commands shown above."
-        print_info "Or run: ./environment_setup.sh install-prereqs"
-        exit 1
+        print_warning "Prerequisites not met. Attempting to install missing components automatically..."
+        
+        # Attempt to install missing prerequisites
+        if install_prerequisites; then
+            print_success "Prerequisites installation completed successfully"
+            print_info "Continuing with environment setup..."
+        else
+            print_error "Failed to install prerequisites automatically"
+            print_info "Manual installation may be required. Use the commands shown above."
+            exit 1
+        fi
     fi
     
     # 2. Start NebulaGraph cluster (includes network setup)
@@ -948,7 +1079,11 @@ main() {
     print_header "4. NebulaGraph Readiness Check"
     wait_for_nebula_ready
     
-    # 5. Final summary
+    # 5. Connect Dapr containers to nebula-net network
+    print_header "5. Dapr Network Integration"
+    connect_dapr_to_nebula_network
+    
+    # 6. Final summary
     print_header "NebulaGraph Environment Ready"
     
     print_success "🎉 NebulaGraph and Redis environment setup completed successfully!"
