@@ -709,15 +709,60 @@ public class StateStoreController : ControllerBase
         });
     }
 
+    [HttpPost("unicode-diagnostic")]
+    public async Task<IActionResult> UnicodeDiagnosticTest()
+    {
+        return await RunIndividualTest("Unicode Diagnostic", async () =>
+        {
+            var unicodeValue = "🌟 Unicode: 中文, العربية, Русский, 日本語 🚀";
+            
+            try 
+            {
+                // Test approach 1: Direct string storage
+                await _daprClient.SaveStateAsync(StateStoreName, "unicode-diag-1", unicodeValue);
+                
+                // Try to get as raw bytes first
+                var rawData = await _daprClient.GetStateAsync<byte[]>(StateStoreName, "unicode-diag-1");
+                var rawString = rawData != null ? System.Text.Encoding.UTF8.GetString(rawData) : null;
+                
+                _logger.LogInformation("Unicode diagnostic - Raw bytes: {HasData}, Raw string: {RawString}", 
+                    rawData != null, rawString);
+                
+                // Clean up
+                await _daprClient.DeleteStateAsync(StateStoreName, "unicode-diag-1");
+                
+                return rawString == unicodeValue;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Unicode diagnostic test failed");
+                return false;
+            }
+        });
+    }
+
     [HttpPost("unicode-support")]
     public async Task<IActionResult> UnicodeSupportTest()
     {
         return await RunIndividualTest("Unicode Support", async () =>
         {
             var unicodeValue = "🌟 Unicode: 中文, العربية, Русский, 日本語 🚀";
+            
+            // Test 1: SET operation
             await _daprClient.SaveStateAsync(StateStoreName, "test-unicode", unicodeValue);
-            var retrieved = await _daprClient.GetStateAsync<string>(StateStoreName, "test-unicode");
+            
+            // Test 2: GET operation using JsonElement instead of string
+            var retrievedJson = await _daprClient.GetStateAsync<JsonElement>(StateStoreName, "test-unicode");
+            
+            // Test 3: Extract string from JsonElement safely
+            var retrieved = retrievedJson.ValueKind == JsonValueKind.String ? 
+                retrievedJson.GetString() : null;
+            
             await _daprClient.DeleteStateAsync(StateStoreName, "test-unicode");
+            
+            _logger.LogInformation("Unicode test - Original: {Original}, Retrieved: {Retrieved}", 
+                unicodeValue, retrieved);
+            
             return retrieved == unicodeValue;
         });
     }
