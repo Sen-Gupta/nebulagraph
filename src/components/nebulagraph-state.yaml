@@ -28,7 +28,7 @@ spec:
       name: nebulagraph:space
       key: nebulagraph:space
   
-  # Configuration with secret references
+  # Connection pool configuration with secret references
   - name: connectionTimeout
     secretKeyRef:
       name: nebulagraph:connectionTimeout
@@ -37,5 +37,17 @@ spec:
     secretKeyRef:
       name: nebulagraph:executionTimeout
       key: nebulagraph:executionTimeout
+  - name: maxConnPoolSize
+    secretKeyRef:
+      name: nebulagraph:maxConnPoolSize
+      key: nebulagraph:maxConnPoolSize
+  - name: minConnPoolSize
+    secretKeyRef:
+      name: nebulagraph:minConnPoolSize
+      key: nebulagraph:minConnPoolSize
+  - name: idleTime
+    secretKeyRef:
+      name: nebulagraph:idleTime
+      key: nebulagraph:idleTime
 auth:
   secretStore: local-secret-store
