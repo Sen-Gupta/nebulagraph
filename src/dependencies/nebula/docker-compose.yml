@@ -108,33 +108,12 @@ services:
     volumes:
       - nebula-studio-data:/root/nebula-graph-studio/db
 
-  # Redis for Pub/Sub messaging
-  redis:
-    image: redis:7.0-alpine
-    container_name: redis
-    restart: unless-stopped
-    ports:
-      - "${REDIS_HOST_PORT:-6380}:6379"
-    environment:
-      - REDIS_ARGS=--requirepass ${REDIS_PASSWORD:-dapr_redis}
-    networks:
-      - nebula-net
-    volumes:
-      - redis-data:/data
-    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD:-dapr_redis}", "--appendonly", "yes"]
-    healthcheck:
-      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-dapr_redis}", "ping"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-
 volumes:
   nebula-data:
   nebula-meta:
   nebula-storage:
   nebula-logs:
   nebula-studio-data:
-  redis-data:
 
 networks:
   nebula-net:
