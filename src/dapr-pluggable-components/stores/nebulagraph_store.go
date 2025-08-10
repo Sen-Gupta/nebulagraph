@@ -43,9 +43,13 @@ type NebulaConfig struct {
 }
 
 // NewNebulaStateStore creates a new instance of NebulaStateStore.
-func NewNebulaStateStore(logger logger.Logger) state.Store {
+func NewNebulaStateStore(inputLogger logger.Logger) state.Store {
+	// Create default logger if none provided
+	if inputLogger == nil {
+		inputLogger = logger.NewLogger("nebulagraph-state")
+	}
 	return &NebulaStateStore{
-		logger: logger,
+		logger: inputLogger,
 	}
 }
 

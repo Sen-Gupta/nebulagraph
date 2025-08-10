@@ -110,6 +110,14 @@ start_component() {
         return 1
     }
     
+    # Build with updated code changes (allows layer caching for dependencies)
+    print_info "Building Docker services with latest code changes..."
+    if ! $compose_cmd build; then
+        print_error "Failed to build Docker services"
+        return 1
+    fi
+    print_success "Docker services built successfully"
+    
     if $compose_cmd up -d; then
         print_success "Dapr pluggable component started"
         
