@@ -11,7 +11,7 @@ import (
 func main() {
 	fmt.Println("DEBUG: Starting Dapr component registration")
 
-	dapr.Register("state.nebulagraph-state", dapr.WithStateStore(func() state.Store {
+	dapr.Register("nebulagraph-state", dapr.WithStateStore(func() state.Store {
 		fmt.Println("DEBUG: Factory function called - creating new NebulaStateStore instance")
 		store := &stores.NebulaStateStore{}
 		fmt.Printf("DEBUG: Created store instance: %p\n", store)

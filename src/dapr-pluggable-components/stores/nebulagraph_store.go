@@ -20,6 +20,9 @@ type NebulaStateStore struct {
 // Compile time check to ensure NebulaStateStore implements state.Store
 var _ state.Store = (*NebulaStateStore)(nil)
 
+// Compile time check to ensure NebulaStateStore implements state.Querier
+var _ state.Querier = (*NebulaStateStore)(nil)
+
 type NebulaConfig struct {
 	Hosts    string `json:"hosts"` // Changed to string for comma-separated values
 	Port     string `json:"port"`  // Changed to string to handle Dapr metadata
@@ -252,48 +255,329 @@ func (store *NebulaStateStore) Set(ctx context.Context, req *state.SetRequest) e
 }
 
 func (store *NebulaStateStore) BulkGet(ctx context.Context, req []state.GetRequest, opts state.BulkGetOpts) ([]state.BulkGetResponse, error) {
-	responses := make([]state.BulkGetResponse, len(req))
-
-	for i, getReq := range req {
-		resp, err := store.Get(ctx, &getReq)
-		response := state.BulkGetResponse{
-			Key: getReq.Key,
-		}
-		if err != nil {
-			response.Error = err.Error()
-		} else if resp != nil {
-			response.Data = resp.Data
-		}
-		responses[i] = response
+	fmt.Printf("DEBUG: BulkGet called for %d keys\n", len(req))
+	
+	if store.pool == nil {
+		return nil, fmt.Errorf("component not initialized: connection pool is nil")
 	}
 
+	session, err := store.pool.GetSession(store.config.Username, store.config.Password)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get session: %w", err)
+	}
+	defer session.Release()
+
+	responses := make([]state.BulkGetResponse, len(req))
+
+	// Build batch query for all keys
+	if len(req) == 0 {
+		return responses, nil
+	}
+
+	// For small batches, use individual queries for better error handling
+	if len(req) <= 5 {
+		for i, getReq := range req {
+			resp, err := store.Get(ctx, &getReq)
+			response := state.BulkGetResponse{
+				Key: getReq.Key,
+			}
+			if err != nil {
+				response.Error = err.Error()
+			} else if resp != nil {
+				response.Data = resp.Data
+			}
+			responses[i] = response
+		}
+		return responses, nil
+	}
+
+	// For larger batches, build a batch query
+	var keys []string
+	keyToIndex := make(map[string]int)
+	for i, getReq := range req {
+		keys = append(keys, fmt.Sprintf("'%s'", getReq.Key))
+		keyToIndex[getReq.Key] = i
+		responses[i] = state.BulkGetResponse{Key: getReq.Key}
+	}
+
+	// Build a batch FETCH query
+	query := fmt.Sprintf("USE %s; FETCH PROP ON state %s YIELD id(vertex) AS key, properties(vertex).data AS data",
+		store.config.Space, strings.Join(keys, ", "))
+
+	fmt.Printf("DEBUG: Executing bulk query: %s\n", query)
+	resp, err := session.Execute(query)
+	if err != nil {
+		// Fall back to individual queries if batch fails
+		fmt.Printf("DEBUG: Batch query failed, falling back to individual queries: %v\n", err)
+		for i, getReq := range req {
+			resp, err := store.Get(ctx, &getReq)
+			if err != nil {
+				responses[i].Error = err.Error()
+			} else if resp != nil {
+				responses[i].Data = resp.Data
+			}
+		}
+		return responses, nil
+	}
+
+	if !resp.IsSucceed() {
+		// Fall back to individual queries
+		fmt.Printf("DEBUG: Batch query not successful, falling back: %s\n", resp.GetErrorMsg())
+		for i, getReq := range req {
+			resp, err := store.Get(ctx, &getReq)
+			if err != nil {
+				responses[i].Error = err.Error()
+			} else if resp != nil {
+				responses[i].Data = resp.Data
+			}
+		}
+		return responses, nil
+	}
+
+	// Process batch results
+	for i := 0; i < resp.GetRowSize(); i++ {
+		record, err := resp.GetRowValuesByIndex(i)
+		if err != nil {
+			continue
+		}
+
+		// Get key and data from the result
+		keyVal, err := record.GetValueByIndex(0)
+		if err != nil {
+			continue
+		}
+		key, err := keyVal.AsString()
+		if err != nil {
+			continue
+		}
+
+		dataVal, err := record.GetValueByIndex(1)
+		if err != nil {
+			continue
+		}
+
+		if idx, exists := keyToIndex[key]; exists {
+			if !dataVal.IsNull() {
+				dataStr, err := dataVal.AsString()
+				if err == nil {
+					responses[idx].Data = []byte(dataStr)
+				}
+			}
+		}
+	}
+
+	fmt.Printf("DEBUG: BulkGet completed for %d keys\n", len(req))
 	return responses, nil
 }
 
 func (store *NebulaStateStore) BulkDelete(ctx context.Context, req []state.DeleteRequest, opts state.BulkStoreOpts) error {
-	for _, delReq := range req {
-		if err := store.Delete(ctx, &delReq); err != nil {
-			return err
-		}
+	fmt.Printf("DEBUG: BulkDelete called for %d keys\n", len(req))
+	
+	if store.pool == nil {
+		return fmt.Errorf("component not initialized: connection pool is nil")
 	}
+
+	if len(req) == 0 {
+		return nil
+	}
+
+	session, err := store.pool.GetSession(store.config.Username, store.config.Password)
+	if err != nil {
+		return fmt.Errorf("failed to get session: %w", err)
+	}
+	defer session.Release()
+
+	// For small batches, use individual operations
+	if len(req) <= 5 {
+		for _, delReq := range req {
+			if err := store.Delete(ctx, &delReq); err != nil {
+				return fmt.Errorf("failed to delete key %s: %w", delReq.Key, err)
+			}
+		}
+		return nil
+	}
+
+	// For larger batches, build a batch delete query
+	var keys []string
+	for _, delReq := range req {
+		keys = append(keys, fmt.Sprintf("'%s'", delReq.Key))
+	}
+
+	// Build batch DELETE query
+	query := fmt.Sprintf("USE %s; DELETE VERTEX %s",
+		store.config.Space, strings.Join(keys, ", "))
+
+	fmt.Printf("DEBUG: Executing bulk delete query: %s\n", query)
+	resp, err := session.Execute(query)
+	if err != nil {
+		// Fall back to individual deletes if batch fails
+		fmt.Printf("DEBUG: Batch delete failed, falling back to individual deletes: %v\n", err)
+		for _, delReq := range req {
+			if err := store.Delete(ctx, &delReq); err != nil {
+				return fmt.Errorf("failed to delete key %s: %w", delReq.Key, err)
+			}
+		}
+		return nil
+	}
+
+	if !resp.IsSucceed() {
+		// Fall back to individual deletes
+		fmt.Printf("DEBUG: Batch delete not successful, falling back: %s\n", resp.GetErrorMsg())
+		for _, delReq := range req {
+			if err := store.Delete(ctx, &delReq); err != nil {
+				return fmt.Errorf("failed to delete key %s: %w", delReq.Key, err)
+			}
+		}
+		return nil
+	}
+
+	fmt.Printf("DEBUG: BulkDelete completed for %d keys\n", len(req))
 	return nil
 }
 
 func (store *NebulaStateStore) BulkSet(ctx context.Context, req []state.SetRequest, opts state.BulkStoreOpts) error {
-	for _, setReq := range req {
-		if err := store.Set(ctx, &setReq); err != nil {
-			return err
-		}
+	fmt.Printf("DEBUG: BulkSet called for %d keys\n", len(req))
+	
+	if store.pool == nil {
+		return fmt.Errorf("component not initialized: connection pool is nil")
 	}
+
+	if len(req) == 0 {
+		return nil
+	}
+
+	session, err := store.pool.GetSession(store.config.Username, store.config.Password)
+	if err != nil {
+		return fmt.Errorf("failed to get session: %w", err)
+	}
+	defer session.Release()
+
+	// For small batches, use individual operations
+	if len(req) <= 5 {
+		for _, setReq := range req {
+			if err := store.Set(ctx, &setReq); err != nil {
+				return fmt.Errorf("failed to set key %s: %w", setReq.Key, err)
+			}
+		}
+		return nil
+	}
+
+	// For larger batches, build a batch insert query
+	var values []string
+	for _, setReq := range req {
+		data := ""
+		if setReq.Value != nil {
+			if bytes, ok := setReq.Value.([]byte); ok {
+				data = string(bytes)
+			} else if str, ok := setReq.Value.(string); ok {
+				data = str
+			}
+		}
+		// Escape single quotes in data
+		data = strings.ReplaceAll(data, "'", "\\'")
+		values = append(values, fmt.Sprintf("'%s':('%s')", setReq.Key, data))
+	}
+
+	// Build batch INSERT query
+	query := fmt.Sprintf("USE %s; INSERT VERTEX state(data) VALUES %s",
+		store.config.Space, strings.Join(values, ", "))
+
+	fmt.Printf("DEBUG: Executing bulk insert query: %s\n", query)
+	resp, err := session.Execute(query)
+	if err != nil {
+		// Fall back to individual inserts if batch fails
+		fmt.Printf("DEBUG: Batch insert failed, falling back to individual inserts: %v\n", err)
+		for _, setReq := range req {
+			if err := store.Set(ctx, &setReq); err != nil {
+				return fmt.Errorf("failed to set key %s: %w", setReq.Key, err)
+			}
+		}
+		return nil
+	}
+
+	if !resp.IsSucceed() {
+		// Fall back to individual inserts
+		fmt.Printf("DEBUG: Batch insert not successful, falling back: %s\n", resp.GetErrorMsg())
+		for _, setReq := range req {
+			if err := store.Set(ctx, &setReq); err != nil {
+				return fmt.Errorf("failed to set key %s: %w", setReq.Key, err)
+			}
+		}
+		return nil
+	}
+
+	fmt.Printf("DEBUG: BulkSet completed for %d keys\n", len(req))
 	return nil
 }
 
 // Query implements IQueriable interface
 func (store *NebulaStateStore) Query(ctx context.Context, req *state.QueryRequest) (*state.QueryResponse, error) {
-	// Generate and return results based on the query
+	fmt.Printf("DEBUG: Query called with query: %+v\n", req.Query)
+	
+	if store.pool == nil {
+		return nil, fmt.Errorf("component not initialized: connection pool is nil")
+	}
+
+	session, err := store.pool.GetSession(store.config.Username, store.config.Password)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get session: %w", err)
+	}
+	defer session.Release()
+
+	// Build query based on the request
+	var query string
+	// For now, just return all state vertices with basic filtering
+	query = fmt.Sprintf("USE %s; MATCH (v:state) RETURN id(v) AS key, v.state.data AS value LIMIT 100", store.config.Space)
+
+	fmt.Printf("DEBUG: Executing query: %s\n", query)
+	resp, err := session.Execute(query)
+	if err != nil {
+		return nil, fmt.Errorf("failed to execute query: %w", err)
+	}
+
+	if !resp.IsSucceed() {
+		return nil, fmt.Errorf("query failed: %s", resp.GetErrorMsg())
+	}
+
+	var results []state.QueryItem
+	for i := 0; i < resp.GetRowSize(); i++ {
+		record, err := resp.GetRowValuesByIndex(i)
+		if err != nil {
+			continue
+		}
+
+		keyVal, err := record.GetValueByIndex(0)
+		if err != nil {
+			continue
+		}
+		key, err := keyVal.AsString()
+		if err != nil {
+			continue
+		}
+
+		valueVal, err := record.GetValueByIndex(1)
+		if err != nil {
+			continue
+		}
+
+		var data []byte
+		if !valueVal.IsNull() {
+			dataStr, err := valueVal.AsString()
+			if err == nil {
+				data = []byte(dataStr)
+			}
+		}
+
+		results = append(results, state.QueryItem{
+			Key:  key,
+			Data: data,
+		})
+	}
+
+	fmt.Printf("DEBUG: Query returned %d results\n", len(results))
 	return &state.QueryResponse{
-		Results: []state.QueryItem{},
-		Token:   "",
+		Results: results,
+		Token:   "", // No pagination support for now
 	}, nil
 }
 

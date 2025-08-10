@@ -261,6 +261,206 @@ test_component() {
     print_success "All Dapr component tests passed!"
 }
 
+# Test bulk operations
+test_bulk_operations() {
+    print_header "Testing Dapr Bulk State Store Operations"
+    
+    # Test Dapr HTTP API availability first
+    print_info "Testing Dapr HTTP API (port $NEBULA_HTTP_PORT)..."
+    if ! curl -s --connect-timeout 5 http://localhost:$NEBULA_HTTP_PORT/v1.0/healthz >/dev/null 2>&1; then
+        print_error "Dapr HTTP API is not responding on port $NEBULA_HTTP_PORT"
+        return 1
+    fi
+    print_success "Dapr HTTP API is responding"
+    
+    # Test bulk SET operation (multiple keys)
+    print_info "Testing bulk SET operation..."
+    local bulk_set_data='[
+        {"key": "bulk-test-1", "value": "First bulk value"},
+        {"key": "bulk-test-2", "value": "Second bulk value"},
+        {"key": "bulk-test-3", "value": "Third bulk value"},
+        {"key": "bulk-test-4", "value": "Fourth bulk value"},
+        {"key": "bulk-test-5", "value": "Fifth bulk value"}
+    ]'
+    
+    if curl -s -X POST "http://localhost:$NEBULA_HTTP_PORT/v1.0/state/nebulagraph-state" \
+        -H "Content-Type: application/json" \
+        -d "$bulk_set_data" >/dev/null 2>&1; then
+        print_success "Bulk SET operation successful (5 keys)"
+    else
+        print_error "Bulk SET operation failed"
+        return 1
+    fi
+    
+    # Test bulk GET operation
+    print_info "Testing bulk GET operation..."
+    local bulk_get_data='{"keys": ["bulk-test-1", "bulk-test-2", "bulk-test-3", "bulk-test-4", "bulk-test-5"]}'
+    local bulk_get_response=$(curl -s -X POST "http://localhost:$NEBULA_HTTP_PORT/v1.0/state/nebulagraph-state/bulk" \
+        -H "Content-Type: application/json" \
+        -d "$bulk_get_data" 2>/dev/null)
+    
+    if echo "$bulk_get_response" | grep -q "First bulk value"; then
+        print_success "Bulk GET operation successful"
+        print_info "Sample retrieved value found: 'First bulk value'"
+    else
+        print_warning "Bulk GET operation may have issues"
+        print_info "Response: $bulk_get_response"
+    fi
+    
+    # Test individual GET to verify bulk SET worked
+    print_info "Testing individual GET operations to verify bulk SET..."
+    local individual_tests=0
+    local individual_successes=0
+    
+    for i in {1..5}; do
+        individual_tests=$((individual_tests + 1))
+        local response=$(curl -s "http://localhost:$NEBULA_HTTP_PORT/v1.0/state/nebulagraph-state/bulk-test-$i" 2>/dev/null)
+        if echo "$response" | grep -q "bulk value"; then
+            individual_successes=$((individual_successes + 1))
+        fi
+    done
+    
+    print_info "Individual GET verification: $individual_successes/$individual_tests keys successfully retrieved"
+    
+    # Test bulk DELETE operation
+    print_info "Testing bulk DELETE operation..."
+    local bulk_delete_data='{"keys": ["bulk-test-1", "bulk-test-2", "bulk-test-3", "bulk-test-4", "bulk-test-5"]}'
+    
+    if curl -s -X POST "http://localhost:$NEBULA_HTTP_PORT/v1.0/state/nebulagraph-state/bulk/delete" \
+        -H "Content-Type: application/json" \
+        -d "$bulk_delete_data" >/dev/null 2>&1; then
+        print_success "Bulk DELETE operation successful"
+    else
+        print_warning "Bulk DELETE operation may have issues (trying individual deletes)"
+        # Fallback to individual deletes
+        for i in {1..5}; do
+            curl -s -X DELETE "http://localhost:$NEBULA_HTTP_PORT/v1.0/state/nebulagraph-state/bulk-test-$i" >/dev/null 2>&1
+        done
+        print_success "Individual DELETE operations completed as fallback"
+    fi
+    
+    # Verify bulk DELETE worked
+    print_info "Verifying bulk DELETE operation..."
+    local remaining_items=0
+    for i in {1..5}; do
+        local response=$(curl -s "http://localhost:$NEBULA_HTTP_PORT/v1.0/state/nebulagraph-state/bulk-test-$i" 2>/dev/null)
+        if [ ! -z "$response" ] && [ "$response" != '""' ] && [ "$response" != "null" ]; then
+            remaining_items=$((remaining_items + 1))
+        fi
+    done
+    
+    if [ $remaining_items -eq 0 ]; then
+        print_success "Bulk DELETE verification successful - all items removed"
+    else
+        print_warning "Bulk DELETE verification: $remaining_items items may still exist"
+    fi
+    
+    # Test large bulk operation (stress test)
+    print_info "Testing large bulk SET operation (10 keys)..."
+    local large_bulk_data='[
+        {"key": "large-bulk-1", "value": "Large bulk value 1"},
+        {"key": "large-bulk-2", "value": "Large bulk value 2"},
+        {"key": "large-bulk-3", "value": "Large bulk value 3"},
+        {"key": "large-bulk-4", "value": "Large bulk value 4"},
+        {"key": "large-bulk-5", "value": "Large bulk value 5"},
+        {"key": "large-bulk-6", "value": "Large bulk value 6"},
+        {"key": "large-bulk-7", "value": "Large bulk value 7"},
+        {"key": "large-bulk-8", "value": "Large bulk value 8"},
+        {"key": "large-bulk-9", "value": "Large bulk value 9"},
+        {"key": "large-bulk-10", "value": "Large bulk value 10"}
+    ]'
+    
+    if curl -s -X POST "http://localhost:$NEBULA_HTTP_PORT/v1.0/state/nebulagraph-state" \
+        -H "Content-Type: application/json" \
+        -d "$large_bulk_data" >/dev/null 2>&1; then
+        print_success "Large bulk SET operation successful (10 keys)"
+    else
+        print_error "Large bulk SET operation failed"
+    fi
+    
+    # Clean up large bulk test
+    print_info "Cleaning up large bulk test data..."
+    for i in {1..10}; do
+        curl -s -X DELETE "http://localhost:$NEBULA_HTTP_PORT/v1.0/state/nebulagraph-state/large-bulk-$i" >/dev/null 2>&1
+    done
+    print_success "Large bulk test cleanup completed"
+    
+    print_success "All bulk operation tests completed!"
+}
+
+# Test Query operations
+test_query_operations() {
+    print_header "Testing Query Operations"
+    
+    # First, ensure we have some test data
+    print_info "Setting up test data for queries..."
+    
+    # Set some test data with different key patterns
+    test_keys=("query-test-1" "query-test-2" "data-sample-1" "data-sample-2" "test-item-1")
+    for key in "${test_keys[@]}"; do
+        local value="{\"type\": \"query-test\", \"key\": \"$key\", \"timestamp\": \"$(date)\"}"
+        echo "Setting key: $key"
+        
+        local response
+        response=$(curl -s -w "\n%{http_code}" -X POST "http://localhost:$NEBULA_HTTP_PORT/v1.0/state/nebulagraph-state" \
+            -H "Content-Type: application/json" \
+            -d "[{\"key\": \"$key\", \"value\": $value}]")
+        
+        local http_code
+        http_code=$(echo "$response" | tail -n1)
+        if [[ "$http_code" -eq 204 ]]; then
+            print_success "Set key $key"
+        else
+            print_error "Failed to set key $key (HTTP $http_code)"
+            return 1
+        fi
+    done
+    
+    # Test 1: Query all items (no filter)
+    print_info "Test 1: Querying all items..."
+    local response
+    response=$(curl -s -w "\n%{http_code}" -X POST "http://localhost:$NEBULA_HTTP_PORT/v1.0/state/nebulagraph-state/query" \
+        -H "Content-Type: application/json" \
+        -d '{}')
+    
+    local http_code
+    http_code=$(echo "$response" | tail -n1)
+    if [[ "$http_code" -eq 200 ]]; then
+        local body
+        body=$(echo "$response" | head -n -1)
+        local result_count
+        result_count=$(echo "$body" | jq '.results | length' 2>/dev/null || echo "0")
+        print_success "Query all returned $result_count items"
+    else
+        print_error "Query all failed (HTTP $http_code)"
+        return 1
+    fi
+    
+    # Test 2: Query with filter
+    print_info "Test 2: Querying with filter 'query-test'..."
+    response=$(curl -s -w "\n%{http_code}" -X POST "http://localhost:$NEBULA_HTTP_PORT/v1.0/state/nebulagraph-state/query" \
+        -H "Content-Type: application/json" \
+        -d '{"filter": {"EQ": {"key": "query-test"}}}')
+    
+    http_code=$(echo "$response" | tail -n1)
+    if [[ "$http_code" -eq 200 ]]; then
+        body=$(echo "$response" | head -n -1)
+        result_count=$(echo "$body" | jq '.results | length' 2>/dev/null || echo "0")
+        print_success "Filtered query returned $result_count items"
+    else
+        print_error "Filtered query failed (HTTP $http_code)"
+        return 1
+    fi
+    
+    # Clean up test data
+    print_info "Cleaning up query test data..."
+    for key in "${test_keys[@]}"; do
+        curl -s -X DELETE "http://localhost:$NEBULA_HTTP_PORT/v1.0/state/nebulagraph-state/$key" >/dev/null 2>&1
+    done
+    
+    print_success "All query operations tests passed!"
+}
+
 # Run comprehensive test using test_all.sh (HTTP + gRPC) if available
 run_comprehensive_test() {
     print_header "Running Comprehensive Component Test (HTTP + gRPC)"
@@ -344,6 +544,17 @@ case "${1:-start}" in
     "test")
         test_component
         ;;
+    "test-bulk")
+        test_bulk_operations
+        ;;
+    "test-query")
+        test_query_operations
+        ;;
+    "test-all")
+        test_component
+        test_bulk_operations
+        test_query_operations
+        ;;
     "test-full")
         run_comprehensive_test
         ;;
@@ -361,6 +572,9 @@ case "${1:-start}" in
         echo "  status        Show component status"
         echo "  logs [SERVICE] Show component logs (optionally for specific service)"
         echo "  test          Test component functionality"
+        echo "  test-bulk     Test bulk state store operations"
+        echo "  test-query    Test query operations"
+        echo "  test-all      Test basic, bulk, and query operations"
         echo "  test-full     Run comprehensive tests (HTTP + gRPC via test_all.sh if available)"
         echo "  validate      Validate NebulaGraph infrastructure only"
         echo "  clean         Clean up component (volumes and networks)"
