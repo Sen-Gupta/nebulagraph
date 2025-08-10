@@ -574,6 +574,106 @@ start_nebula_cluster() {
     fi
 }
 
+# Start Redis service
+start_redis_service() {
+    print_info "Starting Redis service..."
+    
+    if [ -f "redis/docker-compose.yml" ]; then
+        local compose_cmd
+        compose_cmd=$(get_docker_compose_cmd) || {
+            print_error "Docker Compose not available"
+            return 1
+        }
+        
+        # Ensure network exists before starting Redis
+        setup_docker_network || {
+            print_error "Failed to setup Docker network"
+            return 1
+        }
+        
+        print_info "Starting Redis container..."
+        cd redis
+        if $compose_cmd up -d; then
+            print_success "Redis service started successfully"
+            print_info "Waiting for Redis to initialize..."
+            sleep 5
+        else
+            print_error "Failed to start Redis service"
+            cd ..
+            return 1
+        fi
+        cd ..
+    else
+        print_error "redis/docker-compose.yml not found"
+        return 1
+    fi
+}
+
+# Start ScyllaDB service
+start_scylladb_service() {
+    print_info "Starting ScyllaDB service..."
+    
+    if [ -f "scylladb/docker-compose.yml" ]; then
+        local compose_cmd
+        compose_cmd=$(get_docker_compose_cmd) || {
+            print_error "Docker Compose not available"
+            return 1
+        }
+        
+        # Ensure network exists before starting ScyllaDB
+        setup_docker_network || {
+            print_error "Failed to setup Docker network"
+            return 1
+        }
+        
+        print_info "Starting ScyllaDB containers..."
+        cd scylladb
+        if $compose_cmd up -d; then
+            print_success "ScyllaDB service started successfully"
+            print_info "Waiting for ScyllaDB to initialize..."
+            sleep 10
+        else
+            print_error "Failed to start ScyllaDB service"
+            cd ..
+            return 1
+        fi
+        cd ..
+    else
+        print_error "scylladb/docker-compose.yml not found"
+        return 1
+    fi
+}
+
+# Initialize Redis service
+initialize_redis() {
+    print_info "Initializing Redis service..."
+    
+    if [ -f "redis/init_redis.sh" ]; then
+        cd redis
+        ./init_redis.sh
+        cd ..
+        print_success "Redis service initialized"
+    else
+        print_error "redis/init_redis.sh not found"
+        return 1
+    fi
+}
+
+# Initialize ScyllaDB service
+initialize_scylladb() {
+    print_info "Initializing ScyllaDB service..."
+    
+    if [ -f "scylladb/init_scylladb.sh" ]; then
+        cd scylladb
+        ./init_scylladb.sh
+        cd ..
+        print_success "ScyllaDB service initialized"
+    else
+        print_error "scylladb/init_scylladb.sh not found"
+        return 1
+    fi
+}
+
 # Initialize NebulaGraph cluster
 initialize_nebula() {
     print_info "Initializing NebulaGraph cluster..."
@@ -641,22 +741,70 @@ wait_for_nebula_ready() {
 }
 
 # Stop NebulaGraph cluster
+# Stop NebulaGraph cluster
 stop_nebula_cluster() {
-    print_header "Stopping NebulaGraph Dependencies"
+    print_info "Stopping NebulaGraph cluster..."
     if [ -f "nebula/docker-compose.yml" ]; then
         local compose_cmd
         compose_cmd=$(get_docker_compose_cmd) || {
-            print_error "Docker Compose is not installed or not in PATH"
+            print_error "Docker Compose not available"
             return 1
         }
         cd nebula
         $compose_cmd down
         cd ..
-        print_success "NebulaGraph dependencies stopped"
+        print_success "NebulaGraph cluster stopped"
     else
         print_error "nebula/docker-compose.yml not found"
         return 1
     fi
+}
+
+# Stop Redis service
+stop_redis_service() {
+    print_info "Stopping Redis service..."
+    if [ -f "redis/docker-compose.yml" ]; then
+        local compose_cmd
+        compose_cmd=$(get_docker_compose_cmd) || {
+            print_error "Docker Compose not available"
+            return 1
+        }
+        cd redis
+        $compose_cmd down
+        cd ..
+        print_success "Redis service stopped"
+    else
+        print_error "redis/docker-compose.yml not found"
+        return 1
+    fi
+}
+
+# Stop ScyllaDB service
+stop_scylladb_service() {
+    print_info "Stopping ScyllaDB service..."
+    if [ -f "scylladb/docker-compose.yml" ]; then
+        local compose_cmd
+        compose_cmd=$(get_docker_compose_cmd) || {
+            print_error "Docker Compose not available"
+            return 1
+        }
+        cd scylladb
+        $compose_cmd down
+        cd ..
+        print_success "ScyllaDB service stopped"
+    else
+        print_error "scylladb/docker-compose.yml not found"
+        return 1
+    fi
+}
+
+# Stop all services
+stop_all_services() {
+    print_header "Stopping All Services"
+    stop_scylladb_service
+    stop_redis_service
+    stop_nebula_cluster
+    print_success "All services stopped"
 }
 
 # Show cluster status
@@ -826,7 +974,7 @@ test_nebula_services() {
 
 # Check if all required containers are running
 check_all_containers_running() {
-    local required_containers=("nebula-metad" "nebula-storaged" "nebula-graphd" "nebula-console" "nebula-studio" "redis")
+    local required_containers=("nebula-metad" "nebula-storaged" "nebula-graphd" "nebula-console" "nebula-studio" "redis-pubsub" "scylladb-node1" "scylla-manager")
     local running_count=0
     local total_count=${#required_containers[@]}
     
@@ -1081,16 +1229,38 @@ main() {
         fi
     fi
     
-    # 2. Start NebulaGraph cluster (includes network setup)
-    print_header "2. NebulaGraph Cluster Setup"
+    # 2. Start services one by one
+    print_header "2. Starting Infrastructure Services"
+    
+    # Start NebulaGraph cluster first (includes network setup)
+    print_header "2.1. NebulaGraph Cluster Setup"
     start_nebula_cluster
     
-    # 3. Initialize NebulaGraph
-    print_header "3. NebulaGraph Initialization"
+    # Start Redis service
+    print_header "2.2. Redis Service Setup"
+    start_redis_service
+    
+    # Start ScyllaDB service
+    print_header "2.3. ScyllaDB Service Setup"
+    start_scylladb_service
+    
+    # 3. Initialize services one by one
+    print_header "3. Initializing Services"
+    
+    # Initialize NebulaGraph
+    print_header "3.1. NebulaGraph Initialization"
     initialize_nebula
     
-    # 4. Wait for NebulaGraph to be ready
-    print_header "4. NebulaGraph Readiness Check"
+    # Initialize Redis
+    print_header "3.2. Redis Initialization"
+    initialize_redis
+    
+    # Initialize ScyllaDB
+    print_header "3.3. ScyllaDB Initialization"
+    initialize_scylladb
+    
+    # 4. Wait for services to be ready
+    print_header "4. Services Readiness Check"
     wait_for_nebula_ready
     
     # 5. Connect Dapr containers to nebula-net network
@@ -1098,22 +1268,24 @@ main() {
     connect_dapr_to_nebula_network
     
     # 6. Final summary
-    print_header "NebulaGraph Environment Ready"
+    print_header "Infrastructure Environment Ready"
     
-    print_success "🎉 NebulaGraph and Redis environment setup completed successfully!"
-    echo -e "\n${GREEN}Your NebulaGraph and Redis infrastructure is ready!${NC}"
+    print_success "🎉 Multi-service environment setup completed successfully!"
+    echo -e "\n${GREEN}Your infrastructure is ready with all services!${NC}"
     echo -e "\n${BLUE}Available services:${NC}"
     echo -e "  • NebulaGraph Cluster: nebula-graphd:9669"
-    echo -e "  • Redis Pub/Sub: redis:$REDIS_HOST_PORT (password: $REDIS_PASSWORD)"
-    echo -e "  • NebulaGraph Studio: http://localhost:7001 (if enabled)"
-    echo -e "  • NebulaGraph Console: Available via docker exec nebula-console"
+    echo -e "  • Redis Pub/Sub: redis-pubsub:6379 (host port: $REDIS_HOST_PORT)"
+    echo -e "  • ScyllaDB State Store: scylladb-node1:9042"
+    echo -e "  • NebulaGraph Studio: http://localhost:7001"
+    echo -e "  • ScyllaDB Manager: http://localhost:7002"
     
     echo -e "\n${BLUE}Dapr Components Available:${NC}"
     echo -e "  • State Store: nebulagraph-state (NebulaGraph backend)"
+    echo -e "  • State Store: scylladb-state (ScyllaDB backend)"
     echo -e "  • Pub/Sub: redis-pubsub (Redis backend)"
     
     echo -e "\n${BLUE}Next steps:${NC}"
-    echo -e "  • Start applications that use NebulaGraph and Redis"
+    echo -e "  • Start applications that use these services"
     echo -e "  • Test pub/sub: dapr publish --publish-app-id myapp --pubsub redis-pubsub --topic test --data '{\"message\":\"hello\"}'"
     echo -e "  • View logs: ./environment_setup.sh logs"
     echo -e "  • Stop environment: ./environment_setup.sh stop"
@@ -1131,7 +1303,7 @@ case "${1:-setup}" in
         install_prerequisites
         ;;
     "stop"|"down")
-        stop_nebula_cluster
+        stop_all_services
         ;;
     "status")
         show_nebula_status
@@ -1202,40 +1374,43 @@ case "${1:-setup}" in
     "help"|"-h"|"--help")
         echo "Usage: $0 [COMMAND]"
         echo ""
-        echo "NebulaGraph Environment Management"
+        echo "Multi-Service Infrastructure Environment Management"
         echo ""
         echo "Commands:"
-        echo "  setup, start      Set up the complete NebulaGraph environment (default)"
+        echo "  setup, start      Set up the complete infrastructure environment (default)"
         echo "  install-prereqs   Install missing prerequisites (Go, Dapr CLI + init, grpcurl)"
-        echo "  stop, down        Stop NebulaGraph dependencies"
-        echo "  status            Show dependency status"
-        echo "  logs              Show dependency logs"
-        echo "  init              Initialize NebulaGraph cluster"
-        echo "  test              Full test of NebulaGraph services connectivity"
+        echo "  stop, down        Stop all services (NebulaGraph, Redis, ScyllaDB)"
+        echo "  status            Show all services status"
+        echo "  logs              Show all services logs"
+        echo "  init              Initialize all services"
+        echo "  test              Full test of all services connectivity"
         echo "  quick-test, qt    Quick test of essential services"
         echo "  dapr-status, ds   Show Dapr runtime status and containers"
         echo "  dapr-reinit, dr   Force reinitialize Dapr in container mode (fixes slim mode)"
-        echo "  clean             Clean up dependencies (volumes and networks)"
+        echo "  clean             Clean up all services (volumes and networks)"
         echo "  help              Show this help message"
         echo ""
         echo "Setup will:"
         echo "  1. Check prerequisites (Docker, Docker Compose, Dapr CLI + runtime, Go 1.24.5+, curl, grpcurl, jq)"
-        echo "  2. Start NebulaGraph cluster and Redis (includes network setup)"
-        echo "  3. Initialize NebulaGraph with required spaces/schemas"
-        echo "  4. Wait for NebulaGraph and Redis to be ready"
+        echo "  2. Start all services: NebulaGraph cluster, Redis, and ScyllaDB (includes network setup)"
+        echo "  3. Initialize all services with required spaces/schemas/keyspaces"
+        echo "  4. Wait for all services to be ready"
         echo ""
         echo "Access Points:"
         echo "  • NebulaGraph Studio: http://localhost:7001"
+        echo "  • ScyllaDB Manager: http://localhost:7002"
         echo "  • NebulaGraph Graph Service: localhost:9669"
         echo "  • NebulaGraph Meta Service: localhost:$NEBULA_META_PORT"
         echo "  • NebulaGraph Storage Service: localhost:$NEBULA_STORAGE_PORT"
         echo "  • Redis Pub/Sub Service: localhost:$REDIS_HOST_PORT (password: $REDIS_PASSWORD)"
+        echo "  • ScyllaDB CQL Service: localhost:9042"
         echo ""
         echo "Dapr Components:"
         echo "  • State Store: nebulagraph-state (NebulaGraph backend)"
+        echo "  • State Store: scylladb-state (ScyllaDB backend)"
         echo "  • Pub/Sub: redis-pubsub (Redis backend)"
         echo ""
-        echo "After running setup, you can start applications that use NebulaGraph and Redis."
+        echo "After running setup, you can start applications that use these services."
         ;;
     *)
         echo "Unknown command: $1"

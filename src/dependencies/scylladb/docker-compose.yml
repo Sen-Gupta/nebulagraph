@@ -12,31 +12,31 @@
 services:
   # ScyllaDB Primary Node
   scylladb-node1:
-    image: scylladb/scylla:5.4.6
-    container_name: scylladb-node1
+    image: scylladb/scylla:${SCYLLA_VERSION:-5.4.6}
+    container_name: ${SCYLLA_NODE1_CONTAINER:-scylladb-node1}
     restart: unless-stopped
     ports:
-      - "9042:9042"      # CQL Native Protocol
-      - "7199:7199"      # JMX
-      - "10000:10000"    # REST API
-      - "9180:9180"      # Prometheus metrics
-      - "7002:7000"      # Inter-node communication (changed from 7000 to 7002)
-      - "7003:7001"      # SSL Inter-node communication (changed from 7001 to 7003)
+      - "${SCYLLA_CQL_PORT:-9042}:9042"      # CQL Native Protocol
+      - "${SCYLLA_JMX_PORT:-7199}:7199"      # JMX
+      - "${SCYLLA_REST_PORT:-10000}:10000"    # REST API
+      - "${SCYLLA_PROMETHEUS_PORT:-9180}:9180"      # Prometheus metrics
+      - "${SCYLLA_INTER_NODE_PORT:-7002}:7000"      # Inter-node communication
+      - "${SCYLLA_SSL_INTER_NODE_PORT:-7003}:7001"      # SSL Inter-node communication
     volumes:
       - scylla-data-node1:/var/lib/scylla
       - scylla-config:/etc/scylla
     networks:
-      - scylla-net
+      - nebula-net
     command: 
-      - --seeds=scylladb-node1
-      - --smp=1
-      - --memory=1G
+      - --seeds=${SCYLLA_NODE1_CONTAINER:-scylladb-node1}
+      - --smp=${SCYLLA_SMP:-1}
+      - --memory=${SCYLLA_MEMORY:-1G}
       - --overprovisioned=1
       - --api-address=0.0.0.0
       - --listen-address=0.0.0.0
       - --rpc-address=0.0.0.0
-      - --broadcast-address=scylladb-node1
-      - --broadcast-rpc-address=scylladb-node1
+      - --broadcast-address=${SCYLLA_NODE1_CONTAINER:-scylladb-node1}
+      - --broadcast-rpc-address=${SCYLLA_NODE1_CONTAINER:-scylladb-node1}
     healthcheck:
       test: ["CMD-SHELL", "cqlsh -e 'SELECT now() FROM system.local;' || exit 1"]
       interval: 30s
@@ -46,16 +46,16 @@ services:
 
   # ScyllaDB Web Console (optional)
   scylla-manager:
-    image: scylladb/scylla-manager:3.2.6
-    container_name: scylla-manager
+    image: scylladb/scylla-manager:${SCYLLA_MANAGER_VERSION:-3.2.6}
+    container_name: ${SCYLLA_MANAGER_CONTAINER:-scylla-manager}
     restart: unless-stopped
     ports:
-      - "5081:5080"      # Manager Web UI (changed from 5080 to 5081)
-      - "5091:5090"      # Manager API (changed from 5090 to 5091)
+      - "${SCYLLA_MANAGER_WEB_PORT:-7004}:5080"      # Manager Web UI (using 7004 to avoid conflict with node inter-communication port)
+      - "${SCYLLA_MANAGER_API_PORT:-5091}:5090"      # Manager API
     environment:
-      - SCYLLA_MANAGER_DB_HOSTS=scylladb-node1:9042
+      - SCYLLA_MANAGER_DB_HOSTS=${SCYLLA_NODE1_CONTAINER:-scylladb-node1}:${SCYLLA_CQL_PORT:-9042}
     networks:
-      - scylla-net
+      - nebula-net
     depends_on:
       - scylladb-node1
     volumes:
@@ -67,5 +67,6 @@ volumes:
   scylla-manager-data:
 
 networks:
-  scylla-net:
-    driver: bridge
+  nebula-net:
+    external: true
+    name: ${NEBULA_NETWORK_NAME:-nebula-net}
