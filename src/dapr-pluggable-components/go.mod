@@ -5,6 +5,7 @@ go 1.24.5
 require (
 	github.com/dapr-sandbox/components-go-sdk v0.3.0
 	github.com/dapr/components-contrib v1.11.3-0.20230626160848-de01000c9bf3
+	github.com/dapr/kit v0.11.3-0.20230615225244-804821bb8f2d
 	github.com/vesoft-inc/nebula-go/v3 v3.8.0
 )
 
@@ -12,7 +13,6 @@ require (
 	github.com/cloudevents/sdk-go/binding/format/protobuf/v2 v2.13.0 // indirect
 	github.com/cloudevents/sdk-go/v2 v2.13.0 // indirect
 	github.com/dapr/dapr v1.11.0-rc.10.0.20230627234936-6a8ff83285b8 // indirect
-	github.com/dapr/kit v0.11.3-0.20230615225244-804821bb8f2d // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/google/uuid v1.3.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect

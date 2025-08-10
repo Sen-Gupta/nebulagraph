@@ -3,18 +3,24 @@ package stores
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/dapr/components-contrib/state"
+	"github.com/dapr/kit/logger"
 	nebula "github.com/vesoft-inc/nebula-go/v3"
 )
 
-// NebulaStateStore is a custom state store implementation for NebulaGraph.
+// NebulaStateStore is a production-ready state store implementation for NebulaGraph.
 type NebulaStateStore struct {
 	pool   *nebula.ConnectionPool
 	config NebulaConfig
+	logger logger.Logger
+	mu     sync.RWMutex
+	closed bool
 }
 
 // Compile time check to ensure NebulaStateStore implements state.Store
@@ -31,8 +37,15 @@ type NebulaConfig struct {
 	Space    string `json:"space"`
 }
 
+// NewNebulaStateStore creates a new instance of NebulaStateStore.
+func NewNebulaStateStore(logger logger.Logger) state.Store {
+	return &NebulaStateStore{
+		logger: logger,
+	}
+}
+
 func (store *NebulaStateStore) Init(ctx context.Context, metadata state.Metadata) error {
-	fmt.Printf("DEBUG: Init called on store instance %p with metadata: %+v\n", store, metadata.Properties)
+	store.logger.Info("Initializing NebulaStateStore...")
 
 	// Check for context cancellation
 	select {
@@ -44,11 +57,12 @@ func (store *NebulaStateStore) Init(ctx context.Context, metadata state.Metadata
 	// Parse configuration from metadata
 	configBytes, _ := json.Marshal(metadata.Properties)
 	if err := json.Unmarshal(configBytes, &store.config); err != nil {
-		fmt.Printf("DEBUG: Failed to parse config: %v\n", err)
+		store.logger.Errorf("Failed to parse config: %v", err)
 		return fmt.Errorf("failed to parse configuration: %w", err)
 	}
 
-	fmt.Printf("DEBUG: Parsed config: %+v\n", store.config)
+	store.logger.Infof("Parsed config: hosts=%s, port=%s, space=%s", 
+		store.config.Hosts, store.config.Port, store.config.Space)
 
 	// Parse hosts string into slice
 	hosts := strings.Split(store.config.Hosts, ",")
@@ -59,11 +73,11 @@ func (store *NebulaStateStore) Init(ctx context.Context, metadata state.Metadata
 	// Convert port string to int
 	port, err := strconv.Atoi(store.config.Port)
 	if err != nil {
-		fmt.Printf("DEBUG: Invalid port: %v\n", err)
+		store.logger.Errorf("Invalid port: %v", err)
 		return fmt.Errorf("invalid port number: %w", err)
 	}
 
-	fmt.Printf("DEBUG: Connecting to NebulaGraph at hosts: %v, port: %d\n", hosts, port)
+	store.logger.Infof("Connecting to NebulaGraph at hosts: %v, port: %d", hosts, port)
 
 	// Initialize NebulaGraph connection pool
 	hostList := make([]nebula.HostAddress, len(hosts))
@@ -74,11 +88,11 @@ func (store *NebulaStateStore) Init(ctx context.Context, metadata state.Metadata
 	poolConfig := nebula.GetDefaultConf()
 	pool, err := nebula.NewConnectionPool(hostList, poolConfig, nebula.DefaultLogger{})
 	if err != nil {
-		fmt.Printf("DEBUG: Failed to create connection pool: %v\n", err)
+		store.logger.Errorf("Failed to create connection pool: %v", err)
 		return fmt.Errorf("failed to create connection pool: %w", err)
 	}
 
-	fmt.Printf("DEBUG: Connection pool created successfully\n")
+	store.logger.Info("NebulaStateStore initialized successfully")
 	store.pool = pool
 	return nil
 }
@@ -102,12 +116,24 @@ func (store *NebulaStateStore) Features() []state.Feature {
 }
 
 func (store *NebulaStateStore) Delete(ctx context.Context, req *state.DeleteRequest) error {
+	if req.Key == "" {
+		return errors.New("key cannot be empty")
+	}
+
+	store.mu.RLock()
+	defer store.mu.RUnlock()
+
+	if store.closed {
+		return errors.New("store is closed")
+	}
+
 	if store.pool == nil {
-		return fmt.Errorf("component not initialized: connection pool is nil")
+		return errors.New("connection pool not initialized")
 	}
 
 	session, err := store.pool.GetSession(store.config.Username, store.config.Password)
 	if err != nil {
+		store.logger.Errorf("Failed to get session for delete: %v", err)
 		return fmt.Errorf("failed to get session: %w", err)
 	}
 	defer session.Release()
@@ -126,51 +152,62 @@ func (store *NebulaStateStore) Delete(ctx context.Context, req *state.DeleteRequ
 }
 
 func (store *NebulaStateStore) Get(ctx context.Context, req *state.GetRequest) (*state.GetResponse, error) {
-	fmt.Printf("DEBUG: GET called on store instance %p for key: %s\n", store, req.Key)
+	if req.Key == "" {
+		return nil, errors.New("key cannot be empty")
+	}
+
+	store.mu.RLock()
+	defer store.mu.RUnlock()
+
+	if store.closed {
+		return nil, errors.New("store is closed")
+	}
+
+	store.logger.Debugf("Getting value for key: %s", req.Key)
 
 	// Ensure component is properly initialized
 	if store.pool == nil {
-		return nil, fmt.Errorf("component not initialized: connection pool is nil")
+		return nil, errors.New("connection pool not initialized")
 	}
 
 	session, err := store.pool.GetSession(store.config.Username, store.config.Password)
 	if err != nil {
-		fmt.Printf("DEBUG: Failed to get session: %v\n", err)
+		store.logger.Errorf("Failed to get session: %v", err)
 		return nil, fmt.Errorf("failed to get session: %w", err)
 	}
 	defer session.Release()
 
 	// First, let's see what vertices exist to debug the key format
 	debugQuery := fmt.Sprintf("USE %s; MATCH (v:state) RETURN id(v) LIMIT 10", store.config.Space)
-	fmt.Printf("DEBUG: Executing debug query: %s\n", debugQuery)
+	store.logger.Debugf("Executing debug query: %s", debugQuery)
 	debugResp, err := session.Execute(debugQuery)
 	if err != nil {
-		fmt.Printf("DEBUG: Debug query failed: %v\n", err)
+		store.logger.Errorf("Debug query failed: %v", err)
 		return nil, fmt.Errorf("debug query failed: %w", err)
 	}
 
 	if debugResp != nil && debugResp.IsSucceed() && debugResp.GetRowSize() > 0 {
-		fmt.Printf("DEBUG: Found %d vertices in database\n", debugResp.GetRowSize())
+		store.logger.Debugf("Found %d vertices in database", debugResp.GetRowSize())
 		for i := 0; i < debugResp.GetRowSize(); i++ {
 			if record, err := debugResp.GetRowValuesByIndex(i); err == nil {
 				if idVal, err := record.GetValueByIndex(0); err == nil {
 					if idStr, err := idVal.AsString(); err == nil {
-						fmt.Printf("DEBUG: Vertex ID: %s\n", idStr)
+						store.logger.Debugf("Vertex ID: %s", idStr)
 					}
 				}
 			}
 		}
 	} else {
-		fmt.Printf("DEBUG: No vertices found or query failed\n")
+		store.logger.Debug("No vertices found or query failed")
 	}
 
 	// Try multiple approaches to find the vertex since Dapr adds prefixes
 	// First try with CONTAINS for the key
 	query := fmt.Sprintf("USE %s; MATCH (v:state) WHERE id(v) CONTAINS '%s' RETURN v.state.data AS data", store.config.Space, req.Key)
-	fmt.Printf("DEBUG: Executing query: %s\n", query)
+	store.logger.Debugf("Executing query: %s", query)
 	resp, err := session.Execute(query)
 	if err != nil {
-		fmt.Printf("DEBUG: Query failed: %v\n", err)
+		store.logger.Errorf("Query failed: %v", err)
 		return nil, fmt.Errorf("failed to execute query: %w", err)
 	}
 
@@ -219,12 +256,26 @@ func (store *NebulaStateStore) Get(ctx context.Context, req *state.GetRequest) (
 }
 
 func (store *NebulaStateStore) Set(ctx context.Context, req *state.SetRequest) error {
-	if store.pool == nil {
-		return fmt.Errorf("component not initialized: connection pool is nil")
+	if req.Key == "" {
+		return errors.New("key cannot be empty")
 	}
+
+	store.mu.RLock()
+	defer store.mu.RUnlock()
+
+	if store.closed {
+		return errors.New("store is closed")
+	}
+
+	if store.pool == nil {
+		return errors.New("connection pool not initialized")
+	}
+
+	store.logger.Debugf("Setting value for key: %s", req.Key)
 
 	session, err := store.pool.GetSession(store.config.Username, store.config.Password)
 	if err != nil {
+		store.logger.Errorf("Failed to get session for set: %v", err)
 		return fmt.Errorf("failed to get session: %w", err)
 	}
 	defer session.Release()
@@ -255,14 +306,26 @@ func (store *NebulaStateStore) Set(ctx context.Context, req *state.SetRequest) e
 }
 
 func (store *NebulaStateStore) BulkGet(ctx context.Context, req []state.GetRequest, opts state.BulkGetOpts) ([]state.BulkGetResponse, error) {
-	fmt.Printf("DEBUG: BulkGet called for %d keys\n", len(req))
+	if len(req) == 0 {
+		return []state.BulkGetResponse{}, nil
+	}
+
+	store.mu.RLock()
+	defer store.mu.RUnlock()
+
+	if store.closed {
+		return nil, errors.New("store is closed")
+	}
+
+	store.logger.Debugf("Bulk getting %d keys", len(req))
 	
 	if store.pool == nil {
-		return nil, fmt.Errorf("component not initialized: connection pool is nil")
+		return nil, errors.New("connection pool not initialized")
 	}
 
 	session, err := store.pool.GetSession(store.config.Username, store.config.Password)
 	if err != nil {
+		store.logger.Errorf("Failed to get session for bulk get: %v", err)
 		return nil, fmt.Errorf("failed to get session: %w", err)
 	}
 	defer session.Release()
@@ -304,11 +367,11 @@ func (store *NebulaStateStore) BulkGet(ctx context.Context, req []state.GetReque
 	query := fmt.Sprintf("USE %s; FETCH PROP ON state %s YIELD id(vertex) AS key, properties(vertex).data AS data",
 		store.config.Space, strings.Join(keys, ", "))
 
-	fmt.Printf("DEBUG: Executing bulk query: %s\n", query)
+	store.logger.Debugf("Executing bulk query: %s", query)
 	resp, err := session.Execute(query)
 	if err != nil {
 		// Fall back to individual queries if batch fails
-		fmt.Printf("DEBUG: Batch query failed, falling back to individual queries: %v\n", err)
+		store.logger.Debugf("Batch query failed, falling back to individual queries: %v", err)
 		for i, getReq := range req {
 			resp, err := store.Get(ctx, &getReq)
 			if err != nil {
@@ -322,7 +385,7 @@ func (store *NebulaStateStore) BulkGet(ctx context.Context, req []state.GetReque
 
 	if !resp.IsSucceed() {
 		// Fall back to individual queries
-		fmt.Printf("DEBUG: Batch query not successful, falling back: %s\n", resp.GetErrorMsg())
+		store.logger.Debugf("Batch query not successful, falling back: %s", resp.GetErrorMsg())
 		for i, getReq := range req {
 			resp, err := store.Get(ctx, &getReq)
 			if err != nil {
@@ -366,23 +429,31 @@ func (store *NebulaStateStore) BulkGet(ctx context.Context, req []state.GetReque
 		}
 	}
 
-	fmt.Printf("DEBUG: BulkGet completed for %d keys\n", len(req))
+	store.logger.Debugf("BulkGet completed for %d keys", len(req))
 	return responses, nil
 }
 
 func (store *NebulaStateStore) BulkDelete(ctx context.Context, req []state.DeleteRequest, opts state.BulkStoreOpts) error {
-	fmt.Printf("DEBUG: BulkDelete called for %d keys\n", len(req))
-	
-	if store.pool == nil {
-		return fmt.Errorf("component not initialized: connection pool is nil")
-	}
-
 	if len(req) == 0 {
 		return nil
 	}
 
+	store.mu.RLock()
+	defer store.mu.RUnlock()
+
+	if store.closed {
+		return errors.New("store is closed")
+	}
+
+	store.logger.Debugf("Bulk deleting %d keys", len(req))
+	
+	if store.pool == nil {
+		return errors.New("connection pool not initialized")
+	}
+
 	session, err := store.pool.GetSession(store.config.Username, store.config.Password)
 	if err != nil {
+		store.logger.Errorf("Failed to get session for bulk delete: %v", err)
 		return fmt.Errorf("failed to get session: %w", err)
 	}
 	defer session.Release()
@@ -582,8 +653,22 @@ func (store *NebulaStateStore) Query(ctx context.Context, req *state.QueryReques
 }
 
 func (store *NebulaStateStore) Close() error {
+	store.mu.Lock()
+	defer store.mu.Unlock()
+
+	if store.closed {
+		return nil
+	}
+
+	store.logger.Info("Closing NebulaStateStore...")
+
+	store.closed = true
+
 	if store.pool != nil {
 		store.pool.Close()
+		store.pool = nil
 	}
+
+	store.logger.Info("NebulaStateStore closed successfully")
 	return nil
 }
