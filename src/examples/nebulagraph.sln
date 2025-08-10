@@ -3,7 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.5.2.0
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NebulaGraphTestHttpApi", "NebulaGraphTestHttpApi\NebulaGraphTestHttpApi.csproj", "{D9A5CDDF-C32C-FDCE-5A4F-6CAB22E9C72B}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NebulaGraphNetExample", "NebulaGraphNetExample\NebulaGraphNetExample.csproj", "{D9A5CDDF-C32C-FDCE-5A4F-6CAB22E9C72B}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NebulaGraphTestGrpcApi", "NebulaGraphTestGrpcApi\NebulaGraphTestGrpcApi.csproj", "{47A152F7-3A5F-42A6-BB05-2883852DDB3D}"
 EndProject
