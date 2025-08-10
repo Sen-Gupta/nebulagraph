@@ -10,9 +10,10 @@ NEBULA_HTTP_PORT=${NEBULA_HTTP_PORT:-3501}
 NEBULA_GRPC_PORT=${NEBULA_GRPC_PORT:-50001}
 NEBULA_NETWORK_NAME=${NEBULA_NETWORK_NAME:-nebula-net}
 
-echo "NebulaGraph Dapr Component - State Store Test Suite"
-echo "==================================================="
-echo "Testing NebulaGraph State Store (HTTP/gRPC Interfaces)"
+echo "NebulaGraph Dapr Component - Comprehensive Test Suite"
+echo "===================================================="
+echo "Testing NebulaGraph State Store (HTTP & gRPC Interfaces)"
+echo "Includes: CRUD + Bulk Operations + Query API + Cross-Protocol Testing"
 echo "Configuration:"
 echo "  • HTTP Port: $NEBULA_HTTP_PORT"
 echo "  • gRPC Port: $NEBULA_GRPC_PORT"
@@ -43,21 +44,33 @@ if [ ! -f "test_component.sh" ] || [ ! -f "test_component_grpc.sh" ]; then
     exit 1
 fi
 
+# Make test scripts executable
+chmod +x test_component.sh test_component_grpc.sh
+
 print_section "🌐 PHASE 1: HTTP Interface Testing (port $NEBULA_HTTP_PORT)"
-echo "Running HTTP API tests for NebulaGraph state store..."
+echo "Running comprehensive HTTP API tests..."
+echo "• Basic CRUD operations"
+echo "• Bulk operations (BulkGet/BulkSet/BulkDelete)"
+echo "• Query API functionality"
+echo "• Performance validation"
 echo ""
 
 ./test_component.sh
 HTTP_RESULT=$?
 
 print_section "🔌 PHASE 2: gRPC Interface Testing (port $NEBULA_GRPC_PORT)"
-echo "Running gRPC API tests for NebulaGraph state store..."
+echo "Running comprehensive gRPC API tests..."
+echo "• Basic CRUD operations"
+echo "• Bulk operations (BulkGet/BulkSet/BulkDelete)"
+echo "• Query API functionality"
+echo "• Cross-protocol compatibility"
+echo "• Performance validation"
 echo ""
 
 ./test_component_grpc.sh
 GRPC_RESULT=$?
 
-print_section " FINAL RESULTS"
+print_section " COMPREHENSIVE TEST RESULTS"
 
 echo -e "HTTP Interface Tests: $([ $HTTP_RESULT -eq 0 ] && echo -e "${GREEN}✅ PASSED${NC}" || echo -e "${RED}❌ FAILED${NC}")"
 echo -e "gRPC Interface Tests: $([ $GRPC_RESULT -eq 0 ] && echo -e "${GREEN}✅ PASSED${NC}" || echo -e "${RED}❌ FAILED${NC}")"
@@ -65,48 +78,59 @@ echo ""
 
 if [ $HTTP_RESULT -eq 0 ] && [ $GRPC_RESULT -eq 0 ]; then
     echo -e "${GREEN}🎉 COMPLETE SUCCESS!${NC}"
-    echo "✅ HTTP and gRPC state store interfaces are working correctly"
+    echo "✅ ALL state store interfaces and features are working correctly"
     echo "✅ NebulaGraph Dapr state store component is fully operational"
     echo ""
     echo "Production-ready features verified:"
     echo "  • NebulaGraph state store (HTTP & gRPC)"
-    echo "  • Data persistence and retrieval"
+    echo "  • Data persistence and retrieval (GET/SET/DELETE)"
+    echo "  • Bulk operations (BulkGet/BulkSet/BulkDelete)"
+    echo "  • Query API with filtering and pagination"
     echo "  • Component registration and initialization"
+    echo "  • Cross-protocol compatibility (HTTP ↔ gRPC)"
+    echo "  • Performance validation and benchmarking"
     echo ""
     echo "Next steps:"
     echo "  • Component is ready for production deployment"
     echo "  • Both Dapr HTTP and gRPC clients can connect"
-    echo "  • NebulaGraph state operations are functional"
+    echo "  • All NebulaGraph state operations are functional"
+    echo "  • Advanced features like bulk operations and queries are supported"
     exit 0
-elif [ $HTTP_RESULT -eq 0 ] && [ $GRPC_RESULT -ne 0 ]; then
-    echo -e "${YELLOW}⚠️  PARTIAL SUCCESS${NC}"
-    echo "✅ HTTP interface is working"
-    echo "❌ gRPC interface has issues"
-    echo ""
-    echo "Troubleshooting gRPC:"
-    echo "  • Check if grpcurl is installed: apt-get install grpcurl"
-    echo "  • Verify Dapr gRPC port $NEBULA_GRPC_PORT is accessible"
-    echo "  • Check Dapr sidecar logs: docker logs daprd-nebulagraph"
-    exit 1
-elif [ $HTTP_RESULT -ne 0 ] && [ $GRPC_RESULT -eq 0 ]; then
-    echo -e "${YELLOW}⚠️  PARTIAL SUCCESS${NC}"
-    echo "❌ HTTP interface has issues"
-    echo "✅ gRPC interface is working"
-    echo ""
-    echo "Troubleshooting HTTP:"
-    echo "  • Check if Dapr HTTP port $NEBULA_HTTP_PORT is accessible"
-    echo "  • Check component logs: docker logs nebulagraph-dapr-component"
-    echo "  • Verify curl is available and working"
-    exit 1
 else
-    echo -e "${RED}❌ COMPLETE FAILURE${NC}"
-    echo "❌ HTTP state store interface has issues"
-    echo "❌ gRPC state store interface has issues"
+    # Calculate success rate
+    passed_tests=0
+    total_tests=2
+    
+    [ $HTTP_RESULT -eq 0 ] && ((passed_tests++))
+    [ $GRPC_RESULT -eq 0 ] && ((passed_tests++))
+    
+    if [ $passed_tests -gt 0 ]; then
+        echo -e "${YELLOW}⚠️  PARTIAL SUCCESS ($passed_tests/$total_tests)${NC}"
+        echo "Some features are working, but there are issues to address"
+    else
+        echo -e "${RED}❌ SIGNIFICANT FAILURES ($passed_tests/$total_tests)${NC}"
+        echo "Multiple core features have issues"
+    fi
+    
     echo ""
     echo "Troubleshooting:"
-    echo "  • Check if Dapr component is running: ./run_docker_pluggable.sh status"
-    echo "  • Verify NebulaGraph dependencies: cd ../dependencies && ./environment_setup.sh status"
-    echo "  • Check all logs: ./run_docker_pluggable.sh logs"
-    echo "  • Verify network connectivity: docker network ls | grep $NEBULA_NETWORK_NAME"
+    
+    if [ $HTTP_RESULT -ne 0 ]; then
+        echo "  • HTTP Interface: Check Dapr HTTP port $NEBULA_HTTP_PORT accessibility"
+        echo "    - Verify component configuration and NebulaGraph connectivity"
+    fi
+    
+    if [ $GRPC_RESULT -ne 0 ]; then
+        echo "  • gRPC Interface: Verify grpcurl installation and Dapr gRPC port $NEBULA_GRPC_PORT"
+        echo "    - Check Dapr sidecar and component registration"
+    fi
+    
+    echo ""
+    echo "General troubleshooting:"
+    echo "  • Component status: ./run_docker_pluggable.sh status"
+    echo "  • NebulaGraph deps: cd ../dependencies && ./environment_setup.sh status"
+    echo "  • Component logs: ./run_docker_pluggable.sh logs"
+    echo "  • Network check: docker network ls | grep $NEBULA_NETWORK_NAME"
+    
     exit 1
 fi
