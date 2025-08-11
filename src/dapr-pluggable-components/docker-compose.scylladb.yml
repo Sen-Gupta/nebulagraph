@@ -1,0 +1,44 @@
+version: '3.8'
+
+services:
+  # ScyllaDB component (using ScyllaDB backend)
+  scylladb-component:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ${SCYLLA_COMPONENT_CONTAINER:-scylladb-component}
+    environment:
+      - STORE_TYPE=scylladb
+      - DAPR_LOG_LEVEL=${DAPR_LOG_LEVEL:-debug}
+    volumes:
+      - ./components/scylladb-state.yaml:/app/components/scylladb-state.yaml
+    networks:
+      - ${NEBULA_NETWORK_NAME:-nebula-net}
+    depends_on:
+      ${SCYLLA_NODE1_CONTAINER:-scylladb-node1}:
+        condition: service_healthy
+    ports:
+      - "${NEBULA_GRPC_PORT:-50001}:50001"  # gRPC port for Dapr component
+
+  # Test API for ScyllaDB component
+  scylladb-test-api:
+    build:
+      context: ../examples/NebulaGraphNetExample
+      dockerfile: Dockerfile
+    container_name: ${SCYLLA_TEST_API_CONTAINER:-scylladb-test-api}
+    environment:
+      - StateStoreName=scylladb-state
+      - ASPNETCORE_URLS=http://+:${TEST_API_APP_PORT:-80}
+      - Dapr__ComponentsPath=/app/components
+    volumes:
+      - ./components/scylladb-state.yaml:/app/components/scylladb-state.yaml
+    networks:
+      - ${NEBULA_NETWORK_NAME:-nebula-net}
+    ports:
+      - "${SCYLLA_TEST_API_HOST_PORT:-5001}:${TEST_API_APP_PORT:-80}"  # HTTP API port
+    depends_on:
+      - scylladb-component
+
+networks:
+  ${NEBULA_NETWORK_NAME:-nebula-net}:
+    external: true

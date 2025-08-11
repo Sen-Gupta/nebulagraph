@@ -6,6 +6,8 @@ metadata:
 spec:
   type: state.nebulagraph-state
   version: v1
+  secretStores:
+  - "local-secret-store"
   metadata:
   - name: hosts
     secretKeyRef:

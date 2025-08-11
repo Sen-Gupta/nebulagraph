@@ -1,0 +1,42 @@
+apiVersion: dapr.io/v1alpha1
+kind: Component
+metadata:
+  name: scylladb-state
+spec:
+  type: state.scylladb-state
+  version: v1
+  secretStores:
+  - "local-secret-store"
+  metadata:
+  - name: hosts
+    value: "${SCYLLA_HOSTS:-scylladb-node1}"
+  - name: port
+    value: "${SCYLLA_CQL_PORT:-9042}"
+  - name: username
+    secretKeyRef:
+      name: scylladb:username
+      key: scylladb:username
+  - name: password
+    secretKeyRef:
+      name: scylladb:password
+      key: scylladb:password
+  - name: keyspace
+    value: "${SCYLLA_KEYSPACE:-dapr_state}"
+  - name: table
+    value: "${SCYLLA_TABLE:-state}"
+  - name: consistency
+    value: "${SCYLLA_CONSISTENCY:-LOCAL_QUORUM}"
+  - name: connectionTimeout
+    value: "${SCYLLA_CONNECTION_TIMEOUT:-10s}"
+  - name: socketKeepalive
+    value: "${SCYLLA_SOCKET_KEEPALIVE:-30s}"
+  - name: maxReconnectInterval
+    value: "${SCYLLA_MAX_RECONNECT_INTERVAL:-60s}"
+  - name: numConns
+    value: "${SCYLLA_NUM_CONNS:-2}"
+  - name: disableInitialHostLookup
+    value: "false"
+  - name: replicationStrategy
+    value: "${SCYLLA_REPLICATION_STRATEGY:-SimpleStrategy}"
+  - name: replicationFactor
+    value: "${SCYLLA_REPLICATION_FACTOR:-3}"

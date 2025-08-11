@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"nebulagraph/stores"
+	"os"
 
 	dapr "github.com/dapr-sandbox/components-go-sdk"
 	"github.com/dapr-sandbox/components-go-sdk/state/v1"
@@ -12,12 +13,32 @@ import (
 func main() {
 	fmt.Println("DEBUG: Starting Dapr component registration")
 
-	dapr.Register("nebulagraph-state", dapr.WithStateStore(func() state.Store {
-		fmt.Println("DEBUG: Factory function called - creating new NebulaStateStore instance")
-		store := stores.NewNebulaStateStore(logger.NewLogger("nebulagraph-state"))
-		fmt.Printf("DEBUG: Created store instance: %p\n", store)
-		return store
-	}))
+	// Check which store type to register based on environment variable
+	storeType := os.Getenv("STORE_TYPE")
+	if storeType == "" {
+		storeType = "nebulagraph" // default
+	}
+
+	switch storeType {
+	case "scylladb":
+		fmt.Println("DEBUG: Registering ScyllaDB state store")
+		dapr.Register("scylladb-state", dapr.WithStateStore(func() state.Store {
+			fmt.Println("DEBUG: Factory function called - creating new ScyllaStateStore instance")
+			store := stores.NewScyllaStateStore(logger.NewLogger("scylladb-state"))
+			fmt.Printf("DEBUG: Created ScyllaDB store instance: %p\n", store)
+			return store
+		}))
+	case "nebulagraph":
+		fallthrough
+	default:
+		fmt.Println("DEBUG: Registering NebulaGraph state store")
+		dapr.Register("nebulagraph-state", dapr.WithStateStore(func() state.Store {
+			fmt.Println("DEBUG: Factory function called - creating new NebulaStateStore instance")
+			store := stores.NewNebulaStateStore(logger.NewLogger("nebulagraph-state"))
+			fmt.Printf("DEBUG: Created NebulaGraph store instance: %p\n", store)
+			return store
+		}))
+	}
 
 	fmt.Println("DEBUG: Registration complete, starting Dapr runtime")
 	dapr.MustRun()
