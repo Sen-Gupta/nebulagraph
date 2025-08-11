@@ -143,7 +143,7 @@ connect_dapr_to_nebula_network() {
     
     if [ $connected_count -gt 0 ]; then
         print_success "Connected $connected_count Dapr container(s) to $NEBULA_NETWORK_NAME network"
-        print_info "Dapr placement service is now accessible at dapr_placement:50005"
+        print_info "Dapr placement service is now accessible at dapr_placement:${DAPR_PLACEMENT_PORT:-50090}"
     fi
 }
 
@@ -640,10 +640,10 @@ start_dapr_runtime() {
         if $compose_cmd up -d; then
             print_success "Controlled Dapr runtime services started successfully"
             print_info "Dapr services running with controlled configuration:"
-            print_info "  - Placement: ${DAPR_PLACEMENT_PORT:-50005}"
-            print_info "  - Redis: ${DAPR_REDIS_PORT:-6379}" 
+            print_info "  - Placement: ${DAPR_PLACEMENT_PORT:-50090}"
+            print_info "  - Redis: ${DAPR_REDIS_PORT:-6379}"
             print_info "  - Zipkin: ${DAPR_ZIPKIN_PORT:-9411}"
-            print_info "  - Scheduler: ${DAPR_SCHEDULER_PORT:-50006}"
+            print_info "  - Scheduler: ${DAPR_SCHEDULER_PORT:-50091}"
             print_info "Waiting for Dapr services to initialize..."
             sleep 15
         else
@@ -898,10 +898,10 @@ show_dapr_status() {
         cd ..
         
         print_info "\nDapr Service URLs:"
-        echo -e "  • Placement: localhost:${DAPR_PLACEMENT_PORT:-50005}"
+        echo -e "  • Placement: localhost:${DAPR_PLACEMENT_PORT:-50090}"
         echo -e "  • Redis: localhost:${DAPR_REDIS_PORT:-6379}"
         echo -e "  • Zipkin: http://localhost:${DAPR_ZIPKIN_PORT:-9411}"
-        echo -e "  • Scheduler: localhost:${DAPR_SCHEDULER_PORT:-50006}"
+        echo -e "  • Scheduler: localhost:${DAPR_SCHEDULER_PORT:-50091}"
         
         print_info "\nHealth Check Status:"
         local health_cmd="curl -s"
@@ -1379,10 +1379,10 @@ main() {
     echo -e "  • ScyllaDB Manager: http://localhost:${SCYLLA_MANAGER_WEB_PORT:-7004}"
     
     echo -e "\n${BLUE}Dapr Runtime Services:${NC}"
-    echo -e "  • Placement: localhost:${DAPR_PLACEMENT_PORT:-50005}"
+    echo -e "  • Placement: localhost:${DAPR_PLACEMENT_PORT:-50090}"
     echo -e "  • Redis (Internal): localhost:${DAPR_REDIS_PORT:-6379}"
     echo -e "  • Zipkin Tracing: http://localhost:${DAPR_ZIPKIN_PORT:-9411}"
-    echo -e "  • Scheduler: localhost:${DAPR_SCHEDULER_PORT:-50006}"
+    echo -e "  • Scheduler: localhost:${DAPR_SCHEDULER_PORT:-50091}"
     
     echo -e "\n${BLUE}Dapr Components Available:${NC}"
     echo -e "  • State Store: nebulagraph-state (NebulaGraph backend)"
