@@ -31,19 +31,19 @@ services:
     command: >
       ./placement
       --log-level=${DAPR_LOG_LEVEL:-info}
-      --port=${DAPR_PLACEMENT_INTERNAL_PORT:-50090}
+      --port=${DAPR_PLACEMENT_INTERNAL_PORT:-50005}
       --metrics-port=${DAPR_PLACEMENT_METRICS_PORT:-9090}
-      --healthz-port=${DAPR_PLACEMENT_HEALTH_PORT:-8090}
+      --healthz-port=${DAPR_PLACEMENT_HEALTH_PORT:-8080}
     ports:
-      - "${DAPR_PLACEMENT_PORT:-50090}:${DAPR_PLACEMENT_INTERNAL_PORT:-50090}"
+      - "${DAPR_PLACEMENT_PORT:-50005}:${DAPR_PLACEMENT_INTERNAL_PORT:-50005}"
       - "${DAPR_PLACEMENT_METRICS_HOST_PORT:-59090}:${DAPR_PLACEMENT_METRICS_PORT:-9090}"
-      - "${DAPR_PLACEMENT_HEALTH_HOST_PORT:-58090}:${DAPR_PLACEMENT_HEALTH_PORT:-8090}"
+      - "${DAPR_PLACEMENT_HEALTH_HOST_PORT:-58080}:${DAPR_PLACEMENT_HEALTH_PORT:-8080}"
     networks:
       - nebula-net
     volumes:
       - dapr-placement-data:/var/run/dapr
     healthcheck:
-      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:${DAPR_PLACEMENT_HEALTH_PORT:-8090}/v1.0/healthz || exit 1"]
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:${DAPR_PLACEMENT_HEALTH_PORT:-8080}/v1.0/healthz || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -56,16 +56,16 @@ services:
     command: >
       ./scheduler
       --log-level=${DAPR_LOG_LEVEL:-info}
-      --port=${DAPR_SCHEDULER_INTERNAL_PORT:-50091}
+      --port=${DAPR_SCHEDULER_INTERNAL_PORT:-50006}
       --metrics-port=${DAPR_SCHEDULER_METRICS_PORT:-9091}
-      --healthz-port=${DAPR_SCHEDULER_HEALTH_PORT:-8091}
+      --healthz-port=${DAPR_SCHEDULER_HEALTH_PORT:-8081}
       --etcd-data-dir=/var/lock/dapr/scheduler
       --etcd-client-port=${DAPR_ETCD_PORT:-2379}
-      --override-broadcast-host-port=localhost:${DAPR_SCHEDULER_PORT:-50091}
+      --override-broadcast-host-port=localhost:${DAPR_SCHEDULER_PORT:-50006}
     ports:
-      - "${DAPR_SCHEDULER_PORT:-50091}:${DAPR_SCHEDULER_INTERNAL_PORT:-50091}"
+      - "${DAPR_SCHEDULER_PORT:-50006}:${DAPR_SCHEDULER_INTERNAL_PORT:-50006}"
       - "${DAPR_SCHEDULER_METRICS_HOST_PORT:-59091}:${DAPR_SCHEDULER_METRICS_PORT:-9091}"
-      - "${DAPR_SCHEDULER_HEALTH_HOST_PORT:-58091}:${DAPR_SCHEDULER_HEALTH_PORT:-8091}"
+      - "${DAPR_SCHEDULER_HEALTH_HOST_PORT:-58081}:${DAPR_SCHEDULER_HEALTH_PORT:-8081}"
       - "${DAPR_ETCD_HOST_PORT:-52379}:${DAPR_ETCD_PORT:-2379}"
     networks:
       - nebula-net
@@ -74,7 +74,7 @@ services:
     environment:
       - ETCD_UNSUPPORTED_ARCH=${DAPR_ETCD_UNSUPPORTED_ARCH:-arm64}
     healthcheck:
-      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:${DAPR_SCHEDULER_HEALTH_PORT:-8091}/v1.0/healthz || exit 1"]
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:${DAPR_SCHEDULER_HEALTH_PORT:-8081}/v1.0/healthz || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3

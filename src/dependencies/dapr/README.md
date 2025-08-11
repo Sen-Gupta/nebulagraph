@@ -17,8 +17,8 @@ Instead of using the default `dapr init` which creates containers with fixed con
 | Service | Default Port | Purpose | Health Check |
 |---------|-------------|---------|--------------|
 | `dapr-redis` | 6379 | Internal Dapr state and coordination | Redis PING |
-| `dapr-placement` | 50090 | Actor placement service | HTTP healthz endpoint |
-| `dapr-scheduler` | 50091 | Scheduled jobs and reminders | HTTP healthz endpoint |
+| `dapr-placement` | 50005 | Actor placement service | HTTP healthz endpoint |
+| `dapr-scheduler` | 50006 | Scheduled jobs and reminders | HTTP healthz endpoint |
 | `dapr-zipkin` | 9411 | Distributed tracing | HTTP health endpoint |
 
 ## Port Configuration
@@ -34,12 +34,12 @@ DAPR_LOG_LEVEL=info
 DAPR_REDIS_PORT=6379
 
 # Dapr Placement Service
-DAPR_PLACEMENT_PORT=50090
+DAPR_PLACEMENT_PORT=50005
 DAPR_PLACEMENT_METRICS_HOST_PORT=59090
 DAPR_PLACEMENT_HEALTH_HOST_PORT=58080
 
 # Dapr Scheduler Service
-DAPR_SCHEDULER_PORT=50091
+DAPR_SCHEDULER_PORT=50006
 DAPR_SCHEDULER_METRICS_HOST_PORT=59091
 DAPR_SCHEDULER_HEALTH_HOST_PORT=58081
 DAPR_ETCD_HOST_PORT=52379
@@ -70,12 +70,12 @@ DAPR_ZIPKIN_PORT=9411
          │                       │                       │
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
 │ dapr-placement  │    │   dapr-redis    │    │  dapr-zipkin    │
-│ Port: 50090     │    │   Port: 6379    │    │  Port: 9411     │
+│ Port: 50005     │    │   Port: 6379    │    │  Port: 9411     │
 └─────────────────┘    └─────────────────┘    └─────────────────┘
                                  │
                     ┌─────────────────┐
                     │ dapr-scheduler  │
-                    │ Port: 50091     │
+                    │ Port: 50006     │
                     └─────────────────┘
 ```
 
@@ -89,8 +89,8 @@ To avoid conflicts, ports are allocated as follows:
 - **7004**: ScyllaDB Manager
 - **9042**: ScyllaDB CQL Protocol
 - **9411**: Zipkin Tracing UI
-- **50090**: Dapr Placement Service
-- **50091**: Dapr Scheduler Service
+- **50005**: Dapr Placement Service
+- **50006**: Dapr Scheduler Service
 - **58080-58081**: Health check endpoints
 - **59090-59091**: Metrics endpoints
 
@@ -162,7 +162,7 @@ services:
     networks:
       - nebula-net
     environment:
-      - DAPR_PLACEMENT_HOST_ADDRESS=dapr-placement:50090
+      - DAPR_PLACEMENT_HOST_ADDRESS=dapr-placement:50005
       - DAPR_HTTP_ENDPOINT=http://your-dapr-sidecar:3500
       - DAPR_GRPC_ENDPOINT=your-dapr-sidecar:50001
 
