@@ -652,7 +652,7 @@ public class StateStoreController : ControllerBase
         }
     }
 
-    #region Individual Test Endpoints (for test_net.sh integration)
+    #region Individual Test Endpoints (for test_nebula_net.sh integration)
     
     [HttpPost("basic-crud")]
     public async Task<IActionResult> BasicCrudTest()

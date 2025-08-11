@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# Docker-Based TestAPI Management Script
-# Manages Dapr component and TestAPI applications using Docker Compose
+# NebulaGraph .NET Example Test Script
+# Manages Dapr component and NebulaGraph .NET TestAPI applications using Docker Compose
 
 set -e
 
@@ -96,11 +96,11 @@ check_dependencies() {
         exit 1
     fi
     
-    print_success "All prerequisites validated - ready to start NetExample with embedded Dapr component"
+    print_success "All prerequisites validated - ready to start NebulaGraph .NET Example with embedded Dapr component"
 }
 
 build_testapi() {
-    print_header "Building Docker Services"
+    print_header "Building NebulaGraph .NET Example Services"
     
     local compose_cmd
     compose_cmd=$(get_docker_compose_cmd) || {
@@ -110,15 +110,15 @@ build_testapi() {
     
     print_info "Building all Docker services with latest code changes..."
     if $compose_cmd build; then
-        print_success "All Docker services built successfully"
+        print_success "All NebulaGraph .NET Example services built successfully"
     else
-        print_error "Failed to build Docker services"
+        print_error "Failed to build NebulaGraph .NET Example services"
         return 1
     fi
 }
 
 start_testapi() {
-    print_header "Starting TestAPI with Docker Compose"
+    print_header "Starting NebulaGraph .NET Example with Docker Compose"
     
     local compose_cmd
     compose_cmd=$(get_docker_compose_cmd) || {
@@ -126,9 +126,9 @@ start_testapi() {
         return 1
     }
     
-    print_info "Starting TestAPI services..."
+    print_info "Starting NebulaGraph .NET Example services..."
     if $compose_cmd up -d; then
-        print_success "TestAPI services started successfully"
+        print_success "NebulaGraph .NET Example services started successfully"
         
         # Wait for services to be ready
         print_info "Waiting for services to initialize..."
@@ -139,19 +139,19 @@ start_testapi() {
         local sidecar_running=$($compose_cmd ps -q nebulagraph-net-example-sidecar 2>/dev/null)
         
         if [ -n "$api_running" ] && [ -n "$sidecar_running" ]; then
-            print_success "All TestAPI containers are running"
+            print_success "All NebulaGraph .NET Example containers are running"
         else
             print_warning "Some containers may not be running properly"
             $compose_cmd ps
         fi
     else
-        print_error "Failed to start TestAPI services"
+        print_error "Failed to start NebulaGraph .NET Example services"
         return 1
     fi
 }
 
 stop_processes() {
-    print_header "Stopping TestAPI Services"
+    print_header "Stopping NebulaGraph .NET Example Services"
     
     local compose_cmd
     compose_cmd=$(get_docker_compose_cmd) || {
@@ -159,13 +159,13 @@ stop_processes() {
         return 1
     }
     
-    print_info "Stopping TestAPI services..."
+    print_info "Stopping NebulaGraph .NET Example services..."
     $compose_cmd down
-    print_success "TestAPI services stopped"
+    print_success "NebulaGraph .NET Example services stopped"
 }
 
 check_status() {
-    print_header "TestAPI Services Status"
+    print_header "NebulaGraph .NET Example Services Status"
     
     local compose_cmd
     compose_cmd=$(get_docker_compose_cmd) || {
@@ -179,26 +179,26 @@ check_status() {
     
     echo ""
     print_info "Service Endpoints:"
-    echo "  • TestAPI: http://localhost:$TEST_API_HOST_PORT"
-    echo "  • TestAPI Swagger: http://localhost:$TEST_API_HOST_PORT/swagger"
-    echo "  • TestAPI Dapr: http://localhost:$TEST_API_HTTP_PORT"
+    echo "  • NebulaGraph .NET Example API: http://localhost:$TEST_API_HOST_PORT"
+    echo "  • NebulaGraph .NET Example Swagger: http://localhost:$TEST_API_HOST_PORT/swagger"
+    echo "  • NebulaGraph .NET Example Dapr: http://localhost:$TEST_API_HTTP_PORT"
     
     # Check if services are responding
     echo ""
     print_info "Service Health:"
     
-    # Test TestAPI
+    # Test NebulaGraph .NET Example API
     if curl -s --connect-timeout 5 "http://localhost:$TEST_API_HOST_PORT/swagger" >/dev/null 2>&1; then
-        print_success "TestAPI is responding"
+        print_success "NebulaGraph .NET Example API is responding"
     else
-        print_warning "TestAPI is not responding"
+        print_warning "NebulaGraph .NET Example API is not responding"
     fi
     
     # Test Dapr sidecar
     if curl -s --connect-timeout 5 "http://localhost:$TEST_API_HTTP_PORT/v1.0/healthz" >/dev/null 2>&1; then
-        print_success "TestAPI Dapr sidecar is responding"
+        print_success "NebulaGraph .NET Example Dapr sidecar is responding"
     else
-        print_warning "TestAPI Dapr sidecar is not responding"
+        print_warning "NebulaGraph .NET Example Dapr sidecar is not responding"
     fi
 }
 
@@ -240,16 +240,16 @@ run_controller_tests() {
 }
 
 test_services() {
-    print_header "Testing Docker-Based TestAPI Services"
+    print_header "Testing NebulaGraph .NET Example Services"
     
     sleep 15  # Give services more time to start and load components - Dapr needs time for init
     
-    # Test TestAPI health first
-    print_info "Testing TestAPI health..."
+    # Test NebulaGraph .NET Example API health first
+    print_info "Testing NebulaGraph .NET Example API health..."
     if curl -s --connect-timeout 10 "http://localhost:$TEST_API_HOST_PORT/swagger" > /dev/null; then
-        print_success "TestAPI health test passed"
+        print_success "NebulaGraph .NET Example API health test passed"
     else
-        print_error "TestAPI health test failed"
+        print_error "NebulaGraph .NET Example API health test failed"
         print_info "Checking container logs..."
         local compose_cmd
         compose_cmd=$(get_docker_compose_cmd)
@@ -257,12 +257,12 @@ test_services() {
         return 1
     fi
     
-    # Test TestAPI Dapr sidecar health
-    print_info "Testing TestAPI Dapr sidecar health..."
+    # Test NebulaGraph .NET Example Dapr sidecar health
+    print_info "Testing NebulaGraph .NET Example Dapr sidecar health..."
     if curl -s --connect-timeout 10 "http://localhost:$TEST_API_HTTP_PORT/v1.0/healthz" > /dev/null; then
-        print_success "TestAPI Dapr sidecar health test passed"
+        print_success "NebulaGraph .NET Example Dapr sidecar health test passed"
     else
-        print_error "TestAPI Dapr sidecar health test failed"
+        print_error "NebulaGraph .NET Example Dapr sidecar health test failed"
         print_info "Checking sidecar logs..."
         local compose_cmd
         compose_cmd=$(get_docker_compose_cmd)
@@ -379,7 +379,7 @@ case "${1:-help}" in
         build_testapi
         ;;
     "logs")
-        print_header "TestAPI Service Logs"
+        print_header "NebulaGraph .NET Example Service Logs"
         local compose_cmd
         compose_cmd=$(get_docker_compose_cmd) || {
             print_error "Docker Compose is not available"
@@ -390,15 +390,15 @@ case "${1:-help}" in
     "help"|"-h"|"--help")
         echo "Usage: $0 [COMMAND]"
         echo ""
-        echo "Docker-Based TestAPI Management - Manages TestAPI application using Docker Compose"
+        echo "NebulaGraph .NET Example Management - Manages NebulaGraph .NET Example application using Docker Compose"
         echo ""
         echo "Commands:"
-        echo "  start     Build and start TestAPI services with Docker Compose"
-        echo "  stop      Stop TestAPI services"
-        echo "  restart   Restart TestAPI services"
+        echo "  start     Build and start NebulaGraph .NET Example services with Docker Compose"
+        echo "  stop      Stop NebulaGraph .NET Example services"
+        echo "  restart   Restart NebulaGraph .NET Example services"
         echo "  status    Show service status and health"
         echo "  test      Test running services"
-        echo "  build     Build TestAPI Docker image"
+        echo "  build     Build NebulaGraph .NET Example Docker image"
         echo "  logs      Show service logs (follow mode)"
         echo "  help      Show this help"
         echo ""
@@ -408,14 +408,14 @@ case "${1:-help}" in
         echo "  • nebula-net Docker network must exist"
         echo ""
         echo "Environment Variables:"
-        echo "  • TEST_API_HOST_PORT (default: 5090) - Host port for TestAPI"
-        echo "  • TEST_API_APP_PORT (default: 80) - Container port for TestAPI"  
+        echo "  • TEST_API_HOST_PORT (default: 5090) - Host port for NebulaGraph .NET Example API"
+        echo "  • TEST_API_APP_PORT (default: 80) - Container port for NebulaGraph .NET Example API"  
         echo "  • TEST_API_HTTP_PORT (default: 3502) - Dapr HTTP port"
         echo ""
         echo "Services:"
-        echo "  • TestAPI: http://localhost:$TEST_API_HOST_PORT"
-        echo "  • TestAPI Swagger: http://localhost:$TEST_API_HOST_PORT/swagger"
-        echo "  • TestAPI Dapr: http://localhost:$TEST_API_HTTP_PORT"
+        echo "  • NebulaGraph .NET Example API: http://localhost:$TEST_API_HOST_PORT"
+        echo "  • NebulaGraph .NET Example Swagger: http://localhost:$TEST_API_HOST_PORT/swagger"
+        echo "  • NebulaGraph .NET Example Dapr: http://localhost:$TEST_API_HTTP_PORT"
         echo ""
         echo "Notes:"
         echo "  • Self-contained Docker Compose setup with integrated NebulaGraph component"

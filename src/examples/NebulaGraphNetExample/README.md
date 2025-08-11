@@ -25,7 +25,12 @@ API available at: `http://localhost:5090`
 
 ### Test the API
 ```bash
-./test_net.sh
+./test_nebula_net.sh start
+```
+
+For comprehensive testing and management:
+```bash
+./test_nebula_net.sh help
 ```
 
 ## API Endpoints
