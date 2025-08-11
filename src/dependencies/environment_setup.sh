@@ -71,68 +71,39 @@ get_docker_compose_cmd() {
     fi
 }
 
-# Initialize Dapr with Docker Desktop workarounds
-# Addresses Docker Desktop connectivity issues documented in:
-# https://github.com/dapr/dapr/issues/5011
-initialize_dapr_with_workarounds() {
-    print_info "Initializing Dapr runtime with Docker Desktop compatibility..."
+# Initialize Dapr with controlled containers instead of default dapr init
+# This approach uses dapr init --slim (binaries only) + our custom Docker Compose
+initialize_dapr_with_controlled_containers() {
+    print_info "Initializing Dapr with controlled containers..."
     
     # Pre-check: Ensure Docker is accessible
     if ! docker ps >/dev/null 2>&1; then
-        print_warning "Docker connectivity issue detected - applying workarounds before Dapr init"
+        print_warning "Docker connectivity issue detected - applying workarounds"
         if ! fix_docker_connectivity; then
             print_error "Could not establish Docker connectivity"
             return 1
         fi
     fi
     
-    # First, try standard dapr init
-    if dapr init; then
-        print_success "Dapr runtime initialized successfully"
-        print_info "Dapr Redis runs on port 6379, our Redis will use port $REDIS_HOST_PORT"
-        return 0
-    fi
-    
-    print_warning "Standard Dapr init failed - applying Docker Desktop workarounds..."
-    
-    # Apply Docker fixes and retry
-    if fix_docker_connectivity && dapr init; then
-        print_success "Dapr runtime initialized successfully after Docker connectivity fix"
-        print_info "Dapr Redis runs on port 6379, our Redis will use port $REDIS_HOST_PORT"
-        return 0
-    fi
-    
-    # Fallback: Use slim mode (no containers) - ONLY if explicitly requested
-    print_warning "All Docker connectivity workarounds failed"
-    print_error "Cannot initialize Dapr in container mode (required for Docker-based applications)"
-    print_info "This setup requires full Dapr init with containers for proper Docker integration"
-    
-    print_info "Manual steps to resolve (choose one):"
-    local docker_endpoint=$(get_docker_endpoint)
-    if [ -n "$docker_endpoint" ]; then
-        print_info "  1. Set DOCKER_HOST manually: export DOCKER_HOST=$docker_endpoint && dapr init"
-        print_info "  2. Create socket symlink: sudo ln -s ${docker_endpoint#unix://} /var/run/docker.sock && dapr init"
-    else
-        print_info "  1. Set DOCKER_HOST manually: export DOCKER_HOST=unix://\$HOME/.docker/desktop/docker.sock && dapr init"
-        print_info "  2. Create socket symlink: sudo ln -s \$HOME/.docker/desktop/docker.sock /var/run/docker.sock && dapr init"
-    fi
-    print_info "  3. Enable 'Allow the default Docker socket to be used' in Docker Desktop Settings > Advanced"
-    print_info "  4. Install Docker Engine instead of Docker Desktop"
-    print_info "  5. Use Kubernetes mode: dapr init -k"
-    print_info "  6. Reference: https://github.com/dapr/dapr/issues/5011"
-    
-    print_warning "Attempting slim mode as last resort (may not work with Docker applications)..."
-    
+    # Use slim mode (installs CLI/binaries without containers)
+    print_info "Installing Dapr CLI and binaries (without default containers)..."
     if dapr init --slim; then
-        print_warning "Dapr runtime initialized in slim mode"
-        print_warning "WARNING: Slim mode may not work properly with Docker-based applications"
-        print_warning "Consider fixing Docker connectivity and re-running with container mode"
-        return 0
+        print_success "Dapr CLI and binaries installed successfully"
+    else
+        print_error "Failed to install Dapr CLI and binaries"
+        return 1
     fi
     
-    # Final failure
-    print_error "Failed to initialize Dapr runtime in any mode"
-    return 1
+    # Now start our controlled Dapr containers
+    print_info "Starting controlled Dapr runtime containers..."
+    if start_dapr_runtime; then
+        print_success "Dapr runtime initialized with controlled containers"
+        print_info "Dapr services are running with parameterized ports and shared networking"
+        return 0
+    else
+        print_error "Failed to start controlled Dapr containers"
+        return 1
+    fi
 }
 
 # Connect Dapr containers to nebula-net network for Docker-based applications
@@ -345,8 +316,8 @@ install_prerequisites() {
             export PATH=$PATH:$HOME/.dapr/bin
             echo 'export PATH=$PATH:$HOME/.dapr/bin' >> ~/.bashrc
             
-            # Initialize Dapr with Docker Desktop compatibility
-            if initialize_dapr_with_workarounds; then
+            # Initialize Dapr with controlled containers
+            if initialize_dapr_with_controlled_containers; then
                 install_needed=1
             else
                 print_error "Failed to initialize Dapr runtime"
@@ -369,22 +340,20 @@ install_prerequisites() {
                 connect_dapr_to_nebula_network
             else
                 print_warning "Dapr configuration exists but no containers are running"
-                print_info "Re-initializing Dapr with Docker Desktop compatibility..."
-                if initialize_dapr_with_workarounds; then
+                print_info "Re-initializing Dapr with controlled containers..."
+                if initialize_dapr_with_controlled_containers; then
                     install_needed=1
-                    # Connect Dapr containers to nebula-net after initialization
-                    connect_dapr_to_nebula_network
+                    # No need to connect containers - they're already on nebula-net
                 else
                     print_error "Failed to re-initialize Dapr runtime"
                     install_failed=1
                 fi
             fi
         else
-            print_info "Dapr CLI found but runtime not initialized. Initializing with Docker Desktop compatibility..."
-            if initialize_dapr_with_workarounds; then
+            print_info "Dapr CLI found but runtime not initialized. Initializing with controlled containers..."
+            if initialize_dapr_with_controlled_containers; then
                 install_needed=1
-                # Connect Dapr containers to nebula-net after initialization
-                connect_dapr_to_nebula_network
+                # No need to connect containers - they're already on nebula-net
             else
                 print_error "Failed to initialize Dapr runtime"
                 install_failed=1
@@ -646,7 +615,7 @@ start_scylladb_service() {
 
 # Start Dapr runtime services
 start_dapr_runtime() {
-    print_info "Starting Dapr runtime services..."
+    print_info "Starting controlled Dapr runtime services..."
     
     if [ -f "dapr/docker-compose.yml" ]; then
         local compose_cmd
@@ -661,15 +630,16 @@ start_dapr_runtime() {
             return 1
         }
         
-        # Stop any existing Dapr runtime (from dapr init)
-        print_info "Stopping default Dapr runtime if running..."
-        dapr uninstall --all >/dev/null 2>&1 || true
+        # Stop any existing default Dapr containers that might conflict
+        print_info "Stopping any existing default Dapr containers..."
+        docker stop dapr_placement dapr_redis dapr_scheduler dapr_zipkin 2>/dev/null || true
+        docker rm dapr_placement dapr_redis dapr_scheduler dapr_zipkin 2>/dev/null || true
         
-        print_info "Starting custom Dapr runtime containers..."
+        print_info "Starting controlled Dapr runtime containers..."
         cd dapr
         if $compose_cmd up -d; then
-            print_success "Dapr runtime services started successfully"
-            print_info "Dapr services running on controlled ports:"
+            print_success "Controlled Dapr runtime services started successfully"
+            print_info "Dapr services running with controlled configuration:"
             print_info "  - Placement: ${DAPR_PLACEMENT_PORT:-50005}"
             print_info "  - Redis: ${DAPR_REDIS_PORT:-6379}" 
             print_info "  - Zipkin: ${DAPR_ZIPKIN_PORT:-9411}"
@@ -677,7 +647,7 @@ start_dapr_runtime() {
             print_info "Waiting for Dapr services to initialize..."
             sleep 15
         else
-            print_error "Failed to start Dapr runtime services"
+            print_error "Failed to start controlled Dapr runtime services"
             cd ..
             return 1
         fi
@@ -1502,8 +1472,8 @@ case "${1:-setup}" in
             docker stop $(docker ps -q --filter "name=dapr_") 2>/dev/null || true
             docker rm $(docker ps -aq --filter "name=dapr_") 2>/dev/null || true
             
-            print_info "Re-initializing Dapr in container mode with Docker Desktop compatibility..."
-            initialize_dapr_with_workarounds
+            print_info "Re-initializing Dapr with controlled containers..."
+            initialize_dapr_with_controlled_containers
         else
             print_error "Dapr CLI is not installed"
             print_info "Run './environment_setup.sh install-prereqs' first"
