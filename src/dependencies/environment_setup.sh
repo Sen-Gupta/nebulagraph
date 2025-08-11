@@ -644,6 +644,73 @@ start_scylladb_service() {
     fi
 }
 
+# Start Dapr runtime services
+start_dapr_runtime() {
+    print_info "Starting Dapr runtime services..."
+    
+    if [ -f "dapr/docker-compose.yml" ]; then
+        local compose_cmd
+        compose_cmd=$(get_docker_compose_cmd) || {
+            print_error "Docker Compose not available"
+            return 1
+        }
+        
+        # Ensure network exists before starting Dapr
+        setup_docker_network || {
+            print_error "Failed to setup Docker network"
+            return 1
+        }
+        
+        # Stop any existing Dapr runtime (from dapr init)
+        print_info "Stopping default Dapr runtime if running..."
+        dapr uninstall --all >/dev/null 2>&1 || true
+        
+        print_info "Starting custom Dapr runtime containers..."
+        cd dapr
+        if $compose_cmd up -d; then
+            print_success "Dapr runtime services started successfully"
+            print_info "Dapr services running on controlled ports:"
+            print_info "  - Placement: ${DAPR_PLACEMENT_PORT:-50005}"
+            print_info "  - Redis: ${DAPR_REDIS_PORT:-6379}" 
+            print_info "  - Zipkin: ${DAPR_ZIPKIN_PORT:-9411}"
+            print_info "  - Scheduler: ${DAPR_SCHEDULER_PORT:-50006}"
+            print_info "Waiting for Dapr services to initialize..."
+            sleep 15
+        else
+            print_error "Failed to start Dapr runtime services"
+            cd ..
+            return 1
+        fi
+        cd ..
+    else
+        print_error "dapr/docker-compose.yml not found"
+        return 1
+    fi
+}
+
+# Stop Dapr runtime services
+stop_dapr_runtime() {
+    print_info "Stopping Dapr runtime services..."
+    
+    if [ -f "dapr/docker-compose.yml" ]; then
+        local compose_cmd
+        compose_cmd=$(get_docker_compose_cmd) || {
+            print_error "Docker Compose not available"
+            return 1
+        }
+        
+        cd dapr
+        if $compose_cmd down; then
+            print_success "Dapr runtime services stopped successfully"
+        else
+            print_warning "Some issues stopping Dapr runtime services"
+        fi
+        cd ..
+    else
+        print_warning "dapr/docker-compose.yml not found - cannot stop Dapr services"
+    fi
+}
+
 # Initialize Redis service
 initialize_redis() {
     print_info "Initializing Redis service..."
@@ -801,6 +868,7 @@ stop_scylladb_service() {
 # Stop all services
 stop_all_services() {
     print_header "Stopping All Services"
+    stop_dapr_runtime
     stop_scylladb_service
     stop_redis_service
     stop_nebula_cluster
@@ -841,6 +909,67 @@ show_nebula_logs() {
         print_error "nebula/docker-compose.yml not found"
         return 1
     fi
+}
+
+# Show Dapr runtime status
+show_dapr_status() {
+    print_header "Dapr Runtime Status"
+    
+    if [ -f "dapr/docker-compose.yml" ]; then
+        local compose_cmd
+        compose_cmd=$(get_docker_compose_cmd) || {
+            print_error "Docker Compose is not installed or not in PATH"
+            return 1
+        }
+        
+        print_info "Dapr Runtime Services:"
+        cd dapr
+        $compose_cmd ps
+        cd ..
+        
+        print_info "\nDapr Service URLs:"
+        echo -e "  • Placement: localhost:${DAPR_PLACEMENT_PORT:-50005}"
+        echo -e "  • Redis: localhost:${DAPR_REDIS_PORT:-6379}"
+        echo -e "  • Zipkin: http://localhost:${DAPR_ZIPKIN_PORT:-9411}"
+        echo -e "  • Scheduler: localhost:${DAPR_SCHEDULER_PORT:-50006}"
+        
+        print_info "\nHealth Check Status:"
+        local health_cmd="curl -s"
+        
+        # Check Zipkin health
+        if command_exists curl; then
+            if $health_cmd -f "http://localhost:${DAPR_ZIPKIN_PORT:-9411}/health" >/dev/null 2>&1; then
+                print_success "Zipkin is healthy"
+            else
+                print_warning "Zipkin health check failed"
+            fi
+        fi
+        
+        # Check Placement health
+        if $health_cmd -f "http://localhost:${DAPR_PLACEMENT_HEALTH_HOST_PORT:-58080}/v1.0/healthz" >/dev/null 2>&1; then
+            print_success "Placement service is healthy"
+        else
+            print_warning "Placement service health check failed"
+        fi
+        
+        # Check Scheduler health
+        if $health_cmd -f "http://localhost:${DAPR_SCHEDULER_HEALTH_HOST_PORT:-58081}/v1.0/healthz" >/dev/null 2>&1; then
+            print_success "Scheduler service is healthy"
+        else
+            print_warning "Scheduler service health check failed"
+        fi
+        
+    else
+        print_error "dapr/docker-compose.yml not found"
+        return 1
+    fi
+}
+
+# Show all services status
+show_all_status() {
+    show_nebula_status
+    echo ""
+    show_dapr_status
 }
 
 # Clean cluster (remove volumes and networks)
@@ -1244,6 +1373,10 @@ main() {
     print_header "2.3. ScyllaDB Service Setup"
     start_scylladb_service
     
+    # Start Dapr runtime services
+    print_header "2.4. Dapr Runtime Setup"
+    start_dapr_runtime
+    
     # 3. Initialize services one by one
     print_header "3. Initializing Services"
     
@@ -1259,13 +1392,9 @@ main() {
     print_header "3.3. ScyllaDB Initialization"
     initialize_scylladb
     
-    # 4. Wait for services to be ready
-    print_header "4. Services Readiness Check"
+    # 5. Wait for all services to be ready
+    print_header "5. Services Readiness Check"
     wait_for_nebula_ready
-    
-    # 5. Connect Dapr containers to nebula-net network
-    print_header "5. Dapr Network Integration"
-    connect_dapr_to_nebula_network
     
     # 6. Final summary
     print_header "Infrastructure Environment Ready"
@@ -1276,8 +1405,14 @@ main() {
     echo -e "  • NebulaGraph Cluster: nebula-graphd:9669"
     echo -e "  • Redis Pub/Sub: redis-pubsub:6379 (host port: $REDIS_HOST_PORT)"
     echo -e "  • ScyllaDB State Store: scylladb-node1:9042"
-    echo -e "  • NebulaGraph Studio: http://localhost:7001"
-    echo -e "  • ScyllaDB Manager: http://localhost:7002"
+    echo -e "  • NebulaGraph Studio: http://localhost:${NEBULA_STUDIO_PORT:-7001}"
+    echo -e "  • ScyllaDB Manager: http://localhost:${SCYLLA_MANAGER_WEB_PORT:-7004}"
+    
+    echo -e "\n${BLUE}Dapr Runtime Services:${NC}"
+    echo -e "  • Placement: localhost:${DAPR_PLACEMENT_PORT:-50005}"
+    echo -e "  • Redis (Internal): localhost:${DAPR_REDIS_PORT:-6379}"
+    echo -e "  • Zipkin Tracing: http://localhost:${DAPR_ZIPKIN_PORT:-9411}"
+    echo -e "  • Scheduler: localhost:${DAPR_SCHEDULER_PORT:-50006}"
     
     echo -e "\n${BLUE}Dapr Components Available:${NC}"
     echo -e "  • State Store: nebulagraph-state (NebulaGraph backend)"
@@ -1306,7 +1441,10 @@ case "${1:-setup}" in
         stop_all_services
         ;;
     "status")
-        show_nebula_status
+        show_all_status
+        ;;
+    "dapr-status"|"ds")
+        show_dapr_status
         ;;
     "logs")
         show_nebula_logs

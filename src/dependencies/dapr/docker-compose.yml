@@ -1,0 +1,122 @@
+version: '3.8'
+
+services:
+  # Dapr Redis (Internal to Dapr runtime)
+  dapr-redis:
+    image: redis:${DAPR_REDIS_VERSION:-6}
+    container_name: ${DAPR_REDIS_CONTAINER:-dapr-redis}
+    restart: unless-stopped
+    ports:
+      - "${DAPR_REDIS_PORT:-6379}:6379"
+    networks:
+      - nebula-net
+    volumes:
+      - dapr-redis-data:/data
+    command: >
+      redis-server
+      --appendonly yes
+      --appendfsync everysec
+      --save 900 1
+      --save 300 10
+      --save 60 10000
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping | grep PONG"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Dapr Placement Service
+  dapr-placement:
+    image: daprio/dapr:${DAPR_VERSION:-1.15.9}
+    container_name: ${DAPR_PLACEMENT_CONTAINER:-dapr-placement}
+    restart: unless-stopped
+    command: >
+      ./placement
+      --log-level=${DAPR_LOG_LEVEL:-info}
+      --port=${DAPR_PLACEMENT_INTERNAL_PORT:-50005}
+      --metrics-port=${DAPR_PLACEMENT_METRICS_PORT:-9090}
+      --healthz-port=${DAPR_PLACEMENT_HEALTH_PORT:-8080}
+    ports:
+      - "${DAPR_PLACEMENT_PORT:-50005}:${DAPR_PLACEMENT_INTERNAL_PORT:-50005}"
+      - "${DAPR_PLACEMENT_METRICS_HOST_PORT:-59090}:${DAPR_PLACEMENT_METRICS_PORT:-9090}"
+      - "${DAPR_PLACEMENT_HEALTH_HOST_PORT:-58080}:${DAPR_PLACEMENT_HEALTH_PORT:-8080}"
+    networks:
+      - nebula-net
+    volumes:
+      - dapr-placement-data:/var/run/dapr
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:${DAPR_PLACEMENT_HEALTH_PORT:-8080}/v1.0/healthz || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Dapr Scheduler Service
+  dapr-scheduler:
+    image: daprio/dapr:${DAPR_VERSION:-1.15.9}
+    container_name: ${DAPR_SCHEDULER_CONTAINER:-dapr-scheduler}
+    restart: unless-stopped
+    command: >
+      ./scheduler
+      --log-level=${DAPR_LOG_LEVEL:-info}
+      --port=${DAPR_SCHEDULER_INTERNAL_PORT:-50006}
+      --metrics-port=${DAPR_SCHEDULER_METRICS_PORT:-9091}
+      --healthz-port=${DAPR_SCHEDULER_HEALTH_PORT:-8081}
+      --etcd-data-dir=/var/lock/dapr/scheduler
+      --etcd-client-port=${DAPR_ETCD_PORT:-2379}
+      --override-broadcast-host-port=localhost:${DAPR_SCHEDULER_PORT:-50006}
+    ports:
+      - "${DAPR_SCHEDULER_PORT:-50006}:${DAPR_SCHEDULER_INTERNAL_PORT:-50006}"
+      - "${DAPR_SCHEDULER_METRICS_HOST_PORT:-59091}:${DAPR_SCHEDULER_METRICS_PORT:-9091}"
+      - "${DAPR_SCHEDULER_HEALTH_HOST_PORT:-58081}:${DAPR_SCHEDULER_HEALTH_PORT:-8081}"
+      - "${DAPR_ETCD_HOST_PORT:-52379}:${DAPR_ETCD_PORT:-2379}"
+    networks:
+      - nebula-net
+    volumes:
+      - dapr-scheduler-data:/var/lock
+    environment:
+      - ETCD_UNSUPPORTED_ARCH=${DAPR_ETCD_UNSUPPORTED_ARCH:-arm64}
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:${DAPR_SCHEDULER_HEALTH_PORT:-8081}/v1.0/healthz || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Zipkin for Dapr Tracing
+  dapr-zipkin:
+    image: openzipkin/zipkin:${DAPR_ZIPKIN_VERSION:-latest}
+    container_name: ${DAPR_ZIPKIN_CONTAINER:-dapr-zipkin}
+    restart: unless-stopped
+    ports:
+      - "${DAPR_ZIPKIN_PORT:-9411}:9411"
+    networks:
+      - nebula-net
+    environment:
+      - STORAGE_TYPE=${DAPR_ZIPKIN_STORAGE:-mem}
+      - JAVA_OPTS=${DAPR_ZIPKIN_JAVA_OPTS:--Xms128m -Xmx512m -XX:+ExitOnOutOfMemoryError}
+    volumes:
+      - dapr-zipkin-data:/zipkin/data
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:9411/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+# External network created by environment setup
+networks:
+  nebula-net:
+    external: true
+
+# Named volumes for persistence
+volumes:
+  dapr-redis-data:
+    driver: local
+    name: ${DAPR_REDIS_VOLUME:-dapr-redis-data}
+  dapr-placement-data:
+    driver: local
+    name: ${DAPR_PLACEMENT_VOLUME:-dapr-placement-data}
+  dapr-scheduler-data:
+    driver: local
+    name: ${DAPR_SCHEDULER_VOLUME:-dapr-scheduler-data}
+  dapr-zipkin-data:
+    driver: local
+    name: ${DAPR_ZIPKIN_VOLUME:-dapr-zipkin-data}
