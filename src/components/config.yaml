@@ -9,3 +9,6 @@ spec:
       endpointAddress: http://dapr-zipkin:9411/api/v2/spans
   metric:
     enabled: true
+  nameResolution:
+    component: "mdns"
+    version: "v1"
