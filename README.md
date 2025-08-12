@@ -7,17 +7,16 @@ This project provides a complete, containerized implementation of a Dapr pluggab
 ### Key Features
 - **Dapr Pluggable Component**: Implements the Dapr state store protocol, supporting both HTTP and gRPC APIs.
 - **NebulaGraph Backend**: Uses NebulaGraph for persistent, scalable, and schema-driven state storage.
-- **Redis Pub/Sub Integration**: Supports real-time messaging and event distribution via Redis, with automatic persistence in NebulaGraph.
-- **Containerized Deployment**: All components (Dapr, NebulaGraph, Redis) run in Docker containers for easy setup and reproducibility.
-- **Automatic Schema Management**: Initializes required spaces and schemas in NebulaGraph automatically.
+- **ScyllaDB Backend**: Alternative distributed database backend with high performance and scalability.
+- **Containerized Deployment**: All components (Dapr, NebulaGraph, ScyllaDB) run in Docker containers for easy setup and reproducibility.
+- **Automatic Schema Management**: Initializes required spaces and schemas automatically.
 - **Comprehensive Testing**: Includes .NET 9 HTTP and gRPC test APIs, with scripts for automated testing of all operations.
 
 ## Architecture Overview
 - **Client Applications** interact with Dapr via HTTP (port 3501) or gRPC (port 50001).
-- **Dapr Sidecar** communicates with the NebulaGraph pluggable component over a shared Unix domain socket.
-- **NebulaGraph Component** exposes a gRPC server and implements the state store logic.
-- **NebulaGraph Cluster** provides the actual graph database backend.
-- **Redis** is used for pub/sub messaging, integrated with the state store for event-driven workflows.
+- **Dapr Sidecar** communicates with the pluggable component over a shared Unix domain socket.
+- **State Store Component** exposes a gRPC server and implements the state store logic.
+- **Database Backend** provides the actual persistent storage (NebulaGraph or ScyllaDB).
 
 ## Quick Start
 
@@ -52,7 +51,6 @@ cd ../dapr-pluggable-components
 ## Documentation
 - **Architecture**: `docs/architecture.md`
 - **Component Configuration**: `docs/configuration.md`
-- **Redis Pub/Sub Integration**: `src/dapr-pluggable-components/PUBSUB_INTEGRATION.md`
 - **Infrastructure Setup**: `src/dependencies/README.md`
 
 ## License & Usage
