@@ -1,0 +1,87 @@
+services:
+  # NebulaGraph Dapr Pluggable Component
+  nebulagraph-net-component:
+    container_name: nebulagraph-net-component
+    build:
+      context: ../../dapr-pluggable-components
+      dockerfile: Dockerfile
+    environment:
+      - DAPR_COMPONENT_SOCKETS_FOLDER=/var/run
+      - STORE_TYPE=nebulagraph
+    volumes:
+      - socket:/var/run
+    networks:
+      - dapr-pluggable-net
+
+  # ScyllaDB Dapr Pluggable Component
+  scylladb-net-component:
+    container_name: scylladb-net-component
+    build:
+      context: ../../dapr-pluggable-components
+      dockerfile: Dockerfile
+    environment:
+      - DAPR_COMPONENT_SOCKETS_FOLDER=/var/run
+      - STORE_TYPE=scylladb
+    volumes:
+      - socket:/var/run
+    networks:
+      - dapr-pluggable-net
+
+  # .NET Dapr Client API
+  dotnet-dapr-client:
+    build: .
+    container_name: dotnet-dapr-client
+    ports:
+      - "${TEST_API_HOST_PORT:-5090}:${TEST_API_APP_PORT:-80}"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:${TEST_API_APP_PORT:-80}
+      - DAPR_HTTP_ENDPOINT=http://dotnet-dapr-client-sidecar:${TEST_API_HTTP_PORT:-3502}
+      - DAPR_GRPC_ENDPOINT=http://dotnet-dapr-client-sidecar:${TEST_API_GRPC_PORT:-50002}
+    env_file:
+      - "../../.env"
+    networks:
+      - dapr-pluggable-net
+    depends_on:
+      - dotnet-dapr-client-sidecar
+
+  # Dapr sidecar for .NET Dapr Client API
+  dotnet-dapr-client-sidecar:
+    image: "ghcr.io/dapr/daprd:latest"
+    container_name: dotnet-dapr-client-sidecar
+    command: [
+      "./daprd",
+      "--log-level", "debug",
+      "--app-id", "dotnet-dapr-client",
+      "--app-port", "${TEST_API_APP_PORT:-80}",
+      "--dapr-http-port", "${TEST_API_HTTP_PORT:-3502}",
+      "--dapr-grpc-port", "${TEST_API_GRPC_PORT:-50002}",
+      "--placement-host-address", "dapr-placement:${DAPR_PLACEMENT_PORT:-50090}",
+      "--scheduler-host-address", "dapr-scheduler:${DAPR_SCHEDULER_PORT:-50091}",
+      "--resources-path", "/components",
+      "--config", "/components/config.yaml"
+    ]
+    environment:
+      - DAPR_COMPONENTS_SOCKETS_FOLDER=/var/run
+    env_file:
+      - "../../.env"
+    depends_on:
+      - nebulagraph-net-component
+      - scylladb-net-component
+    volumes:
+      - socket:/var/run
+      - "../../components:/components:ro"
+      - "../../secrets:/secrets:ro"
+    ports:
+      - "${TEST_API_HTTP_PORT:-3502}:${TEST_API_HTTP_PORT:-3502}"
+      - "${TEST_API_GRPC_PORT:-50002}:${TEST_API_GRPC_PORT:-50002}"
+    networks:
+      - dapr-pluggable-net
+
+volumes:
+  socket:
+
+networks:
+  dapr-pluggable-net:
+    external: true
+    name: ${DAPR_PLUGABBLE_NETWORK_NAME:-dapr-pluggable-net}
