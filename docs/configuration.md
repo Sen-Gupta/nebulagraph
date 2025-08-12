@@ -143,7 +143,7 @@ services:
     depends_on:
       - nebulagraph-dapr-component
     networks:
-      - nebula-net
+      - dapr-pluggable-net
 
   # NebulaGraph component
   nebulagraph-dapr-component:
@@ -154,10 +154,10 @@ services:
     depends_on:
       - nebula-graphd
     networks:
-      - nebula-net
+      - dapr-pluggable-net
 
 networks:
-  nebula-net:
+  dapr-pluggable-net:
     external: true
 ```
 

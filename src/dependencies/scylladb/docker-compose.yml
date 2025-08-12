@@ -26,7 +26,7 @@ services:
       - scylla-data-node1:/var/lib/scylla
       - scylla-config:/etc/scylla
     networks:
-      - nebula-net
+      - dapr-pluggable-net
     command: 
       - --seeds=${SCYLLA_NODE1_CONTAINER:-scylladb-node1}
       - --smp=${SCYLLA_SMP:-1}
@@ -55,7 +55,7 @@ services:
     environment:
       - SCYLLA_MANAGER_DB_HOSTS=${SCYLLA_NODE1_CONTAINER:-scylladb-node1}:${SCYLLA_CQL_PORT:-9042}
     networks:
-      - nebula-net
+      - dapr-pluggable-net
     depends_on:
       - scylladb-node1
     volumes:
@@ -67,6 +67,6 @@ volumes:
   scylla-manager-data:
 
 networks:
-  nebula-net:
+  dapr-pluggable-net:
     external: true
-    name: ${NEBULA_NETWORK_NAME:-nebula-net}
+    name: ${DAPR_PLUGABBLE_NETWORK_NAME:-dapr-pluggable-net}

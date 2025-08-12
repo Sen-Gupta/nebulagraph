@@ -15,7 +15,7 @@ services:
       - "${DAPR_PLACEMENT_METRICS_HOST_PORT:-59090}:${DAPR_PLACEMENT_METRICS_PORT:-9090}"
       - "${DAPR_PLACEMENT_HEALTH_HOST_PORT:-58090}:${DAPR_PLACEMENT_HEALTH_PORT:-8090}"
     networks:
-      - nebula-net
+      - dapr-pluggable-net
     volumes:
       - dapr-placement-data:/var/run/dapr
     healthcheck:
@@ -44,7 +44,7 @@ services:
       - "${DAPR_SCHEDULER_HEALTH_HOST_PORT:-58091}:${DAPR_SCHEDULER_HEALTH_PORT:-8091}"
       - "${DAPR_ETCD_HOST_PORT:-52379}:${DAPR_ETCD_PORT:-2379}"
     networks:
-      - nebula-net
+      - dapr-pluggable-net
     volumes:
       - dapr-scheduler-data:/var/lock
     environment:
@@ -63,7 +63,7 @@ services:
     ports:
       - "${DAPR_ZIPKIN_PORT:-9411}:9411"
     networks:
-      - nebula-net
+      - dapr-pluggable-net
     environment:
       - STORAGE_TYPE=${DAPR_ZIPKIN_STORAGE:-mem}
       - JAVA_OPTS=${DAPR_ZIPKIN_JAVA_OPTS:--Xms128m -Xmx512m -XX:+ExitOnOutOfMemoryError}
@@ -77,7 +77,7 @@ services:
 
 # External network created by environment setup
 networks:
-  nebula-net:
+  dapr-pluggable-net:
     external: true
 
 # Named volumes for persistence

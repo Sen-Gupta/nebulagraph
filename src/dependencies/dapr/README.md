@@ -7,7 +7,7 @@ This folder contains a Docker Compose configuration for running Dapr runtime ser
 Instead of using the default `dapr init` which creates containers with fixed configurations, this setup provides:
 
 - **Controlled port mapping** - All ports are parameterized and configurable
-- **Shared network integration** - Uses the same `nebula-net` network as other services
+- **Shared network integration** - Uses the same `dapr-pluggable-net` network as other services
 - **Consistent parameterization** - Follows the `${VAR:-default}` pattern used by other services
 - **Health checks** - Built-in health monitoring for all services
 - **Persistence** - Named volumes for data persistence
@@ -58,7 +58,7 @@ DAPR_ZIPKIN_PORT=9411
          └───────────────────────┼───────────────────────┘
                                  │
                     ┌─────────────────┐
-                    │  nebula-net     │
+                    │  dapr-pluggable-net     │
                     │   (External)    │
                     └─────────────────┘
                                  │
@@ -148,14 +148,14 @@ services:
   your-app:
     # ... other config
     networks:
-      - nebula-net
+      - dapr-pluggable-net
     environment:
       - DAPR_PLACEMENT_HOST_ADDRESS=dapr-placement:50090
       - DAPR_HTTP_ENDPOINT=http://your-dapr-sidecar:3500
       - DAPR_GRPC_ENDPOINT=your-dapr-sidecar:50001
 
 networks:
-  nebula-net:
+  dapr-pluggable-net:
     external: true
 ```
 
@@ -172,10 +172,10 @@ DAPR_ZIPKIN_PORT=9412
 
 ### Network Issues
 
-Ensure the `nebula-net` network exists:
+Ensure the `dapr-pluggable-net` network exists:
 
 ```bash
-docker network ls | grep nebula-net
+docker network ls | grep dapr-pluggable-net
 ```
 
 If not found, run the environment setup:
@@ -204,7 +204,7 @@ curl http://localhost:58081/v1.0/healthz
 | Aspect | Default `dapr init` | This Setup |
 |--------|-------------------|------------|
 | Port Control | Fixed ports | Configurable ports |
-| Network | Default bridge | Shared nebula-net |
+| Network | Default bridge | Shared dapr-pluggable-net |
 | Configuration | Not parameterized | Fully parameterized |
 | Health Checks | Basic | Comprehensive |
 | Integration | Isolated | Integrated with other services |

@@ -13,7 +13,7 @@ fi
 # Set default values if not already set
 NEBULA_HTTP_PORT=${NEBULA_HTTP_PORT:-3501}
 NEBULA_GRPC_PORT=${NEBULA_GRPC_PORT:-50001}
-NEBULA_NETWORK_NAME=${NEBULA_NETWORK_NAME:-nebula-net}
+DAPR_PLUGABBLE_NETWORK_NAME=${DAPR_PLUGABBLE_NETWORK_NAME:-dapr-pluggable-net}
 
 # Colors for output
 RED='\033[0;31m'

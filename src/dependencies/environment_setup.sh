@@ -93,34 +93,34 @@ initialize_dapr_with_controlled_containers() {
     fi
 }
 
-# Connect Dapr containers to nebula-net network for Docker-based applications
-connect_dapr_to_nebula_network() {
-    print_info "Connecting Dapr containers to nebula-net network..."
+# Connect Dapr containers to dapr-pluggable-net network for Docker-based applications
+connect_dapr_to_shared_network() {
+    print_info "Connecting Dapr containers to dapr-pluggable-net network..."
     
-    # Check if nebula-net exists
-    if ! docker network ls --filter "name=^${NEBULA_NETWORK_NAME}$" --format "{{.Name}}" | grep -q "^${NEBULA_NETWORK_NAME}$"; then
-        print_warning "nebula-net network does not exist yet"
+    # Check if dapr-pluggable-net exists
+    if ! docker network ls --filter "name=^${DAPR_PLUGABBLE_NETWORK_NAME}$" --format "{{.Name}}" | grep -q "^${DAPR_PLUGABBLE_NETWORK_NAME}$"; then
+        print_warning "dapr-pluggable-net network does not exist yet"
         return 0
     fi
     
-    # List of Dapr containers that need to be connected to nebula-net
+    # List of Dapr containers that need to be connected to dapr-pluggable-net
     local dapr_containers=("dapr_placement" "dapr_zipkin" "dapr_scheduler")
     local connected_count=0
     
     for container in "${dapr_containers[@]}"; do
         # Check if container exists and is running
         if docker ps --filter "name=^${container}$" --format "{{.Names}}" | grep -q "^${container}$"; then
-            # Check if already connected to nebula-net
+            # Check if already connected to dapr-pluggable-net
             local networks=$(docker inspect "$container" --format '{{range $k, $v := .NetworkSettings.Networks}}{{$k}} {{end}}' 2>/dev/null)
-            if [[ $networks == *"$NEBULA_NETWORK_NAME"* ]]; then
-                print_info "Container $container already connected to $NEBULA_NETWORK_NAME"
+            if [[ $networks == *"$DAPR_PLUGABBLE_NETWORK_NAME"* ]]; then
+                print_info "Container $container already connected to $DAPR_PLUGABBLE_NETWORK_NAME"
             else
-                # Connect to nebula-net
-                if docker network connect "$NEBULA_NETWORK_NAME" "$container" 2>/dev/null; then
-                    print_success "Connected $container to $NEBULA_NETWORK_NAME network"
+                # Connect to dapr-pluggable-net
+                if docker network connect "$DAPR_PLUGABBLE_NETWORK_NAME" "$container" 2>/dev/null; then
+                    print_success "Connected $container to $DAPR_PLUGABBLE_NETWORK_NAME network"
                     ((connected_count++))
                 else
-                    print_warning "Failed to connect $container to $NEBULA_NETWORK_NAME network"
+                    print_warning "Failed to connect $container to $DAPR_PLUGABBLE_NETWORK_NAME network"
                 fi
             fi
         else
@@ -129,7 +129,7 @@ connect_dapr_to_nebula_network() {
     done
     
     if [ $connected_count -gt 0 ]; then
-        print_success "Connected $connected_count Dapr container(s) to $NEBULA_NETWORK_NAME network"
+        print_success "Connected $connected_count Dapr container(s) to $DAPR_PLUGABBLE_NETWORK_NAME network"
         print_info "Dapr placement service is now accessible at dapr_placement:50090"
     fi
 }
@@ -323,14 +323,14 @@ install_prerequisites() {
             if [ -n "$dapr_containers" ]; then
                 print_success "Dapr runtime is already initialized (full installation with containers)"
                 print_info "Using Redis on port $REDIS_HOST_PORT for pub/sub messaging"
-                # Connect Dapr containers to nebula-net for Docker-based applications
-                connect_dapr_to_nebula_network
+                # Connect Dapr containers to dapr-pluggable-net for Docker-based applications
+                connect_dapr_to_shared_network
             else
                 print_warning "Dapr configuration exists but no containers are running"
                 print_info "Re-initializing Dapr with controlled containers..."
                 if initialize_dapr_with_controlled_containers; then
                     install_needed=1
-                    # No need to connect containers - they're already on nebula-net
+                    # No need to connect containers - they're already on dapr-pluggable-net
                 else
                     print_error "Failed to re-initialize Dapr runtime"
                     install_failed=1
@@ -340,7 +340,7 @@ install_prerequisites() {
             print_info "Dapr CLI found but runtime not initialized. Initializing with controlled containers..."
             if initialize_dapr_with_controlled_containers; then
                 install_needed=1
-                # No need to connect containers - they're already on nebula-net
+                # No need to connect containers - they're already on dapr-pluggable-net
             else
                 print_error "Failed to initialize Dapr runtime"
                 install_failed=1
@@ -442,30 +442,30 @@ install_prerequisites() {
 
 # Setup Docker network
 setup_docker_network() {
-    print_info "Setting up Docker network '$NEBULA_NETWORK_NAME'..."
+    print_info "Setting up Docker network '$DAPR_PLUGABBLE_NETWORK_NAME'..."
     
-    if docker network ls | grep -q "$NEBULA_NETWORK_NAME"; then
-        print_success "Docker network '$NEBULA_NETWORK_NAME' already exists"
+    if docker network ls | grep -q "$DAPR_PLUGABBLE_NETWORK_NAME"; then
+        print_success "Docker network '$DAPR_PLUGABBLE_NETWORK_NAME' already exists"
         
         # Check if network has active endpoints
-        local active_endpoints=$(docker network inspect $NEBULA_NETWORK_NAME --format='{{range .Containers}}{{.Name}} {{end}}' 2>/dev/null || echo "")
+        local active_endpoints=$(docker network inspect $DAPR_PLUGABBLE_NETWORK_NAME --format='{{range .Containers}}{{.Name}} {{end}}' 2>/dev/null || echo "")
         if [ -n "$active_endpoints" ] && [ "$active_endpoints" != " " ]; then
-            print_info "Network '$NEBULA_NETWORK_NAME' has active endpoints: $active_endpoints"
+            print_info "Network '$DAPR_PLUGABBLE_NETWORK_NAME' has active endpoints: $active_endpoints"
             print_info "This is expected if containers are already running"
         fi
     else
-        print_info "Creating Docker network '$NEBULA_NETWORK_NAME'..."
-        if docker network create "$NEBULA_NETWORK_NAME"; then
-            print_success "Docker network '$NEBULA_NETWORK_NAME' created successfully"
+        print_info "Creating Docker network '$DAPR_PLUGABBLE_NETWORK_NAME'..."
+        if docker network create "$DAPR_PLUGABBLE_NETWORK_NAME"; then
+            print_success "Docker network '$DAPR_PLUGABBLE_NETWORK_NAME' created successfully"
         else
-            print_error "Failed to create Docker network '$NEBULA_NETWORK_NAME'"
+            print_error "Failed to create Docker network '$DAPR_PLUGABBLE_NETWORK_NAME'"
             print_info "This may be due to existing network conflicts"
             # Try to remove and recreate
             print_info "Attempting to remove existing network and recreate..."
-            docker network rm "$NEBULA_NETWORK_NAME" 2>/dev/null || true
+            docker network rm "$DAPR_PLUGABBLE_NETWORK_NAME" 2>/dev/null || true
             sleep 2
-            if docker network create "$NEBULA_NETWORK_NAME"; then
-                print_success "Docker network '$NEBULA_NETWORK_NAME' recreated successfully"
+            if docker network create "$DAPR_PLUGABBLE_NETWORK_NAME"; then
+                print_success "Docker network '$DAPR_PLUGABBLE_NETWORK_NAME' recreated successfully"
             else
                 print_error "Failed to create Docker network after cleanup"
                 return 1
@@ -505,8 +505,8 @@ start_nebula_cluster() {
             sleep 2
             
             # Recreate network if needed
-            docker network rm "$NEBULA_NETWORK_NAME" 2>/dev/null || true
-            if docker network create "$NEBULA_NETWORK_NAME"; then
+            docker network rm "$DAPR_PLUGABBLE_NETWORK_NAME" 2>/dev/null || true
+            if docker network create "$DAPR_PLUGABBLE_NETWORK_NAME"; then
                 print_info "Network recreated, attempting to start containers again..."
                 if $compose_cmd up -d; then
                     print_success "NebulaGraph cluster started after recreation"
@@ -708,7 +708,7 @@ initialize_nebula() {
             
             # Verify schema was created correctly
             print_info "Verifying NebulaGraph schema creation..."
-            if docker run --rm --network ${NEBULA_NETWORK_NAME:-nebula-net} vesoft/nebula-console:v3-nightly \
+            if docker run --rm --network ${DAPR_PLUGABBLE_NETWORK_NAME:-dapr-pluggable-net} vesoft/nebula-console:v3-nightly \
               --addr nebula-graphd --port ${NEBULA_PORT:-9669} --user ${NEBULA_USERNAME:-root} --password ${NEBULA_PASSWORD:-nebula} \
               --eval "USE ${NEBULA_SPACE:-dapr_state}; DESCRIBE TAG state;" | grep -q "etag"; then
                 print_success "NebulaGraph schema verified - ETag support enabled"
@@ -960,12 +960,12 @@ clean_nebula_cluster() {
         cd ..
         
         # Also remove the network if it exists
-        if docker network ls | grep -q "$NEBULA_NETWORK_NAME"; then
-            print_info "Removing Docker network '$NEBULA_NETWORK_NAME'..."
-            if docker network rm "$NEBULA_NETWORK_NAME" 2>/dev/null; then
-                print_success "Docker network '$NEBULA_NETWORK_NAME' removed"
+        if docker network ls | grep -q "$DAPR_PLUGABBLE_NETWORK_NAME"; then
+            print_info "Removing Docker network '$DAPR_PLUGABBLE_NETWORK_NAME'..."
+            if docker network rm "$DAPR_PLUGABBLE_NETWORK_NAME" 2>/dev/null; then
+                print_success "Docker network '$DAPR_PLUGABBLE_NETWORK_NAME' removed"
             else
-                print_warning "Could not remove network '$NEBULA_NETWORK_NAME' (may still be in use)"
+                print_warning "Could not remove network '$DAPR_PLUGABBLE_NETWORK_NAME' (may still be in use)"
             fi
         fi
         
@@ -1152,7 +1152,7 @@ test_nebula_schema() {
     
     # Test if dapr_state space exists
     print_info "Checking if dapr_state space exists..."
-    if docker run --rm --network ${NEBULA_NETWORK_NAME:-nebula-net} vesoft/nebula-console:v3-nightly \
+    if docker run --rm --network ${DAPR_PLUGABBLE_NETWORK_NAME:-dapr-pluggable-net} vesoft/nebula-console:v3-nightly \
       --addr nebula-graphd --port ${NEBULA_PORT:-9669} --user ${NEBULA_USERNAME:-root} --password ${NEBULA_PASSWORD:-nebula} \
       --eval "SHOW SPACES;" | grep -q "dapr_state"; then
         print_success "dapr_state space exists"
@@ -1163,7 +1163,7 @@ test_nebula_schema() {
     
     # Test if state tag exists
     print_info "Checking if state tag exists..."
-    if docker run --rm --network ${NEBULA_NETWORK_NAME:-nebula-net} vesoft/nebula-console:v3-nightly \
+    if docker run --rm --network ${DAPR_PLUGABBLE_NETWORK_NAME:-dapr-pluggable-net} vesoft/nebula-console:v3-nightly \
       --addr nebula-graphd --port ${NEBULA_PORT:-9669} --user ${NEBULA_USERNAME:-root} --password ${NEBULA_PASSWORD:-nebula} \
       --eval "USE dapr_state; SHOW TAGS;" | grep -q "state"; then
         print_success "state tag exists"
@@ -1174,7 +1174,7 @@ test_nebula_schema() {
     
     # Test schema fields
     print_info "Verifying state tag schema..."
-    local schema_output=$(docker run --rm --network ${NEBULA_NETWORK_NAME:-nebula-net} vesoft/nebula-console:v3-nightly \
+    local schema_output=$(docker run --rm --network ${DAPR_PLUGABBLE_NETWORK_NAME:-dapr-pluggable-net} vesoft/nebula-console:v3-nightly \
       --addr nebula-graphd --port ${NEBULA_PORT:-9669} --user ${NEBULA_USERNAME:-root} --password ${NEBULA_PASSWORD:-nebula} \
       --eval "USE dapr_state; DESCRIBE TAG state;" 2>/dev/null)
     
@@ -1206,13 +1206,13 @@ test_nebula_schema() {
         
         # Test a simple state operation
         print_info "Testing basic state operation..."
-        if docker run --rm --network ${NEBULA_NETWORK_NAME:-nebula-net} vesoft/nebula-console:v3-nightly \
+        if docker run --rm --network ${DAPR_PLUGABBLE_NETWORK_NAME:-dapr-pluggable-net} vesoft/nebula-console:v3-nightly \
           --addr nebula-graphd --port ${NEBULA_PORT:-9669} --user ${NEBULA_USERNAME:-root} --password ${NEBULA_PASSWORD:-nebula} \
           --eval "USE dapr_state; INSERT VERTEX state(data, etag, last_modified) VALUES 'test-key':('test-data', 'test-etag', 123456789);" >/dev/null 2>&1; then
             print_success "Basic state operation test successful"
             
             # Clean up test data
-            docker run --rm --network ${NEBULA_NETWORK_NAME:-nebula-net} vesoft/nebula-console:v3-nightly \
+            docker run --rm --network ${DAPR_PLUGABBLE_NETWORK_NAME:-dapr-pluggable-net} vesoft/nebula-console:v3-nightly \
               --addr nebula-graphd --port ${NEBULA_PORT:-9669} --user ${NEBULA_USERNAME:-root} --password ${NEBULA_PASSWORD:-nebula} \
               --eval "USE dapr_state; DELETE VERTEX 'test-key';" >/dev/null 2>&1
         else
@@ -1282,7 +1282,7 @@ check_existing_containers() {
                 print_info "Stopping and cleaning existing containers..."
                 clean_nebula_cluster
                 # Also clean up network
-                docker network rm "$NEBULA_NETWORK_NAME" 2>/dev/null || true
+                docker network rm "$DAPR_PLUGABBLE_NETWORK_NAME" 2>/dev/null || true
                 print_success "Existing containers and network cleaned"
                 return 0
                 ;;
@@ -1315,7 +1315,7 @@ check_existing_containers() {
                 print_info "Stopping and cleaning existing containers..."
                 clean_nebula_cluster
                 # Also clean up network
-                docker network rm "$NEBULA_NETWORK_NAME" 2>/dev/null || true
+                docker network rm "$DAPR_PLUGABBLE_NETWORK_NAME" 2>/dev/null || true
                 print_success "Existing containers and network cleaned"
                 ;;
             *)
@@ -1336,7 +1336,7 @@ check_existing_containers() {
                 print_info "Cleaning existing containers..."
                 clean_nebula_cluster
                 # Also clean up network  
-                docker network rm "$NEBULA_NETWORK_NAME" 2>/dev/null || true
+                docker network rm "$DAPR_PLUGABBLE_NETWORK_NAME" 2>/dev/null || true
                 print_success "Existing containers and network cleaned"
                 ;;
             *)

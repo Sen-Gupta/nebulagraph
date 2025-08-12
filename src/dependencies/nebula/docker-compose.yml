@@ -24,7 +24,7 @@ services:
       - nebula-meta:/usr/local/nebula/data
       - nebula-logs:/usr/local/nebula/logs
     networks:
-      - nebula-net
+      - dapr-pluggable-net
     command:
       - --meta_server_addrs=nebula-metad:${NEBULA_META_PORT:-9559}
       - --local_ip=nebula-metad
@@ -46,7 +46,7 @@ services:
       - nebula-storage:/usr/local/nebula/data
       - nebula-logs:/usr/local/nebula/logs
     networks:
-      - nebula-net
+      - dapr-pluggable-net
     depends_on:
       - nebula-metad
     command:
@@ -70,7 +70,7 @@ services:
       - nebula-data:/usr/local/nebula/data
       - nebula-logs:/usr/local/nebula/logs
     networks:
-      - nebula-net
+      - dapr-pluggable-net
     depends_on:
       - nebula-metad
       - nebula-storaged
@@ -86,7 +86,7 @@ services:
     image: vesoft/nebula-console:v3.8.0
     container_name: nebula-console
     networks:
-      - nebula-net
+      - dapr-pluggable-net
     depends_on:
       - nebula-graphd
     stdin_open: true
@@ -100,7 +100,7 @@ services:
     environment:
       - USER=root
     networks:
-      - nebula-net
+      - dapr-pluggable-net
     ports:
       - "${NEBULA_STUDIO_PORT:-7001}:7001"
     depends_on:
@@ -116,6 +116,6 @@ volumes:
   nebula-studio-data:
 
 networks:
-  nebula-net:
+  dapr-pluggable-net:
     external: true
-    name: ${NEBULA_NETWORK_NAME:-nebula-net}
+    name: ${DAPR_PLUGABBLE_NETWORK_NAME:-dapr-pluggable-net}

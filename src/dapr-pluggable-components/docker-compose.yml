@@ -22,7 +22,7 @@ services:
     volumes:
       - socket:/var/run
     networks:
-      - nebula-net
+      - dapr-pluggable-net
 
   # ScyllaDB Dapr Component
   scylladb-component:
@@ -36,7 +36,7 @@ services:
     volumes:
       - socket:/var/run
     networks:
-      - nebula-net
+      - dapr-pluggable-net
 
   # Dapr runtime
   nebulagraph-component-sidecar:
@@ -69,7 +69,7 @@ services:
       - ../components:/components:ro
       - ../secrets:/secrets:ro
     networks:
-      - nebula-net
+      - dapr-pluggable-net
 
   # Test application (optional)
   nebulagraph-component-test-app:
@@ -83,7 +83,7 @@ services:
     depends_on:
       - nebulagraph-component-sidecar
     networks:
-      - nebula-net
+      - dapr-pluggable-net
     profiles:
       - test
 
@@ -91,6 +91,6 @@ volumes:
   socket:
 
 networks:
-  nebula-net:
+  dapr-pluggable-net:
     external: true
-    name: ${NEBULA_NETWORK_NAME:-nebula-net}
+    name: ${DAPR_PLUGABBLE_NETWORK_NAME:-dapr-pluggable-net}

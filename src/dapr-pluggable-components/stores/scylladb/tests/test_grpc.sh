@@ -12,13 +12,13 @@ echo "Comprehensive gRPC API Testing (CRUD + Bulk Operations + Query API)"
 # Base configuration for Dapr gRPC API
 DAPR_GRPC_PORT=${SCYLLADB_GRPC_PORT:-50001}
 DAPR_HTTP_PORT=${SCYLLADB_HTTP_PORT:-3501}
-SCYLLADB_NETWORK_NAME=${SCYLLADB_NETWORK_NAME:-scylladb-net}
+DAPR_PLUGABBLE_NETWORK_NAME=${DAPR_PLUGABBLE_NETWORK_NAME:-dapr-pluggable-net}
 COMPONENT_NAME="scylladb-state"
 
 echo "Configuration:"
 echo "  • gRPC Port: $DAPR_GRPC_PORT"
 echo "  • HTTP Port: $DAPR_HTTP_PORT"
-echo "  • Network: $SCYLLADB_NETWORK_NAME"
+echo "  • Network: $DAPR_PLUGABBLE_NETWORK_NAME"
 echo "  • Component: $COMPONENT_NAME"
 echo ""
 

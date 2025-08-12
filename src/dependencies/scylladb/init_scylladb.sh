@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ScyllaDB configuration - hardcoded values, no environment file needed
-SCYLLA_NETWORK_NAME="scylla-net"
+DAPR_PLUGABBLE_NETWORK_NAME=${DAPR_PLUGABBLE_NETWORK_NAME:-dapr-pluggable-net}
 SCYLLA_CQL_PORT="9042"
 SCYLLA_CLUSTER_NAME="dapr_cluster"
 SCYLLA_KEYSPACE="dapr_state"
@@ -34,7 +34,7 @@ print_info() {
 # Initialize ScyllaDB cluster for Dapr state store
 echo "Initializing ScyllaDB cluster for Dapr..."
 echo "Configuration:"
-echo "  • Network: $SCYLLA_NETWORK_NAME"
+echo "  • Network: $DAPR_PLUGABBLE_NETWORK_NAME"
 echo "  • CQL Port: $SCYLLA_CQL_PORT"
 echo "  • Cluster: $SCYLLA_CLUSTER_NAME"
 echo "  • Keyspace: $SCYLLA_KEYSPACE"

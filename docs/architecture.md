@@ -17,7 +17,7 @@ graph TB
         B[Dapr gRPC Client<br/>Port 50001]
     end
     
-    subgraph "Docker Network: nebula-net"
+    subgraph "Docker Network: dapr-pluggable-net"
         subgraph "Dapr Runtime Container"
             C[Dapr Sidecar<br/>daprd-nebulagraph]
             C1[HTTP API :3501]

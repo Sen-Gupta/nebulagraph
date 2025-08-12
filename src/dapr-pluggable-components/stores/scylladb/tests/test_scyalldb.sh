@@ -8,7 +8,7 @@ fi
 # Set default values for ports and network if not already set
 SCYLLADB_HTTP_PORT=${SCYLLADB_HTTP_PORT:-3501}
 SCYLLADB_GRPC_PORT=${SCYLLADB_GRPC_PORT:-50001}
-SCYLLADB_NETWORK_NAME=${SCYLLADB_NETWORK_NAME:-scylladb-net}
+DAPR_PLUGABBLE_NETWORK_NAME=${DAPR_PLUGABBLE_NETWORK_NAME:-dapr-pluggable-net}
 
 echo "ScyllaDB Dapr Component - Comprehensive Test Suite"
 echo "=================================================="
@@ -17,7 +17,7 @@ echo "Includes: CRUD + Bulk Operations + Query API + Cross-Protocol Testing + ET
 echo "Configuration:"
 echo "  • HTTP Port: $SCYLLADB_HTTP_PORT"
 echo "  • gRPC Port: $SCYLLADB_GRPC_PORT"
-echo "  • Network: $SCYLLADB_NETWORK_NAME"
+echo "  • Network: $DAPR_PLUGABBLE_NETWORK_NAME"
 echo "  • Component: scylladb-state"
 echo ""
 
@@ -151,7 +151,7 @@ else
     echo "  • ScyllaDB cluster: docker logs scylladb-node1"
     echo "  • ScyllaDB connectivity: docker exec -it scylladb-node1 nodetool status"
     echo "  • Component logs: ./run_nebula.sh logs"
-    echo "  • Network check: docker network ls | grep $SCYLLADB_NETWORK_NAME"
+    echo "  • Network check: docker network ls | grep $DAPR_PLUGABBLE_NETWORK_NAME"
     echo "  • Keyspace check: docker exec -it scylladb-node1 cqlsh -e \"DESCRIBE KEYSPACES;\""
     echo "  • Table check: docker exec -it scylladb-node1 cqlsh -e \"USE dapr_state; DESCRIBE TABLES;\""
     echo ""

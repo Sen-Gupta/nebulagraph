@@ -6,7 +6,7 @@ if [ -f "../.env" ]; then
 fi
 
 # Set default values if not already set
-NEBULA_NETWORK_NAME=${NEBULA_NETWORK_NAME:-nebula-net}
+DAPR_PLUGABBLE_NETWORK_NAME=${DAPR_PLUGABBLE_NETWORK_NAME:-dapr-pluggable-net}
 NEBULA_PORT=${NEBULA_PORT:-9669}
 NEBULA_STORAGE_PORT=${NEBULA_STORAGE_PORT:-9779}
 NEBULA_USERNAME=${NEBULA_USERNAME:-root}
@@ -16,7 +16,7 @@ NEBULA_SPACE=${NEBULA_SPACE:-dapr_state}
 # Initialize NebulaGraph cluster for single-node setup
 echo "Initializing NebulaGraph cluster..."
 echo "Configuration:"
-echo "  • Network: $NEBULA_NETWORK_NAME"
+echo "  • Network: $DAPR_PLUGABBLE_NETWORK_NAME"
 echo "  • Graph Port: $NEBULA_PORT"
 echo "  • Storage Port: $NEBULA_STORAGE_PORT"
 echo "  • Space: $NEBULA_SPACE"
@@ -28,7 +28,7 @@ sleep 15
 
 # Add storage hosts to the cluster
 echo "Registering storage hosts..."
-docker run --rm --network $NEBULA_NETWORK_NAME vesoft/nebula-console:v3-nightly \
+docker run --rm --network $DAPR_PLUGABBLE_NETWORK_NAME vesoft/nebula-console:v3-nightly \
   --addr nebula-graphd --port $NEBULA_PORT --user $NEBULA_USERNAME --password $NEBULA_PASSWORD \
   --eval "ADD HOSTS \"nebula-storaged\":$NEBULA_STORAGE_PORT;"
 
@@ -37,12 +37,12 @@ sleep 5
 
 # Check hosts status
 echo "Checking hosts status..."
-docker run --rm --network $NEBULA_NETWORK_NAME vesoft/nebula-console:v3-nightly \
+docker run --rm --network $DAPR_PLUGABBLE_NETWORK_NAME vesoft/nebula-console:v3-nightly \
   --addr nebula-graphd --port $NEBULA_PORT --user $NEBULA_USERNAME --password $NEBULA_PASSWORD \
   --eval "SHOW HOSTS;"
 
 echo "Creating $NEBULA_SPACE space for Dapr components..."
-docker run --rm --network $NEBULA_NETWORK_NAME vesoft/nebula-console:v3-nightly \
+docker run --rm --network $DAPR_PLUGABBLE_NETWORK_NAME vesoft/nebula-console:v3-nightly \
   --addr nebula-graphd --port $NEBULA_PORT --user $NEBULA_USERNAME --password $NEBULA_PASSWORD \
   --eval "CREATE SPACE IF NOT EXISTS $NEBULA_SPACE(partition_num=1, replica_factor=1, vid_type=FIXED_STRING(256));"
 
@@ -51,12 +51,12 @@ sleep 5
 
 echo "Creating schema for Dapr state store..."
 echo "Dropping existing state tag if it exists to ensure proper schema..."
-docker run --rm --network $NEBULA_NETWORK_NAME vesoft/nebula-console:v3-nightly \
+docker run --rm --network $DAPR_PLUGABBLE_NETWORK_NAME vesoft/nebula-console:v3-nightly \
   --addr nebula-graphd --port $NEBULA_PORT --user $NEBULA_USERNAME --password $NEBULA_PASSWORD \
   --eval "USE $NEBULA_SPACE; DROP TAG IF EXISTS state;"
 
 echo "Creating state tag with complete schema (data, etag, last_modified)..."
-docker run --rm --network $NEBULA_NETWORK_NAME vesoft/nebula-console:v3-nightly \
+docker run --rm --network $DAPR_PLUGABBLE_NETWORK_NAME vesoft/nebula-console:v3-nightly \
   --addr nebula-graphd --port $NEBULA_PORT --user $NEBULA_USERNAME --password $NEBULA_PASSWORD \
   --eval "USE $NEBULA_SPACE; CREATE TAG state(data string, etag string, last_modified int);"
 
@@ -64,22 +64,22 @@ echo "Waiting for schema to be applied..."
 sleep 5
 
 echo "Verifying schema creation..."
-docker run --rm --network $NEBULA_NETWORK_NAME vesoft/nebula-console:v3-nightly \
+docker run --rm --network $DAPR_PLUGABBLE_NETWORK_NAME vesoft/nebula-console:v3-nightly \
   --addr nebula-graphd --port $NEBULA_PORT --user $NEBULA_USERNAME --password $NEBULA_PASSWORD \
   --eval "USE $NEBULA_SPACE; DESCRIBE TAG state;"
 
 echo "Verifying $NEBULA_SPACE space and schema creation..."
-docker run --rm --network $NEBULA_NETWORK_NAME vesoft/nebula-console:v3-nightly \
+docker run --rm --network $DAPR_PLUGABBLE_NETWORK_NAME vesoft/nebula-console:v3-nightly \
   --addr nebula-graphd --port $NEBULA_PORT --user $NEBULA_USERNAME --password $NEBULA_PASSWORD \
   --eval "SHOW SPACES;"
 
 echo "Verifying state tag schema..."
-docker run --rm --network $NEBULA_NETWORK_NAME vesoft/nebula-console:v3-nightly \
+docker run --rm --network $DAPR_PLUGABBLE_NETWORK_NAME vesoft/nebula-console:v3-nightly \
   --addr nebula-graphd --port $NEBULA_PORT --user $NEBULA_USERNAME --password $NEBULA_PASSWORD \
   --eval "USE $NEBULA_SPACE; SHOW TAGS;"
 
 echo "Verifying complete schema details..."
-docker run --rm --network $NEBULA_NETWORK_NAME vesoft/nebula-console:v3-nightly \
+docker run --rm --network $DAPR_PLUGABBLE_NETWORK_NAME vesoft/nebula-console:v3-nightly \
   --addr nebula-graphd --port $NEBULA_PORT --user $NEBULA_USERNAME --password $NEBULA_PASSWORD \
   --eval "USE $NEBULA_SPACE; DESCRIBE TAG state;"
 

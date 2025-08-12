@@ -8,10 +8,9 @@ fi
 # Set default values for ports and network if not already set
 NEBULA_HTTP_PORT=${NEBULA_HTTP_PORT:-3501}
 NEBULA_GRPC_PORT=${NEBULA_GRPC_PORT:-50001}
-NEBULA_NETWORK_NAME=${NEBULA_NETWORK_NAME:-nebula-net}
+DAPR_PLUGABBLE_NETWORK_NAME=${DAPR_PLUGABBLE_NETWORK_NAME:-dapr-pluggable-net}
 SCYLLADB_HTTP_PORT=${SCYLLADB_HTTP_PORT:-3501}
 SCYLLADB_GRPC_PORT=${SCYLLADB_GRPC_PORT:-50001}
-SCYLLADB_NETWORK_NAME=${SCYLLADB_NETWORK_NAME:-scylladb-net}
 
 echo "Dapr State Store Components - Comprehensive Test Suite"
 echo "======================================================"
@@ -20,10 +19,9 @@ echo "Includes: CRUD + Bulk Operations + Query API + Cross-Protocol Testing"
 echo "Configuration:"
 echo "  • NebulaGraph HTTP Port: $NEBULA_HTTP_PORT"
 echo "  • NebulaGraph gRPC Port: $NEBULA_GRPC_PORT"
-echo "  • NebulaGraph Network: $NEBULA_NETWORK_NAME"
 echo "  • ScyllaDB HTTP Port: $SCYLLADB_HTTP_PORT"
 echo "  • ScyllaDB gRPC Port: $SCYLLADB_GRPC_PORT"
-echo "  • ScyllaDB Network: $SCYLLADB_NETWORK_NAME"
+echo "  • Shared Network: $DAPR_PLUGABBLE_NETWORK_NAME"
 echo ""
 
 # Colors for output

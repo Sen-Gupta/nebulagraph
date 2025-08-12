@@ -18,7 +18,7 @@ services:
     ports:
       - "${REDIS_HOST_PORT:-6380}:6379"
     networks:
-      - nebula-net
+      - dapr-pluggable-net
     volumes:
       - redis-data:/data
     command: ["redis-server", "--requirepass", "${REDIS_SERVER_PASSWORD:-dapr_redis}", "--appendonly", "yes"]
@@ -32,6 +32,6 @@ volumes:
   redis-data:
 
 networks:
-  nebula-net:
+  dapr-pluggable-net:
     external: true
-    name: ${NEBULA_NETWORK_NAME:-nebula-net}
+    name: ${DAPR_PLUGABBLE_NETWORK_NAME:-dapr-pluggable-net}
