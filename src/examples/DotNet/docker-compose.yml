@@ -1,7 +1,7 @@
 services:
   # Dapr Pluggable Component (Multi-Store Support)
-  dapr-pluggable-component:
-    container_name: dapr-pluggable-component
+  dot-net-dapr-pluggables-components:
+    container_name: dot-net-dapr-pluggables-components
     build:
       context: ../../dapr-pluggable-components
       dockerfile: Dockerfile
@@ -52,7 +52,7 @@ services:
     env_file:
       - "../../.env"
     depends_on:
-      - dapr-pluggable-component
+      - dot-net-dapr-pluggables-components
     volumes:
       - socket:/var/run
       - "../../components:/components:ro"
