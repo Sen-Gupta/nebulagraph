@@ -11,8 +11,8 @@ if [ -f "../../../.env" ]; then
 fi
 
 # Set default values if not already set
-NEBULA_HTTP_PORT=${NEBULA_HTTP_PORT:-3501}
-NEBULA_GRPC_PORT=${NEBULA_GRPC_PORT:-50001}
+PLUGGABLE_COMPONENTS_HTTP_PORT=${PLUGGABLE_COMPONENTS_HTTP_PORT:-3501}
+PLUGGABLE_COMPONENTS_GRPC_PORT=${PLUGGABLE_COMPONENTS_GRPC_PORT:-50001}
 DAPR_PLUGABBLE_NETWORK_NAME=${DAPR_PLUGABBLE_NETWORK_NAME:-dapr-pluggable-net}
 
 # Colors for output
@@ -219,11 +219,11 @@ test_component() {
     print_header "Testing Dual Dapr Pluggable Components"
     
     # Test Dapr HTTP API availability
-    print_info "Testing Dapr HTTP API (port $NEBULA_HTTP_PORT)..."
-    if curl -s --connect-timeout 5 http://localhost:$NEBULA_HTTP_PORT/v1.0/healthz >/dev/null 2>&1; then
+    print_info "Testing Dapr HTTP API (port $PLUGGABLE_COMPONENTS_HTTP_PORT)..."
+    if curl -s --connect-timeout 5 http://localhost:$PLUGGABLE_COMPONENTS_HTTP_PORT/v1.0/healthz >/dev/null 2>&1; then
         print_success "Dapr HTTP API is responding"
     else
-        print_error "Dapr HTTP API is not responding on port $NEBULA_HTTP_PORT"
+        print_error "Dapr HTTP API is not responding on port $PLUGGABLE_COMPONENTS_HTTP_PORT"
         return 1
     fi
     
@@ -239,7 +239,7 @@ test_component() {
     print_info "Testing NebulaGraph state store operations..."
     
     # Test SET operation
-    if curl -s -X POST "http://localhost:$NEBULA_HTTP_PORT/v1.0/state/nebulagraph-state" \
+    if curl -s -X POST "http://localhost:$PLUGGABLE_COMPONENTS_HTTP_PORT/v1.0/state/nebulagraph-state" \
         -H "Content-Type: application/json" \
         -d '[{"key": "test-key", "value": "Hello NebulaGraph!"}]' >/dev/null 2>&1; then
         print_success "State store SET operation successful"
@@ -249,7 +249,7 @@ test_component() {
     fi
     
     # Test GET operation
-    local response=$(curl -s "http://localhost:$NEBULA_HTTP_PORT/v1.0/state/nebulagraph-state/test-key" 2>/dev/null)
+    local response=$(curl -s "http://localhost:$PLUGGABLE_COMPONENTS_HTTP_PORT/v1.0/state/nebulagraph-state/test-key" 2>/dev/null)
     if [ "$response" = '"Hello NebulaGraph!"' ]; then
         print_success "State store GET operation successful"
         print_info "Retrieved value: $response"
@@ -260,7 +260,7 @@ test_component() {
     fi
     
     # Test DELETE operation
-    if curl -s -X DELETE "http://localhost:$NEBULA_HTTP_PORT/v1.0/state/nebulagraph-state/test-key" >/dev/null 2>&1; then
+    if curl -s -X DELETE "http://localhost:$PLUGGABLE_COMPONENTS_HTTP_PORT/v1.0/state/nebulagraph-state/test-key" >/dev/null 2>&1; then
         print_success "State store DELETE operation successful"
     else
         print_error "State store DELETE operation failed"
@@ -274,11 +274,11 @@ quick_health_check() {
     print_header "Quick Health Check"
     
     # Test Dapr HTTP API availability
-    print_info "Testing Dapr HTTP API (port $NEBULA_HTTP_PORT)..."
-    if curl -s --connect-timeout 5 http://localhost:$NEBULA_HTTP_PORT/v1.0/healthz >/dev/null 2>&1; then
+    print_info "Testing Dapr HTTP API (port $PLUGGABLE_COMPONENTS_HTTP_PORT)..."
+    if curl -s --connect-timeout 5 http://localhost:$PLUGGABLE_COMPONENTS_HTTP_PORT/v1.0/healthz >/dev/null 2>&1; then
         print_success "Dapr HTTP API is responding"
     else
-        print_error "Dapr HTTP API is not responding on port $NEBULA_HTTP_PORT"
+        print_error "Dapr HTTP API is not responding on port $PLUGGABLE_COMPONENTS_HTTP_PORT"
         return 1
     fi
     
@@ -380,14 +380,14 @@ main() {
     print_success "🎉 Dapr pluggable components setup completed successfully!"
     echo -e "\n${GREEN}Your dual Dapr components are ready!${NC}"
     echo -e "\n${BLUE}Available APIs:${NC}"
-    echo -e "  • Dapr HTTP API: http://localhost:$NEBULA_HTTP_PORT"
-    echo -e "  • Dapr gRPC API: localhost:$NEBULA_GRPC_PORT"
+    echo -e "  • Dapr HTTP API: http://localhost:$PLUGGABLE_COMPONENTS_HTTP_PORT"
+    echo -e "  • Dapr gRPC API: localhost:$PLUGGABLE_COMPONENTS_GRPC_PORT"
     echo -e "  • State Store (NebulaGraph): nebulagraph-state"
     echo -e "  • State Store (ScyllaDB): scylladb-state"
     
     echo -e "\n${BLUE}Next steps:${NC}"
-    echo -e "  • Test NebulaGraph state: curl http://localhost:$NEBULA_HTTP_PORT/v1.0/state/nebulagraph-state/your-key"
-    echo -e "  • Test ScyllaDB state: curl http://localhost:$NEBULA_HTTP_PORT/v1.0/state/scylladb-state/your-key"
+    echo -e "  • Test NebulaGraph state: curl http://localhost:$PLUGGABLE_COMPONENTS_HTTP_PORT/v1.0/state/nebulagraph-state/your-key"
+    echo -e "  • Test ScyllaDB state: curl http://localhost:$PLUGGABLE_COMPONENTS_HTTP_PORT/v1.0/state/scylladb-state/your-key"
     echo -e "  • View logs: ./run_dapr_pluggables.sh logs"
     echo -e "  • Stop components: ./run_dapr_pluggables.sh stop"
     echo -e "  • Check status: ./run_dapr_pluggables.sh status"
@@ -463,9 +463,9 @@ case "${1:-start}" in
         echo "  • Docker and Docker Compose"
         echo ""
         echo "API Endpoints:"
-        echo "  • Dapr HTTP API: http://localhost:$NEBULA_HTTP_PORT"
-        echo "  • Dapr gRPC API: localhost:$NEBULA_GRPC_PORT"
-        echo "  • Health Check: http://localhost:$NEBULA_HTTP_PORT/v1.0/healthz"
+        echo "  • Dapr HTTP API: http://localhost:$PLUGGABLE_COMPONENTS_HTTP_PORT"
+        echo "  • Dapr gRPC API: localhost:$PLUGGABLE_COMPONENTS_GRPC_PORT"
+        echo "  • Health Check: http://localhost:$PLUGGABLE_COMPONENTS_HTTP_PORT/v1.0/healthz"
         ;;
     *)
         echo "Unknown command: $1"
