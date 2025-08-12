@@ -12,6 +12,10 @@ else
     REDIS_PASSWORD="dapr_redis"
 fi
 
+# Map environment variables to expected names
+REDIS_PASSWORD=${REDIS_SERVER_PASSWORD:-$REDIS_PASSWORD}
+REDIS_CONTAINER_NAME="redis-pubsub"
+
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -53,7 +57,7 @@ max_attempts=15
 attempt=0
 
 while [ $attempt -lt $max_attempts ]; do
-    if docker exec redis redis-cli -a "$REDIS_PASSWORD" ping >/dev/null 2>&1; then
+    if docker exec $REDIS_CONTAINER_NAME redis-cli -a "$REDIS_PASSWORD" ping >/dev/null 2>&1; then
         print_success "Redis is ready and responsive"
         break
     else
@@ -70,14 +74,14 @@ fi
 
 # Show Redis info
 print_info "Checking Redis server info..."
-docker exec redis redis-cli -a "$REDIS_PASSWORD" info server | grep "redis_version\|os\|arch_bits"
+docker exec $REDIS_CONTAINER_NAME redis-cli -a "$REDIS_PASSWORD" info server | grep "redis_version\|os\|arch_bits"
 
 # Test basic Redis operations
 print_info "Testing basic Redis operations..."
-docker exec redis redis-cli -a "$REDIS_PASSWORD" set test_key "test_value"
+docker exec $REDIS_CONTAINER_NAME redis-cli -a "$REDIS_PASSWORD" set test_key "test_value"
 
 print_info "Testing Redis retrieval..."
-test_result=$(docker exec redis redis-cli -a "$REDIS_PASSWORD" get test_key)
+test_result=$(docker exec $REDIS_CONTAINER_NAME redis-cli -a "$REDIS_PASSWORD" get test_key)
 if [ "$test_result" = "test_value" ]; then
     print_success "Redis basic operations working correctly"
 else
@@ -86,11 +90,11 @@ fi
 
 # Clean up test key
 print_info "Cleaning up test data..."
-docker exec redis redis-cli -a "$REDIS_PASSWORD" del test_key
+docker exec $REDIS_CONTAINER_NAME redis-cli -a "$REDIS_PASSWORD" del test_key
 
 # Test pub/sub functionality
 print_info "Testing Redis pub/sub functionality..."
-docker exec redis redis-cli -a "$REDIS_PASSWORD" publish test_channel "test_message" >/dev/null 2>&1
+docker exec $REDIS_CONTAINER_NAME redis-cli -a "$REDIS_PASSWORD" publish test_channel "test_message" >/dev/null 2>&1
 if [ $? -eq 0 ]; then
     print_success "Redis pub/sub functionality is working"
 else
@@ -99,8 +103,8 @@ fi
 
 # Show final Redis status
 print_info "Final Redis status:"
-docker exec redis redis-cli -a "$REDIS_PASSWORD" info memory | grep "used_memory_human"
-docker exec redis redis-cli -a "$REDIS_PASSWORD" info clients | grep "connected_clients"
+docker exec $REDIS_CONTAINER_NAME redis-cli -a "$REDIS_PASSWORD" info memory | grep "used_memory_human"
+docker exec $REDIS_CONTAINER_NAME redis-cli -a "$REDIS_PASSWORD" info clients | grep "connected_clients"
 
 print_success "Redis initialization completed successfully!"
 print_info "Redis is ready for Dapr pub/sub operations"
