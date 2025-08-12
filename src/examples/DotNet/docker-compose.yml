@@ -1,27 +1,13 @@
 services:
-  # NebulaGraph Dapr Pluggable Component
-  nebulagraph-net-component:
-    container_name: nebulagraph-net-component
+  # Dapr Pluggable Component (Multi-Store Support)
+  dapr-pluggable-component:
+    container_name: dapr-pluggable-component
     build:
       context: ../../dapr-pluggable-components
       dockerfile: Dockerfile
     environment:
       - DAPR_COMPONENT_SOCKETS_FOLDER=/var/run
-      - STORE_TYPE=nebulagraph
-    volumes:
-      - socket:/var/run
-    networks:
-      - dapr-pluggable-net
-
-  # ScyllaDB Dapr Pluggable Component
-  scylladb-net-component:
-    container_name: scylladb-net-component
-    build:
-      context: ../../dapr-pluggable-components
-      dockerfile: Dockerfile
-    environment:
-      - DAPR_COMPONENT_SOCKETS_FOLDER=/var/run
-      - STORE_TYPE=scylladb
+      - STORE_TYPES=nebulagraph,scylladb
     volumes:
       - socket:/var/run
     networks:
@@ -66,8 +52,7 @@ services:
     env_file:
       - "../../.env"
     depends_on:
-      - nebulagraph-net-component
-      - scylladb-net-component
+      - dapr-pluggable-component
     volumes:
       - socket:/var/run
       - "../../components:/components:ro"

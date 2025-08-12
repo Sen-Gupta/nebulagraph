@@ -135,11 +135,11 @@ start_testapi() {
         sleep 15
         
         # Check if containers are running
-        local api_running=$($compose_cmd ps -q nebulagraph-net-example 2>/dev/null)
-        local sidecar_running=$($compose_cmd ps -q nebulagraph-net-example-sidecar 2>/dev/null)
+        local api_running=$($compose_cmd ps -q dotnet-dapr-client 2>/dev/null)
+        local sidecar_running=$($compose_cmd ps -q dotnet-dapr-client-sidecar 2>/dev/null)
         
         if [ -n "$api_running" ] && [ -n "$sidecar_running" ]; then
-            print_success "All NebulaGraph .NET Example containers are running"
+            print_success "All .NET Dapr Client containers are running"
         else
             print_warning "Some containers may not be running properly"
             $compose_cmd ps
@@ -253,7 +253,7 @@ test_services() {
         print_info "Checking container logs..."
         local compose_cmd
         compose_cmd=$(get_docker_compose_cmd)
-        $compose_cmd logs nebulagraph-net-example | tail -10
+        $compose_cmd logs dotnet-dapr-client | tail -10
         return 1
     fi
     
@@ -266,7 +266,7 @@ test_services() {
         print_info "Checking sidecar logs..."
         local compose_cmd
         compose_cmd=$(get_docker_compose_cmd)
-        $compose_cmd logs nebulagraph-net-example-sidecar | tail -10
+        $compose_cmd logs dotnet-dapr-client-sidecar | tail -10
         return 1
     fi
     
@@ -409,7 +409,7 @@ case "${1:-help}" in
         echo ""
         echo "Environment Variables:"
         echo "  • DOT_NET_HOST_PORT (default: 5090) - Host port for .NET Dapr Client API"
-        echo "  • TEST_API_APP_PORT (default: 80) - Container port for NebulaGraph .NET Example API"  
+        echo "  • DOT_NET_APP_PORT (default: 80) - Container port for .NET Dapr Client API"  
         echo "  • DOT_NET_HTTP_PORT (default: 3502) - Dapr HTTP port"
         echo ""
         echo "Services:"
@@ -418,8 +418,8 @@ case "${1:-help}" in
         echo "  • .NET Dapr Client HTTP API: http://localhost:$DOT_NET_HTTP_PORT"
         echo ""
         echo "Notes:"
-        echo "  • Self-contained Docker Compose setup with integrated NebulaGraph component"
-        echo "  • No external dapr-pluggable-components dependency required"
+        echo "  • Uses unified Dapr pluggable component supporting both NebulaGraph and ScyllaDB"
+        echo "  • Self-contained Docker Compose setup with integrated multi-store component"
         echo "  • Automatically connects to existing NebulaGraph and Redis containers"
         ;;
     *)
