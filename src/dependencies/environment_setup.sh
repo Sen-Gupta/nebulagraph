@@ -130,7 +130,7 @@ connect_dapr_to_nebula_network() {
     
     if [ $connected_count -gt 0 ]; then
         print_success "Connected $connected_count Dapr container(s) to $NEBULA_NETWORK_NAME network"
-        print_info "Dapr placement service is now accessible at dapr_placement:50005"
+        print_info "Dapr placement service is now accessible at dapr_placement:50090"
     fi
 }
 
@@ -627,10 +627,10 @@ start_dapr_runtime() {
         if $compose_cmd up -d; then
             print_success "Controlled Dapr runtime services started successfully"
             print_info "Dapr services running with controlled configuration:"
-            print_info "  - Placement: ${DAPR_PLACEMENT_PORT:-50005}"
+            print_info "  - Placement: ${DAPR_PLACEMENT_PORT:-50090}"
             print_info "  - Redis: ${DAPR_REDIS_PORT:-6379}" 
             print_info "  - Zipkin: ${DAPR_ZIPKIN_PORT:-9411}"
-            print_info "  - Scheduler: ${DAPR_SCHEDULER_PORT:-50006}"
+            print_info "  - Scheduler: ${DAPR_SCHEDULER_PORT:-50091}"
             print_info "Waiting for Dapr services to initialize..."
             sleep 15
         else
@@ -966,7 +966,7 @@ quick_test_services() {
     print_info "Running quick connectivity test..."
     
     local tests_passed=0
-    local total_tests=3
+    local total_tests=5
     
     # Test NebulaGraph
     if nc -z localhost 9669 2>/dev/null; then
@@ -982,6 +982,22 @@ quick_test_services() {
         tests_passed=$((tests_passed + 1))
     else
         print_error "Redis Service (port $REDIS_HOST_PORT) - FAILED"
+    fi
+    
+    # Test Dapr Placement Service
+    if nc -z localhost ${DAPR_PLACEMENT_PORT:-50090} 2>/dev/null; then
+        print_success "Dapr Placement Service (port ${DAPR_PLACEMENT_PORT:-50090}) - OK"
+        tests_passed=$((tests_passed + 1))
+    else
+        print_error "Dapr Placement Service (port ${DAPR_PLACEMENT_PORT:-50090}) - FAILED"
+    fi
+    
+    # Test Dapr Scheduler Service
+    if nc -z localhost ${DAPR_SCHEDULER_PORT:-50091} 2>/dev/null; then
+        print_success "Dapr Scheduler Service (port ${DAPR_SCHEDULER_PORT:-50091}) - OK"
+        tests_passed=$((tests_passed + 1))
+    else
+        print_error "Dapr Scheduler Service (port ${DAPR_SCHEDULER_PORT:-50091}) - FAILED"
     fi
     
     # Test NebulaGraph Studio
@@ -1366,10 +1382,10 @@ main() {
     echo -e "  • ScyllaDB Manager: http://localhost:${SCYLLA_MANAGER_WEB_PORT:-7004}"
     
     echo -e "\n${BLUE}Dapr Runtime Services:${NC}"
-    echo -e "  • Placement: localhost:${DAPR_PLACEMENT_PORT:-50005}"
+    echo -e "  • Placement: localhost:${DAPR_PLACEMENT_PORT:-50090}"
     echo -e "  • Redis (Internal): localhost:${DAPR_REDIS_PORT:-6379}"
     echo -e "  • Zipkin Tracing: http://localhost:${DAPR_ZIPKIN_PORT:-9411}"
-    echo -e "  • Scheduler: localhost:${DAPR_SCHEDULER_PORT:-50006}"
+    echo -e "  • Scheduler: localhost:${DAPR_SCHEDULER_PORT:-50091}"
     
     echo -e "\n${BLUE}Dapr Components Available:${NC}"
     echo -e "  • State Store: nebulagraph-state (NebulaGraph backend)"
