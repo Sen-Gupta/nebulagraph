@@ -96,7 +96,7 @@ check_prerequisites() {
         print_pass "Dapr runtime is accessible on localhost:3501"
     fi
     
-    # Verify the space and schema exist
+    # Verify the NebulaGraph space and schema exist
     verify_result=$(docker run --rm --network $NEBULA_NETWORK_NAME vesoft/nebula-console:v3-nightly \
         --addr nebula-graphd --port 9669 --user root --password nebula \
         --eval "USE dapr_state; SHOW TAGS;" 2>&1)

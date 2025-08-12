@@ -37,15 +37,15 @@ print_section() {
 }
 
 # Check if we're in the tests directory
-if [ ! -f "test_component.sh" ] || [ ! -f "test_component_grpc.sh" ]; then
+if [ ! -f "test_http.sh" ] || [ ! -f "test_grpc.sh" ]; then
     echo -e "${RED}❌ Error: Test scripts not found in current directory${NC}"
     echo "Please run this script from the tests/ directory"
-    echo "Expected files: test_component.sh, test_component_grpc.sh"
+    echo "Expected files: test_http.sh, test_grpc.sh"
     exit 1
 fi
 
 # Make test scripts executable
-chmod +x test_component.sh test_component_grpc.sh
+chmod +x test_http.sh test_grpc.sh
 
 print_section "🌐 PHASE 1: HTTP Interface Testing (port $NEBULA_HTTP_PORT)"
 echo "Running comprehensive HTTP API tests..."
@@ -55,7 +55,7 @@ echo "• Query API functionality"
 echo "• Performance validation"
 echo ""
 
-./test_component.sh
+./test_http.sh
 HTTP_RESULT=$?
 
 print_section "🔌 PHASE 2: gRPC Interface Testing (port $NEBULA_GRPC_PORT)"
@@ -67,7 +67,7 @@ echo "• Cross-protocol compatibility"
 echo "• Performance validation"
 echo ""
 
-./test_component_grpc.sh
+./test_grpc.sh
 GRPC_RESULT=$?
 
 print_section " COMPREHENSIVE TEST RESULTS"

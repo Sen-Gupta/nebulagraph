@@ -97,8 +97,8 @@ The same Go binary contains both implementations and selects the appropriate one
 ```bash
 cd tests
 ./test_all.sh           # Complete test suite
-./test_component.sh     # HTTP API tests
-./test_component_grpc.sh # gRPC tests
+./test_http.sh     # HTTP API tests
+./test_grpc.sh # gRPC tests
 ```
 
 ## Development

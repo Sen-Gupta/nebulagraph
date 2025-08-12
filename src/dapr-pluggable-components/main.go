@@ -2,7 +2,8 @@ package main
 
 import (
 	"fmt"
-	"nebulagraph/stores"
+	nebulastore "nebulagraph/stores/nebulagraph"
+	scyllastore "nebulagraph/stores/scylladb"
 	"os"
 
 	dapr "github.com/dapr-sandbox/components-go-sdk"
@@ -24,7 +25,7 @@ func main() {
 		fmt.Println("DEBUG: Registering ScyllaDB state store")
 		dapr.Register("scylladb-state", dapr.WithStateStore(func() state.Store {
 			fmt.Println("DEBUG: Factory function called - creating new ScyllaStateStore instance")
-			store := stores.NewScyllaStateStore(logger.NewLogger("scylladb-state"))
+			store := scyllastore.NewScyllaStateStore(logger.NewLogger("scylladb-state"))
 			fmt.Printf("DEBUG: Created ScyllaDB store instance: %p\n", store)
 			return store
 		}))
@@ -34,7 +35,7 @@ func main() {
 		fmt.Println("DEBUG: Registering NebulaGraph state store")
 		dapr.Register("nebulagraph-state", dapr.WithStateStore(func() state.Store {
 			fmt.Println("DEBUG: Factory function called - creating new NebulaStateStore instance")
-			store := stores.NewNebulaStateStore(logger.NewLogger("nebulagraph-state"))
+			store := nebulastore.NewNebulaStateStore(logger.NewLogger("nebulagraph-state"))
 			fmt.Printf("DEBUG: Created NebulaGraph store instance: %p\n", store)
 			return store
 		}))

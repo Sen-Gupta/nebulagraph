@@ -1,4 +1,4 @@
-package stores
+package scylladb
 
 import (
 	"context"
@@ -16,7 +16,7 @@ import (
 )
 
 // ScyllaStateStore is a production-ready state store implementation for ScyllaDB.
-// 
+//
 // This implementation follows ScyllaDB GoCQL benchmark best practices:
 // 1. Token-aware host policy with round-robin fallback for optimal load distribution
 // 2. Prepared statements to minimize query parsing overhead
@@ -36,7 +36,7 @@ import (
 // - Connection timeouts and retry policies tuned for ScyllaDB characteristics
 type ScyllaStateStore struct {
 	state.BulkStore
-	
+
 	cluster *gocql.ClusterConfig
 	session *gocql.Session
 	config  ScyllaConfig
@@ -139,7 +139,7 @@ func (store *ScyllaStateStore) Init(ctx context.Context, metadata state.Metadata
 		store.config.ReplicationFactor = "3"
 	}
 
-	store.logger.Infof("Parsed ScyllaDB config: hosts=%s, port=%s, keyspace=%s, table=%s", 
+	store.logger.Infof("Parsed ScyllaDB config: hosts=%s, port=%s, keyspace=%s, table=%s",
 		store.config.Hosts, store.config.Port, store.config.Keyspace, store.config.Table)
 
 	// Parse hosts
@@ -154,7 +154,7 @@ func (store *ScyllaStateStore) Init(ctx context.Context, metadata state.Metadata
 
 	// Create cluster configuration
 	cluster := gocql.NewCluster(hosts...)
-	
+
 	// Set authentication if provided
 	if store.config.Username != "" && store.config.Password != "" {
 		cluster.Authenticator = gocql.PasswordAuthenticator{
@@ -165,7 +165,7 @@ func (store *ScyllaStateStore) Init(ctx context.Context, metadata state.Metadata
 
 	// Parse and set timeouts (distinguish connection vs query timeouts - GoCQL best practice)
 	if timeout, err := time.ParseDuration(store.config.ConnectionTimeout); err == nil {
-		cluster.ConnectTimeout = timeout  // For connection establishment
+		cluster.ConnectTimeout = timeout          // For connection establishment
 		cluster.Timeout = timeout + 1*time.Second // Query timeout should be higher
 	} else {
 		store.logger.Warnf("Invalid connectionTimeout: %s, using default", store.config.ConnectionTimeout)
@@ -230,37 +230,37 @@ func (store *ScyllaStateStore) Init(ctx context.Context, metadata state.Metadata
 
 	// Set protocol version and other optimizations for ScyllaDB
 	cluster.ProtoVersion = 4
-	
+
 	// ScyllaDB-specific optimizations based on benchmark best practices
 	cluster.HostFilter = gocql.WhiteListHostFilter(hosts...)
-	
+
 	// Optimized retry policy with exponential backoff for ScyllaDB
 	cluster.RetryPolicy = &gocql.ExponentialBackoffRetryPolicy{
 		Min:        100 * time.Millisecond,
 		Max:        10 * time.Second,
 		NumRetries: 3,
 	}
-	
+
 	// Enable Snappy compression for better performance (ScyllaDB best practice)
 	cluster.Compressor = &gocql.SnappyCompressor{}
-	
+
 	// Token-aware host policy with round-robin fallback (benchmark best practice)
 	cluster.PoolConfig.HostSelectionPolicy = gocql.TokenAwareHostPolicy(gocql.RoundRobinHostPolicy())
-	
+
 	// Additional ScyllaDB optimizations based on repository examples
 	cluster.WriteCoalesceWaitTime = 200 * time.Microsecond // Improves throughput by batching writes
-	cluster.PageSize = 5000 // Optimal page size for ScyllaDB
+	cluster.PageSize = 5000                                // Optimal page size for ScyllaDB
 	cluster.DefaultTimestamp = true
 	cluster.DisableSkipMetadata = false
-	
+
 	// Connection pool optimizations for ScyllaDB's shard-per-core architecture
 	cluster.MaxPreparedStmts = 1000
 	cluster.MaxRoutingKeyInfo = 1000
-	
+
 	// Event configuration for production environments
-	cluster.Events.DisableNodeStatusEvents = false   // Keep enabled for monitoring
-	cluster.Events.DisableTopologyEvents = false     // Keep enabled for cluster changes
-	cluster.Events.DisableSchemaEvents = true        // Disable for performance (we don't alter schema)
+	cluster.Events.DisableNodeStatusEvents = false // Keep enabled for monitoring
+	cluster.Events.DisableTopologyEvents = false   // Keep enabled for cluster changes
+	cluster.Events.DisableSchemaEvents = true      // Disable for performance (we don't alter schema)
 
 	store.cluster = cluster
 	store.logger.Info("ScyllaDB cluster configuration created successfully")
@@ -288,9 +288,9 @@ func (store *ScyllaStateStore) createSessionAndInitialize() error {
 		WITH replication = {
 			'class': '%s', 
 			'replication_factor': %s
-		}`, 
-		store.config.Keyspace, 
-		store.config.ReplicationStrategy, 
+		}`,
+		store.config.Keyspace,
+		store.config.ReplicationStrategy,
 		store.config.ReplicationFactor)
 
 	store.logger.Debugf("Creating keyspace with query: %s", createKeyspaceQuery)
@@ -332,12 +332,12 @@ func (store *ScyllaStateStore) createSessionAndInitialize() error {
 	getQuery := fmt.Sprintf("SELECT value, etag, last_modified FROM %s WHERE key = ?", store.config.Table)
 	setQuery := fmt.Sprintf("INSERT INTO %s (key, value, etag, last_modified) VALUES (?, ?, ?, ?)", store.config.Table)
 	deleteQuery := fmt.Sprintf("DELETE FROM %s WHERE key = ?", store.config.Table)
-	
+
 	// Create prepared statements with proper configuration
 	store.getStmt = session.Query(getQuery).Consistency(store.cluster.Consistency)
 	store.setStmt = session.Query(setQuery).Consistency(store.cluster.Consistency)
 	store.deleteStmt = session.Query(deleteQuery).Consistency(store.cluster.Consistency)
-	
+
 	// Ensure statements are prepared at initialization for optimal performance
 	// Note: GoCQL automatically prepares statements on first use, so we don't need explicit Prepare() calls
 	store.logger.Info("Prepared statements configured successfully")
@@ -348,7 +348,7 @@ func (store *ScyllaStateStore) GetComponentMetadata() map[string]string {
 	return map[string]string{
 		"type":    "state",
 		"version": "v1",
-		"author":  "ScyllaDB Team", 
+		"author":  "ScyllaDB Team",
 		"url":     "https://github.com/scylladb/scylladb",
 	}
 }
@@ -385,7 +385,7 @@ func (store *ScyllaStateStore) Get(ctx context.Context, req *state.GetRequest) (
 
 	// Use prepared statement with context (benchmark best practice)
 	stmt := store.getStmt.Bind(req.Key).WithContext(ctx)
-	
+
 	// Execute with retry logic for resilience
 	var err error
 	maxRetries := 3
@@ -394,23 +394,23 @@ func (store *ScyllaStateStore) Get(ctx context.Context, req *state.GetRequest) (
 		if err == nil {
 			break
 		}
-		
+
 		if err == gocql.ErrNotFound {
 			// Key not found, return empty response
 			return &state.GetResponse{}, nil
 		}
-		
+
 		// Retry on transient errors
 		if errors.Is(err, gocql.ErrUnavailable) || errors.Is(err, gocql.ErrTimeoutNoResponse) {
 			if attempt < maxRetries {
 				backoff := time.Duration(attempt*attempt) * 100 * time.Millisecond
-				store.logger.Warnf("Transient error on get key %s (attempt %d/%d), retrying after %v: %v", 
+				store.logger.Warnf("Transient error on get key %s (attempt %d/%d), retrying after %v: %v",
 					req.Key, attempt, maxRetries, backoff, err)
 				time.Sleep(backoff)
 				continue
 			}
 		}
-		
+
 		store.logger.Errorf("Failed to get key %s after %d attempts: %v", req.Key, attempt, err)
 		return nil, fmt.Errorf("failed to get key %s: %w", req.Key, err)
 	}
@@ -461,7 +461,7 @@ func (store *ScyllaStateStore) Set(ctx context.Context, req *state.SetRequest) e
 
 	// Generate etag with higher precision for better concurrency control
 	etag := fmt.Sprintf("%d", time.Now().UnixNano())
-	
+
 	// Handle ETag for optimistic concurrency (lightweight read before write)
 	if req.ETag != nil {
 		// Use prepared statement for etag check for better performance
@@ -472,7 +472,7 @@ func (store *ScyllaStateStore) Set(ctx context.Context, req *state.SetRequest) e
 		if checkErr != nil && checkErr != gocql.ErrNotFound {
 			return fmt.Errorf("failed to check current etag: %w", checkErr)
 		}
-		
+
 		if checkErr != gocql.ErrNotFound && currentEtag != *req.ETag {
 			return fmt.Errorf("etag mismatch: expected %s, got %s", *req.ETag, currentEtag)
 		}
@@ -480,7 +480,7 @@ func (store *ScyllaStateStore) Set(ctx context.Context, req *state.SetRequest) e
 
 	// Insert/update using prepared statement with retry logic (benchmark best practice)
 	stmt := store.setStmt.Bind(req.Key, value, etag, time.Now()).WithContext(ctx)
-	
+
 	var err error
 	maxRetries := 3
 	for attempt := 1; attempt <= maxRetries; attempt++ {
@@ -488,18 +488,18 @@ func (store *ScyllaStateStore) Set(ctx context.Context, req *state.SetRequest) e
 		if err == nil {
 			break
 		}
-		
+
 		// Retry logic for transient errors with exponential backoff
 		if errors.Is(err, gocql.ErrUnavailable) || errors.Is(err, gocql.ErrTimeoutNoResponse) {
 			if attempt < maxRetries {
 				backoff := time.Duration(attempt*attempt) * 100 * time.Millisecond
-				store.logger.Warnf("Transient error on set key %s (attempt %d/%d), retrying after %v: %v", 
+				store.logger.Warnf("Transient error on set key %s (attempt %d/%d), retrying after %v: %v",
 					req.Key, attempt, maxRetries, backoff, err)
 				time.Sleep(backoff)
 				continue
 			}
 		}
-		
+
 		store.logger.Errorf("Failed to set key %s after %d attempts: %v", req.Key, attempt, err)
 		return fmt.Errorf("failed to set key %s: %w", req.Key, err)
 	}
@@ -539,7 +539,7 @@ func (store *ScyllaStateStore) Delete(ctx context.Context, req *state.DeleteRequ
 			}
 			return fmt.Errorf("failed to check current etag: %w", err)
 		}
-		
+
 		if currentEtag != *req.ETag {
 			return fmt.Errorf("etag mismatch: expected %s, got %s", *req.ETag, currentEtag)
 		}
@@ -547,7 +547,7 @@ func (store *ScyllaStateStore) Delete(ctx context.Context, req *state.DeleteRequ
 
 	// Delete using prepared statement with retry logic (benchmark best practice)
 	stmt := store.deleteStmt.Bind(req.Key).WithContext(ctx)
-	
+
 	var err error
 	maxRetries := 3
 	for attempt := 1; attempt <= maxRetries; attempt++ {
@@ -555,18 +555,18 @@ func (store *ScyllaStateStore) Delete(ctx context.Context, req *state.DeleteRequ
 		if err == nil {
 			break
 		}
-		
+
 		// Retry logic for transient errors with exponential backoff
 		if errors.Is(err, gocql.ErrUnavailable) || errors.Is(err, gocql.ErrTimeoutNoResponse) {
 			if attempt < maxRetries {
 				backoff := time.Duration(attempt*attempt) * 100 * time.Millisecond
-				store.logger.Warnf("Transient error on delete key %s (attempt %d/%d), retrying after %v: %v", 
+				store.logger.Warnf("Transient error on delete key %s (attempt %d/%d), retrying after %v: %v",
 					req.Key, attempt, maxRetries, backoff, err)
 				time.Sleep(backoff)
 				continue
 			}
 		}
-		
+
 		store.logger.Errorf("Failed to delete key %s after %d attempts: %v", req.Key, attempt, err)
 		return fmt.Errorf("failed to delete key %s: %w", req.Key, err)
 	}
@@ -602,9 +602,9 @@ func (store *ScyllaStateStore) BulkGet(ctx context.Context, req []state.GetReque
 			resp  *state.GetResponse
 			err   error
 		}
-		
+
 		resultChan := make(chan getResult, len(req))
-		
+
 		// Use goroutine pool for concurrent execution (benchmark best practice)
 		for i, getReq := range req {
 			go func(idx int, request state.GetRequest) {
@@ -612,7 +612,7 @@ func (store *ScyllaStateStore) BulkGet(ctx context.Context, req []state.GetReque
 				resultChan <- getResult{index: idx, resp: resp, err: err}
 			}(i, getReq)
 		}
-		
+
 		// Collect results
 		for i := 0; i < len(req); i++ {
 			result := <-resultChan
@@ -646,13 +646,13 @@ func (store *ScyllaStateStore) BulkGet(ctx context.Context, req []state.GetReque
 		if end > len(keys) {
 			end = len(keys)
 		}
-		
+
 		batchKeys := keys[start:end]
 		placeholders := strings.Repeat("?,", len(batchKeys))
 		placeholders = placeholders[:len(placeholders)-1] // Remove trailing comma
 
 		query := fmt.Sprintf("SELECT key, value, etag FROM %s WHERE key IN (%s)", store.config.Table, placeholders)
-		
+
 		// Convert keys to interface{} slice for query
 		keyInterfaces := make([]interface{}, len(batchKeys))
 		for i, key := range batchKeys {
@@ -704,9 +704,9 @@ func (store *ScyllaStateStore) BulkSet(ctx context.Context, req []state.SetReque
 			key string
 			err error
 		}
-		
+
 		resultChan := make(chan setResult, len(req))
-		
+
 		// Use concurrent execution (benchmark best practice)
 		for _, setReq := range req {
 			go func(request state.SetRequest) {
@@ -714,7 +714,7 @@ func (store *ScyllaStateStore) BulkSet(ctx context.Context, req []state.SetReque
 				resultChan <- setResult{key: request.Key, err: err}
 			}(setReq)
 		}
-		
+
 		// Collect results and check for errors
 		for i := 0; i < len(req); i++ {
 			result := <-resultChan
@@ -727,20 +727,20 @@ func (store *ScyllaStateStore) BulkSet(ctx context.Context, req []state.SetReque
 
 	// For larger batches, use optimized batch operations
 	const maxBatchSize = 50 // Optimal batch size for ScyllaDB
-	
+
 	for start := 0; start < len(req); start += maxBatchSize {
 		end := start + maxBatchSize
 		if end > len(req) {
 			end = len(req)
 		}
-		
+
 		batchReq := req[start:end]
-		
+
 		// Use UNLOGGED batch for better performance (benchmark best practice)
 		batch := store.session.NewBatch(gocql.UnloggedBatch).WithContext(ctx)
-		
+
 		query := fmt.Sprintf("INSERT INTO %s (key, value, etag, last_modified) VALUES (?, ?, ?, ?)", store.config.Table)
-		
+
 		for _, setReq := range batchReq {
 			// Convert value to string efficiently
 			var value string
@@ -761,7 +761,7 @@ func (store *ScyllaStateStore) BulkSet(ctx context.Context, req []state.SetReque
 
 			// Generate etag with higher precision
 			etag := fmt.Sprintf("%d", time.Now().UnixNano())
-			
+
 			batch.Query(query, setReq.Key, value, etag, time.Now())
 		}
 
@@ -773,18 +773,18 @@ func (store *ScyllaStateStore) BulkSet(ctx context.Context, req []state.SetReque
 			if err == nil {
 				break
 			}
-			
+
 			// Retry on transient errors with exponential backoff
 			if errors.Is(err, gocql.ErrUnavailable) || errors.Is(err, gocql.ErrTimeoutNoResponse) {
 				if attempt < maxRetries {
 					backoff := time.Duration(attempt*attempt) * 100 * time.Millisecond
-					store.logger.Warnf("Transient error on bulk set batch (attempt %d/%d), retrying after %v: %v", 
+					store.logger.Warnf("Transient error on bulk set batch (attempt %d/%d), retrying after %v: %v",
 						attempt, maxRetries, backoff, err)
 					time.Sleep(backoff)
 					continue
 				}
 			}
-			
+
 			store.logger.Errorf("Failed to execute bulk set batch after %d attempts: %v", attempt, err)
 			return fmt.Errorf("bulk set batch failed: %w", err)
 		}
@@ -818,9 +818,9 @@ func (store *ScyllaStateStore) BulkDelete(ctx context.Context, req []state.Delet
 			key string
 			err error
 		}
-		
+
 		resultChan := make(chan deleteResult, len(req))
-		
+
 		// Use concurrent execution (benchmark best practice)
 		for _, delReq := range req {
 			go func(request state.DeleteRequest) {
@@ -828,7 +828,7 @@ func (store *ScyllaStateStore) BulkDelete(ctx context.Context, req []state.Delet
 				resultChan <- deleteResult{key: request.Key, err: err}
 			}(delReq)
 		}
-		
+
 		// Collect results and check for errors
 		for i := 0; i < len(req); i++ {
 			result := <-resultChan
@@ -841,20 +841,20 @@ func (store *ScyllaStateStore) BulkDelete(ctx context.Context, req []state.Delet
 
 	// For larger batches, use optimized batch operations
 	const maxBatchSize = 50 // Optimal batch size for ScyllaDB
-	
+
 	for start := 0; start < len(req); start += maxBatchSize {
 		end := start + maxBatchSize
 		if end > len(req) {
 			end = len(req)
 		}
-		
+
 		batchReq := req[start:end]
-		
+
 		// Use UNLOGGED batch for better performance (benchmark best practice)
 		batch := store.session.NewBatch(gocql.UnloggedBatch).WithContext(ctx)
-		
+
 		query := fmt.Sprintf("DELETE FROM %s WHERE key = ?", store.config.Table)
-		
+
 		for _, delReq := range batchReq {
 			batch.Query(query, delReq.Key)
 		}
@@ -867,18 +867,18 @@ func (store *ScyllaStateStore) BulkDelete(ctx context.Context, req []state.Delet
 			if err == nil {
 				break
 			}
-			
+
 			// Retry on transient errors with exponential backoff
 			if errors.Is(err, gocql.ErrUnavailable) || errors.Is(err, gocql.ErrTimeoutNoResponse) {
 				if attempt < maxRetries {
 					backoff := time.Duration(attempt*attempt) * 100 * time.Millisecond
-					store.logger.Warnf("Transient error on bulk delete batch (attempt %d/%d), retrying after %v: %v", 
+					store.logger.Warnf("Transient error on bulk delete batch (attempt %d/%d), retrying after %v: %v",
 						attempt, maxRetries, backoff, err)
 					time.Sleep(backoff)
 					continue
 				}
 			}
-			
+
 			store.logger.Errorf("Failed to execute bulk delete batch after %d attempts: %v", attempt, err)
 			return fmt.Errorf("bulk delete batch failed: %w", err)
 		}
@@ -917,7 +917,7 @@ func (store *ScyllaStateStore) Query(ctx context.Context, req *state.QueryReques
 	}()
 
 	var results []state.QueryItem
-	
+
 	// Use scanner pattern for better memory management (GoCQL best practice)
 	scanner := iter.Scanner()
 	for scanner.Next() {
@@ -926,7 +926,7 @@ func (store *ScyllaStateStore) Query(ctx context.Context, req *state.QueryReques
 			store.logger.Errorf("Error scanning row: %v", err)
 			continue
 		}
-		
+
 		results = append(results, state.QueryItem{
 			Key:  key,
 			Data: []byte(value),

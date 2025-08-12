@@ -301,8 +301,8 @@ run_comprehensive_test() {
     
     # Use the comprehensive test suite from the tests directory
     local test_all_script="tests/test_all.sh"
-    local test_http_script="tests/test_component.sh"
-    local test_grpc_script="tests/test_component_grpc.sh"
+    local test_http_script="tests/test_http.sh"
+    local test_grpc_script="tests/test_grpc.sh"
     
     if [ -f "$test_all_script" ]; then
         print_info "Running complete test suite (HTTP + gRPC) - 54 tests..."
@@ -320,7 +320,7 @@ run_comprehensive_test() {
         cd tests/
         
         print_info "Running HTTP interface tests..."
-        if ./test_component.sh; then
+        if ./test_http.sh; then
             print_success "HTTP tests passed"
         else
             print_error "HTTP tests failed"
@@ -329,7 +329,7 @@ run_comprehensive_test() {
         fi
         
         print_info "Running gRPC interface tests..."
-        if ./test_component_grpc.sh; then
+        if ./test_grpc.sh; then
             print_success "gRPC tests passed"
         else
             print_error "gRPC tests failed"
@@ -342,7 +342,7 @@ run_comprehensive_test() {
     elif [ -f "$test_http_script" ]; then
         print_warning "Only HTTP tests available, running HTTP test suite..."
         cd tests/
-        if ./test_component.sh; then
+        if ./test_http.sh; then
             print_success "HTTP test suite completed successfully!"
         else
             print_error "HTTP test suite failed"
