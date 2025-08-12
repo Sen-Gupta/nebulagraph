@@ -104,7 +104,7 @@ connect_dapr_to_nebula_network() {
     fi
     
     # List of Dapr containers that need to be connected to nebula-net
-    local dapr_containers=("dapr_placement" "dapr_redis" "dapr_zipkin" "dapr_scheduler")
+    local dapr_containers=("dapr_placement" "dapr_zipkin" "dapr_scheduler")
     local connected_count=0
     
     for container in "${dapr_containers[@]}"; do
@@ -322,7 +322,7 @@ install_prerequisites() {
             local dapr_containers=$(docker ps --filter "name=dapr_" --format "{{.Names}}" 2>/dev/null)
             if [ -n "$dapr_containers" ]; then
                 print_success "Dapr runtime is already initialized (full installation with containers)"
-                print_info "Dapr Redis runs on port 6379, our Redis will use port $REDIS_HOST_PORT"
+                print_info "Using Redis on port $REDIS_HOST_PORT for pub/sub messaging"
                 # Connect Dapr containers to nebula-net for Docker-based applications
                 connect_dapr_to_nebula_network
             else
@@ -619,8 +619,8 @@ start_dapr_runtime() {
         
         # Stop any existing default Dapr containers that might conflict
         print_info "Stopping any existing default Dapr containers..."
-        docker stop dapr_placement dapr_redis dapr_scheduler dapr_zipkin 2>/dev/null || true
-        docker rm dapr_placement dapr_redis dapr_scheduler dapr_zipkin 2>/dev/null || true
+        docker stop dapr_placement dapr_scheduler dapr_zipkin 2>/dev/null || true
+        docker rm dapr_placement dapr_scheduler dapr_zipkin 2>/dev/null || true
         
         print_info "Starting controlled Dapr runtime containers..."
         cd dapr
@@ -628,7 +628,6 @@ start_dapr_runtime() {
             print_success "Controlled Dapr runtime services started successfully"
             print_info "Dapr services running with controlled configuration:"
             print_info "  - Placement: ${DAPR_PLACEMENT_PORT:-50090}"
-            print_info "  - Redis: ${DAPR_REDIS_PORT:-6379}" 
             print_info "  - Zipkin: ${DAPR_ZIPKIN_PORT:-9411}"
             print_info "  - Scheduler: ${DAPR_SCHEDULER_PORT:-50091}"
             print_info "Waiting for Dapr services to initialize..."
@@ -903,7 +902,6 @@ show_dapr_status() {
         
         print_info "\nDapr Service URLs:"
         echo -e "  • Placement: localhost:${DAPR_PLACEMENT_PORT:-50090}"
-        echo -e "  • Redis: localhost:${DAPR_REDIS_PORT:-6379}"
         echo -e "  • Zipkin: http://localhost:${DAPR_ZIPKIN_PORT:-9411}"
         echo -e "  • Scheduler: localhost:${DAPR_SCHEDULER_PORT:-50091}"
         
@@ -1394,7 +1392,7 @@ main() {
             local dapr_containers=$(docker ps --filter "name=dapr_" --format "{{.Names}}" 2>/dev/null)
             if [ -n "$dapr_containers" ]; then
                 print_success "Dapr runtime is initialized (full installation with containers)"
-                print_info "Dapr Redis runs on port 6379, our Redis will use port $REDIS_HOST_PORT"
+                print_info "Using Redis on port $REDIS_HOST_PORT for pub/sub messaging"
             else
                 # Check if it's slim mode by looking for specific files
                 if [ -f "$HOME/.dapr/bin/daprd" ]; then
@@ -1537,7 +1535,6 @@ main() {
     
     echo -e "\n${BLUE}Dapr Runtime Services:${NC}"
     echo -e "  • Placement: localhost:${DAPR_PLACEMENT_PORT:-50090}"
-    echo -e "  • Redis (Internal): localhost:${DAPR_REDIS_PORT:-6379}"
     echo -e "  • Zipkin Tracing: http://localhost:${DAPR_ZIPKIN_PORT:-9411}"
     echo -e "  • Scheduler: localhost:${DAPR_SCHEDULER_PORT:-50091}"
     

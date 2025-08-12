@@ -1,28 +1,4 @@
 services:
-  # Dapr Redis (Internal to Dapr runtime)
-  dapr-redis:
-    image: redis:${DAPR_REDIS_VERSION:-6}
-    container_name: ${DAPR_REDIS_CONTAINER:-dapr-redis}
-    restart: unless-stopped
-    ports:
-      - "${DAPR_REDIS_PORT:-6379}:6379"
-    networks:
-      - nebula-net
-    volumes:
-      - dapr-redis-data:/data
-    command: >
-      redis-server
-      --appendonly yes
-      --appendfsync everysec
-      --save 900 1
-      --save 300 10
-      --save 60 10000
-    healthcheck:
-      test: ["CMD-SHELL", "redis-cli ping | grep PONG"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-
   # Dapr Placement Service
   dapr-placement:
     image: daprio/dapr:${DAPR_VERSION:-1.15.9}
@@ -106,9 +82,6 @@ networks:
 
 # Named volumes for persistence
 volumes:
-  dapr-redis-data:
-    driver: local
-    name: ${DAPR_REDIS_VOLUME:-dapr-redis-data}
   dapr-placement-data:
     driver: local
     name: ${DAPR_PLACEMENT_VOLUME:-dapr-placement-data}

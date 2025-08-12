@@ -16,7 +16,6 @@ Instead of using the default `dapr init` which creates containers with fixed con
 
 | Service | Default Port | Purpose | Health Check |
 |---------|-------------|---------|--------------|
-| `dapr-redis` | 6379 | Internal Dapr state and coordination | Redis PING |
 | `dapr-placement` | 50090 | Actor placement service | HTTP healthz endpoint |
 | `dapr-scheduler` | 50091 | Scheduled jobs and reminders | HTTP healthz endpoint |
 | `dapr-zipkin` | 9411 | Distributed tracing | HTTP health endpoint |
@@ -29,9 +28,6 @@ All ports are configurable via environment variables in `../.env`:
 # Dapr Runtime Configuration
 DAPR_VERSION=1.15.9
 DAPR_LOG_LEVEL=info
-
-# Dapr Redis (Internal - different from our Redis pub/sub service)
-DAPR_REDIS_PORT=6379
 
 # Dapr Placement Service
 DAPR_PLACEMENT_PORT=50090
@@ -69,21 +65,15 @@ DAPR_ZIPKIN_PORT=9411
          ┌───────────────────────┼───────────────────────┐
          │                       │                       │
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│ dapr-placement  │    │   dapr-redis    │    │  dapr-zipkin    │
-│ Port: 50005     │    │   Port: 6379    │    │  Port: 9411     │
+│ dapr-placement  │    │ dapr-scheduler  │    │  dapr-zipkin    │
+│ Port: 50090     │    │ Port: 50091     │    │  Port: 9411     │
 └─────────────────┘    └─────────────────┘    └─────────────────┘
-                                 │
-                    ┌─────────────────┐
-                    │ dapr-scheduler  │
-                    │ Port: 50006     │
-                    └─────────────────┘
 ```
 
 ## Port Allocation Strategy
 
 To avoid conflicts, ports are allocated as follows:
 
-- **6379**: Dapr Redis (internal to Dapr runtime)
 - **6380**: Our Redis service (pub/sub messaging)  
 - **7001**: NebulaGraph Studio
 - **7004**: ScyllaDB Manager
@@ -133,7 +123,6 @@ docker compose down
 
 The setup includes comprehensive health checks:
 
-- **Redis**: `redis-cli ping`
 - **Zipkin**: HTTP GET `/health`
 - **Placement**: HTTP GET `/v1.0/healthz`  
 - **Scheduler**: HTTP GET `/v1.0/healthz`
@@ -144,7 +133,6 @@ Health check results are shown in the status command.
 
 All services use named volumes for data persistence:
 
-- `dapr-redis-data`: Redis data
 - `dapr-placement-data`: Placement service state
 - `dapr-scheduler-data`: Scheduler state  
 - `dapr-etcd-data`: etcd data for scheduler

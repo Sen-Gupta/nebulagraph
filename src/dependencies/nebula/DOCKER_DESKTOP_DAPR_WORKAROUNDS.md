@@ -15,7 +15,7 @@ This is a known issue documented in [GitHub Issue #5011](https://github.com/dapr
 Our `environment_setup.sh` script now automatically:
 1. Detects Docker Desktop configurations
 2. Applies socket symlink workaround: `sudo ln -sf ~/.docker/desktop/docker.sock /var/run/docker.sock`
-3. Initializes Dapr in full container mode with all services (Redis, Zipkin, Placement, Scheduler)
+3. Initializes Dapr in full container mode with core services (Zipkin, Placement, Scheduler)
 
 **Verification:**
 ```bash
@@ -28,7 +28,6 @@ Our `environment_setup.sh` script now automatically:
 # dapr_placement   daprio/dapr:1.15.9   Up 2 minutes
 # dapr_scheduler   daprio/dapr:1.15.9   Up 2 minutes  
 # dapr_zipkin      openzipkin/zipkin    Up 2 minutes
-# dapr_redis       redis:6              Up 2 minutes
 ```
 
 ## Root Cause
@@ -159,13 +158,13 @@ docker context ls
 **Container Mode Success:**
 ```bash
 ✅ Dapr runtime initialized successfully
-ℹ️  Dapr Redis runs on port 6379, our Redis will use port 6380
+ℹ️  Using Redis on port 6380 for pub/sub messaging
 ```
 
 **Slim Mode Success:**
 ```bash
 ✅ Dapr runtime initialized successfully in slim mode
-⚠️  Note: This setup won't include Dapr's Redis/Zipkin containers
+⚠️  Note: This setup won't include Dapr's Zipkin containers
 ```
 
 ## Testing Dapr Components
@@ -195,7 +194,7 @@ dapr run --app-id test-app --components-path ../../components \
 - ✅ Slim mode works perfectly with our external Redis and NebulaGraph containers
 - ✅ Component configurations remain unchanged
 - ✅ All pluggable component functionality preserved
-- ⚠️ Built-in Dapr Redis (port 6379) not available in slim mode - use our Redis (port 6380)
+- ⚠️ Use our Redis (port 6380) for pub/sub messaging in all modes
 
 ## References
 
