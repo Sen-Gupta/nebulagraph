@@ -6,48 +6,80 @@ metadata:
 spec:
   type: pubsub.redis
   version: v1
-  secretStores:
-  - "local-secret-store"
   metadata:
   - name: redisHost
-    value: "${REDIS_HOST:-redis:6379}"
+    secretKeyRef:
+      name: redis:host
+      key: redis:host
   - name: redisPassword
     secretKeyRef:
       name: redis:password
       key: redis:password
   - name: redisDB
-    value: "${REDIS_DB:-0}"
+    secretKeyRef:
+      name: redis:db
+      key: redis:db
   
   # Connection and retry configuration
   - name: maxRetries
-    value: "${REDIS_MAX_RETRIES:-3}"
+    secretKeyRef:
+      name: redis:maxRetries
+      key: redis:maxRetries
   - name: maxRetryBackoff
-    value: "${REDIS_MAX_RETRY_BACKOFF:-2s}"
+    secretKeyRef:
+      name: redis:maxRetryBackoff
+      key: redis:maxRetryBackoff
   - name: dialTimeout
-    value: "${REDIS_DIAL_TIMEOUT:-5s}"
+    secretKeyRef:
+      name: redis:dialTimeout
+      key: redis:dialTimeout
   - name: readTimeout
-    value: "${REDIS_READ_TIMEOUT:-3s}"
+    secretKeyRef:
+      name: redis:readTimeout
+      key: redis:readTimeout
   - name: writeTimeout
-    value: "${REDIS_WRITE_TIMEOUT:-3s}"
+    secretKeyRef:
+      name: redis:writeTimeout
+      key: redis:writeTimeout
   
   # Connection pooling for performance
   - name: poolSize
-    value: "${REDIS_POOL_SIZE:-20}"
+    secretKeyRef:
+      name: redis:poolSize
+      key: redis:poolSize
   - name: poolTimeout
-    value: "${REDIS_POOL_TIMEOUT:-5s}"
+    secretKeyRef:
+      name: redis:poolTimeout
+      key: redis:poolTimeout
   - name: maxConnAge
-    value: "${REDIS_MAX_CONN_AGE:-30m}"
+    secretKeyRef:
+      name: redis:maxConnAge
+      key: redis:maxConnAge
   - name: idleTimeout
-    value: "${REDIS_IDLE_TIMEOUT:-5m}"
+    secretKeyRef:
+      name: redis:idleTimeout
+      key: redis:idleTimeout
   - name: idleCheckFrequency
-    value: "${REDIS_IDLE_CHECK_FREQUENCY:-1m}"
+    secretKeyRef:
+      name: redis:idleCheckFrequency
+      key: redis:idleCheckFrequency
   
   # Pub/Sub specific settings
   - name: redeliverInterval
-    value: "${REDIS_REDELIVER_INTERVAL:-60s}"
+    secretKeyRef:
+      name: redis:redeliverInterval
+      key: redis:redeliverInterval
   - name: processingTimeout
-    value: "${REDIS_PROCESSING_TIMEOUT:-15s}"
+    secretKeyRef:
+      name: redis:processingTimeout
+      key: redis:processingTimeout
   - name: redisType
-    value: "${REDIS_TYPE:-node}"
+    secretKeyRef:
+      name: redis:type
+      key: redis:type
   - name: enableTLS
-    value: "${REDIS_ENABLE_TLS:-false}"
+    secretKeyRef:
+      name: redis:enableTLS
+      key: redis:enableTLS
+auth:
+  secretStore: local-secret-store

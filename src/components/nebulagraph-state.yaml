@@ -6,13 +6,15 @@ metadata:
 spec:
   type: state.nebulagraph-state
   version: v1
-  secretStores:
-  - "local-secret-store"
   metadata:
   - name: hosts
-    value: "${NEBULA_HOST:-nebula-graphd}"
+    secretKeyRef:
+      name: nebulagraph:host
+      key: nebulagraph:host
   - name: port
-    value: "${NEBULA_PORT:-9669}"
+    secretKeyRef:
+      name: nebulagraph:port
+      key: nebulagraph:port
   - name: username
     secretKeyRef:
       name: nebulagraph:username
@@ -22,14 +24,30 @@ spec:
       name: nebulagraph:password
       key: nebulagraph:password
   - name: space
-    value: "${NEBULA_SPACE:-dapr_state}"
+    secretKeyRef:
+      name: nebulagraph:space
+      key: nebulagraph:space
+  
+  # Connection pool configuration with secret references
   - name: connectionTimeout
-    value: "${NEBULA_CONNECTION_TIMEOUT:-10s}"
+    secretKeyRef:
+      name: nebulagraph:connectionTimeout
+      key: nebulagraph:connectionTimeout
   - name: executionTimeout
-    value: "${NEBULA_EXECUTION_TIMEOUT:-30s}"
+    secretKeyRef:
+      name: nebulagraph:executionTimeout
+      key: nebulagraph:executionTimeout
   - name: maxConnPoolSize
-    value: "${NEBULA_MAX_CONN_POOL_SIZE:-50}"
+    secretKeyRef:
+      name: nebulagraph:maxConnPoolSize
+      key: nebulagraph:maxConnPoolSize
   - name: minConnPoolSize
-    value: "${NEBULA_MIN_CONN_POOL_SIZE:-5}"
+    secretKeyRef:
+      name: nebulagraph:minConnPoolSize
+      key: nebulagraph:minConnPoolSize
   - name: idleTime
-    value: "${NEBULA_IDLE_TIME:-8h}"
+    secretKeyRef:
+      name: nebulagraph:idleTime
+      key: nebulagraph:idleTime
+auth:
+  secretStore: local-secret-store

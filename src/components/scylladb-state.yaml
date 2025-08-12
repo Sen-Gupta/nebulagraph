@@ -2,16 +2,19 @@ apiVersion: dapr.io/v1alpha1
 kind: Component
 metadata:
   name: scylladb-state
+  namespace: default
 spec:
   type: state.scylladb-state
   version: v1
-  secretStores:
-  - "local-secret-store"
   metadata:
   - name: hosts
-    value: "${SCYLLA_HOSTS:-scylladb-node1}"
+    secretKeyRef:
+      name: scylladb:hosts
+      key: scylladb:hosts
   - name: port
-    value: "${SCYLLA_CQL_PORT:-9042}"
+    secretKeyRef:
+      name: scylladb:port
+      key: scylladb:port
   - name: username
     secretKeyRef:
       name: scylladb:username
@@ -21,22 +24,44 @@ spec:
       name: scylladb:password
       key: scylladb:password
   - name: keyspace
-    value: "${SCYLLA_KEYSPACE:-dapr_state}"
+    secretKeyRef:
+      name: scylladb:keyspace
+      key: scylladb:keyspace
   - name: table
-    value: "${SCYLLA_TABLE:-state}"
+    secretKeyRef:
+      name: scylladb:table
+      key: scylladb:table
   - name: consistency
-    value: "${SCYLLA_CONSISTENCY:-LOCAL_QUORUM}"
+    secretKeyRef:
+      name: scylladb:consistency
+      key: scylladb:consistency
   - name: connectionTimeout
-    value: "${SCYLLA_CONNECTION_TIMEOUT:-10s}"
+    secretKeyRef:
+      name: scylladb:connectionTimeout
+      key: scylladb:connectionTimeout
   - name: socketKeepalive
-    value: "${SCYLLA_SOCKET_KEEPALIVE:-30s}"
+    secretKeyRef:
+      name: scylladb:socketKeepalive
+      key: scylladb:socketKeepalive
   - name: maxReconnectInterval
-    value: "${SCYLLA_MAX_RECONNECT_INTERVAL:-60s}"
+    secretKeyRef:
+      name: scylladb:maxReconnectInterval
+      key: scylladb:maxReconnectInterval
   - name: numConns
-    value: "${SCYLLA_NUM_CONNS:-2}"
+    secretKeyRef:
+      name: scylladb:numConns
+      key: scylladb:numConns
   - name: disableInitialHostLookup
-    value: "false"
+    secretKeyRef:
+      name: scylladb:disableInitialHostLookup
+      key: scylladb:disableInitialHostLookup
   - name: replicationStrategy
-    value: "${SCYLLA_REPLICATION_STRATEGY:-SimpleStrategy}"
+    secretKeyRef:
+      name: scylladb:replicationStrategy
+      key: scylladb:replicationStrategy
   - name: replicationFactor
-    value: "${SCYLLA_REPLICATION_FACTOR:-3}"
+    secretKeyRef:
+      name: scylladb:replicationFactor
+      key: scylladb:replicationFactor
+auth:
+  secretStore: local-secret-store

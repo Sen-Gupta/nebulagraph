@@ -18,6 +18,21 @@ services:
       dockerfile: Dockerfile
     environment:
       - DAPR_COMPONENT_SOCKETS_FOLDER=/var/run
+      - STORE_TYPE=nebulagraph
+    volumes:
+      - socket:/var/run
+    networks:
+      - nebula-net
+
+  # ScyllaDB Dapr Component
+  scylladb-component:
+    container_name: scylladb-dapr-component
+    build:
+      context: .  # Current directory contains the Dockerfile
+      dockerfile: Dockerfile
+    environment:
+      - DAPR_COMPONENT_SOCKETS_FOLDER=/var/run
+      - STORE_TYPE=scylladb
     volumes:
       - socket:/var/run
     networks:
@@ -28,13 +43,24 @@ services:
     container_name: nebulagraph-component-sidecar
     restart: on-failure
     image: "ghcr.io/dapr/daprd:latest"
-    command: "./daprd --log-level=debug --app-id nebulagraph-test --dapr-http-port=${NEBULA_HTTP_PORT:-3501} --components-path=/components --resources-path=/components --config=/components/config.yaml"
+    command: [
+      "./daprd",
+      "--log-level=debug",
+      "--app-id", "nebulagraph-test",
+      "--dapr-http-port", "${NEBULA_HTTP_PORT:-3501}",
+      "--placement-host-address", "dapr-placement:${DAPR_PLACEMENT_PORT:-50090}",
+      "--scheduler-host-address", "dapr-scheduler:${DAPR_SCHEDULER_PORT:-50091}",
+      "--components-path", "/components",
+      "--resources-path", "/components",
+      "--config", "/components/config.yaml"
+    ]
     environment:
       - DAPR_COMPONENTS_SOCKETS_FOLDER=/var/run
     env_file:
       - ../.env
     depends_on:
       - nebulagraph-component
+      - scylladb-component
     ports:
       - "${NEBULA_HTTP_PORT:-3501}:${NEBULA_HTTP_PORT:-3501}"  # Dapr HTTP API
       - "${NEBULA_GRPC_PORT:-50001}:${NEBULA_GRPC_PORT:-50001}"  # Dapr gRPC API
