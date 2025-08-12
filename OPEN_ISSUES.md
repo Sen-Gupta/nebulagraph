@@ -209,7 +209,7 @@ docker compose up -d --force-recreate
 - All 8 containers running successfully
 - Proper port separation across services
 - Environment-driven configuration
-- Shared network connectivity (nebula-net)
+- Shared network connectivity (dapr-pluggable-net)
 
 #### Services Running
 ```
@@ -291,7 +291,7 @@ ports:
   - "${REDIS_HOST_PORT:-6380}:6379"     # With default value
 command: ["redis-server", "--requirepass", "${REDIS_PASSWORD:-dapr_redis}"]
 networks:
-  - nebula-net                          # Shared network reference
+  - dapr-pluggable-net                          # Shared network reference
 ```
 
 ##### ScyllaDB Service Issues
@@ -324,9 +324,9 @@ networks:
 
 # AFTER (Unified Network Strategy)
 networks:
-  nebula-net:
+  dapr-pluggable-net:
     external: true
-    name: ${NEBULA_NETWORK_NAME:-nebula-net}
+    name: ${DAPR_PLUGABBLE_NETWORK_NAME:-dapr-pluggable-net}
 ```
 
 ### Resolution Implementation
@@ -340,7 +340,7 @@ container_name: ${SERVICE_CONTAINER:-default}
 ports:
   - "${SERVICE_PORT:-default}:internal_port"
 networks:
-  - nebula-net
+  - dapr-pluggable-net
 ```
 
 #### 2. Environment Variable Standardization
@@ -364,7 +364,7 @@ SCYLLA_MANAGER_API_PORT=5091
 
 #### 3. Unified Network Architecture
 Implemented shared network strategy:
-- All services use `nebula-net` for inter-service communication
+- All services use `dapr-pluggable-net` for inter-service communication
 - External network configuration with parameterized naming
 - Consistent network reference across all docker-compose files
 

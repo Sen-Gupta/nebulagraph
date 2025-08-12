@@ -284,7 +284,7 @@ cd /home/sen/repos/nebulagraph/src/NebulaGraphTestApi
    ```
 2. Check NebulaGraph console connectivity:
    ```bash
-   docker run --rm --network nebula-net vesoft/nebula-console:v3-nightly \
+   docker run --rm --network dapr-pluggable-net vesoft/nebula-console:v3-nightly \
      --addr nebula-graphd --port 9669 --user root --password nebula \
      --eval "SHOW SPACES;"
    ```

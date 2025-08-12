@@ -11,7 +11,7 @@ services:
     volumes:
       - socket:/var/run
     networks:
-      - nebula-net
+      - dapr-pluggable-net
 
   # ScyllaDB Dapr Pluggable Component
   scylladb-net-component:
@@ -25,7 +25,7 @@ services:
     volumes:
       - socket:/var/run
     networks:
-      - nebula-net
+      - dapr-pluggable-net
 
   # NebulaGraph .NET Example API
   nebulagraph-net-example:
@@ -41,7 +41,7 @@ services:
     env_file:
       - "../../.env"
     networks:
-      - nebula-net
+      - dapr-pluggable-net
     depends_on:
       - nebulagraph-net-example-sidecar
 
@@ -76,12 +76,12 @@ services:
       - "${TEST_API_HTTP_PORT:-3502}:${TEST_API_HTTP_PORT:-3502}"
       - "${TEST_API_GRPC_PORT:-50002}:${TEST_API_GRPC_PORT:-50002}"
     networks:
-      - nebula-net
+      - dapr-pluggable-net
 
 volumes:
   socket:
 
 networks:
-  nebula-net:
+  dapr-pluggable-net:
     external: true
-    name: ${NEBULA_NETWORK_NAME:-nebula-net}
+    name: ${DAPR_PLUGABBLE_NETWORK_NAME:-dapr-pluggable-net}

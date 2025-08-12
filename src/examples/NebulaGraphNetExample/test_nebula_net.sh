@@ -74,17 +74,17 @@ check_dependencies() {
         exit 1
     fi
     
-    # Check if nebula-net network exists
-    if docker network ls | grep -q "nebula-net"; then
-        print_success "Docker network 'nebula-net' is available"
+    # Check if dapr-pluggable-net network exists
+    if docker network ls | grep -q "dapr-pluggable-net"; then
+        print_success "Docker network 'dapr-pluggable-net' is available"
     else
-        print_error "Docker network 'nebula-net' not found"
+        print_error "Docker network 'dapr-pluggable-net' not found"
         print_info "Please run: cd ../../dependencies && ./environment_setup.sh start"
         exit 1
     fi
     
     # Check NebulaGraph and verify dapr_state space exists
-    verify_result=$(docker run --rm --network nebula-net vesoft/nebula-console:v3-nightly \
+    verify_result=$(docker run --rm --network dapr-pluggable-net vesoft/nebula-console:v3-nightly \
         --addr nebula-graphd --port 9669 --user root --password nebula \
         --eval "USE dapr_state; SHOW TAGS;" 2>&1)
     
@@ -405,7 +405,7 @@ case "${1:-help}" in
         echo "Prerequisites:"
         echo "  • NebulaGraph dependencies must be running (./dependencies/environment_setup.sh start)"
         echo "  • Docker and Docker Compose must be installed"
-        echo "  • nebula-net Docker network must exist"
+        echo "  • dapr-pluggable-net Docker network must exist"
         echo ""
         echo "Environment Variables:"
         echo "  • TEST_API_HOST_PORT (default: 5090) - Host port for NebulaGraph .NET Example API"
