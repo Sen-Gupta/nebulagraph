@@ -15,9 +15,9 @@ Dapr pluggable state store component using NebulaGraph as the backend.
 cd ../dependencies
 ./environment_setup.sh
 
-# Run the component
+# Run the dual components
 cd ../dapr-pluggable-components
-./run_nebula.sh start
+./run_dapr_pluggables.sh start
 
 # Test all operations
 ./tests/test_all.sh
@@ -137,7 +137,7 @@ This enables the .NET application to use both NebulaGraph and ScyllaDB state sto
 
 ## Management Scripts
 
-- `./run_nebula.sh start` - Deploy component
-- `./run_nebula.sh status` - Check status
-- `./run_nebula.sh stop` - Stop component
-- `./run_nebula.sh clean` - Clean reset
+- `./run_dapr_pluggables.sh start` - Deploy dual components
+- `./run_dapr_pluggables.sh status` - Check status
+- `./run_dapr_pluggables.sh stop` - Stop components
+- `./run_dapr_pluggables.sh clean` - Clean reset

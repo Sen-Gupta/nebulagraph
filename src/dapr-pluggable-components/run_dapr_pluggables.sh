@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# NebulaGraph Dapr Pluggable Component Management Script
-# Complete management of Dapr pluggable component including setup, operations, and testing
+# NebulaGraph & ScyllaDB Dapr Pluggable Components Management Script
+# Complete management of dual Dapr pluggable components including setup, operations, and testing
 
 set -e
 
@@ -94,9 +94,9 @@ validate_nebula() {
     return 0
 }
 
-# Start Dapr pluggable component
+# Start Dapr pluggable components (NebulaGraph + ScyllaDB)
 start_component() {
-    print_info "Starting Dapr pluggable component..."
+    print_info "Starting dual Dapr pluggable components..."
     
     # We're already in the setup/docker directory
     if [ ! -f "docker-compose.yml" ]; then
@@ -119,7 +119,7 @@ start_component() {
     print_success "Docker services built successfully"
     
     if $compose_cmd up -d; then
-        print_success "Dapr pluggable component started"
+        print_success "Dual Dapr pluggable components started"
         
         # Wait for services to initialize
         print_info "Waiting for Dapr runtime to initialize..."
@@ -133,14 +133,14 @@ start_component() {
             return 1
         fi
     else
-        print_error "Failed to start Dapr pluggable component"
+        print_error "Failed to start dual Dapr pluggable components"
         return 1
     fi
 }
 
-# Stop Dapr pluggable component
+# Stop Dapr pluggable components
 stop_component() {
-    print_header "Stopping Dapr Pluggable Component"
+    print_header "Stopping Dual Dapr Pluggable Components"
     
     if [ -f "docker-compose.yml" ]; then
         local compose_cmd
@@ -149,7 +149,7 @@ stop_component() {
             return 1
         }
         $compose_cmd down
-        print_success "Dapr pluggable component stopped"
+        print_success "Dual Dapr pluggable components stopped"
     else
         print_error "docker-compose.yml not found in current directory"
         return 1
@@ -158,7 +158,7 @@ stop_component() {
 
 # Show component status
 show_status() {
-    print_header "Dapr Pluggable Component Status"
+    print_header "Dual Dapr Pluggable Components Status"
     
     if [ -f "docker-compose.yml" ]; then
         local compose_cmd
@@ -175,7 +175,7 @@ show_status() {
 
 # Show component logs
 show_logs() {
-    print_header "Dapr Pluggable Component Logs"
+    print_header "Dual Dapr Pluggable Components Logs"
     
     if [ -f "docker-compose.yml" ]; then
         local compose_cmd
@@ -196,9 +196,9 @@ show_logs() {
     fi
 }
 
-# Clean component (remove volumes and networks)
+# Clean components (remove volumes and networks)
 clean_component() {
-    print_header "Cleaning Dapr Pluggable Component"
+    print_header "Cleaning Dual Dapr Pluggable Components"
     
     if [ -f "docker-compose.yml" ]; then
         local compose_cmd
@@ -207,16 +207,16 @@ clean_component() {
             return 1
         }
         $compose_cmd down -v --remove-orphans
-        print_success "Dapr pluggable component cleaned"
+        print_success "Dual Dapr pluggable components cleaned"
     else
         print_error "docker-compose.yml not found in current directory"
         return 1
     fi
 }
 
-# Test Dapr component functionality
+# Test Dapr components functionality
 test_component() {
-    print_header "Testing Dapr Pluggable Component"
+    print_header "Testing Dual Dapr Pluggable Components"
     
     # Test Dapr HTTP API availability
     print_info "Testing Dapr HTTP API (port $NEBULA_HTTP_PORT)..."
@@ -266,7 +266,7 @@ test_component() {
         print_error "State store DELETE operation failed"
     fi
     
-    print_success "All Dapr component tests passed!"
+    print_success "All Dapr components tests passed!"
 }
 
 # Simple health check for quick validation
@@ -359,38 +359,40 @@ run_comprehensive_test() {
 
 # Main setup function
 main() {
-    print_header "NebulaGraph Dapr Pluggable Component Setup"
-    echo -e "This script sets up and manages the Dapr pluggable component for NebulaGraph.\n"
+    print_header "NebulaGraph & ScyllaDB Dapr Pluggable Components Setup"
+    echo -e "This script sets up and manages the dual Dapr pluggable components for NebulaGraph and ScyllaDB.\n"
     
     # 1. Validate NebulaGraph
     print_header "1. NebulaGraph Validation"
     validate_nebula
     
-    # 2. Start Dapr component
-    print_header "2. Dapr Component Setup"
+    # 2. Start Dapr components
+    print_header "2. Dual Dapr Components Setup"
     start_component
     
     # 3. Quick health check
-    print_header "3. Component Health Check"
+    print_header "3. Components Health Check"
     quick_health_check
     
     # 4. Final summary
-    print_header "Dapr Pluggable Component Ready"
+    print_header "Dual Dapr Pluggable Components Ready"
     
-    print_success "🎉 Dapr pluggable component setup completed successfully!"
-    echo -e "\n${GREEN}Your Dapr component is ready!${NC}"
+    print_success "🎉 Dapr pluggable components setup completed successfully!"
+    echo -e "\n${GREEN}Your dual Dapr components are ready!${NC}"
     echo -e "\n${BLUE}Available APIs:${NC}"
     echo -e "  • Dapr HTTP API: http://localhost:$NEBULA_HTTP_PORT"
     echo -e "  • Dapr gRPC API: localhost:$NEBULA_GRPC_PORT"
-    echo -e "  • State Store: nebulagraph-state"
+    echo -e "  • State Store (NebulaGraph): nebulagraph-state"
+    echo -e "  • State Store (ScyllaDB): scylladb-state"
     
     echo -e "\n${BLUE}Next steps:${NC}"
-    echo -e "  • Test state operations: curl http://localhost:$NEBULA_HTTP_PORT/v1.0/state/nebulagraph-state/your-key"
-    echo -e "  • View logs: ./run_nebula.sh logs"
-    echo -e "  • Stop component: ./run_nebula.sh stop"
-    echo -e "  • Check status: ./run_nebula.sh status"
-    echo -e "  • Run comprehensive tests: ./run_nebula.sh test (54 tests via tests/test_all.sh)"
-    echo -e "  • Quick health check: ./run_nebula.sh health"
+    echo -e "  • Test NebulaGraph state: curl http://localhost:$NEBULA_HTTP_PORT/v1.0/state/nebulagraph-state/your-key"
+    echo -e "  • Test ScyllaDB state: curl http://localhost:$NEBULA_HTTP_PORT/v1.0/state/scylladb-state/your-key"
+    echo -e "  • View logs: ./run_dapr_pluggables.sh logs"
+    echo -e "  • Stop components: ./run_dapr_pluggables.sh stop"
+    echo -e "  • Check status: ./run_dapr_pluggables.sh status"
+    echo -e "  • Run comprehensive tests: ./run_dapr_pluggables.sh test (54 tests via tests/test_all.sh)"
+    echo -e "  • Quick health check: ./run_dapr_pluggables.sh health"
     
     echo ""
 }
@@ -427,28 +429,33 @@ case "${1:-start}" in
     "help"|"-h"|"--help")
         echo "Usage: $0 [COMMAND] [OPTIONS]"
         echo ""
-        echo "NebulaGraph Dapr Pluggable Component Management"
+        echo "NebulaGraph & ScyllaDB Dapr Pluggable Components Management"
         echo ""
         echo "Commands:"
-        echo "  start, setup  Set up and start the Dapr pluggable component (default)"
-        echo "  stop, down    Stop the Dapr pluggable component"
-        echo "  status        Show component status"
+        echo "  start, setup  Set up and start the dual Dapr pluggable components (default)"
+        echo "  stop, down    Stop the Dapr pluggable components"
+        echo "  status        Show components status"
         echo "  logs [SERVICE] Show component logs (optionally for specific service)"
         echo "  health        Quick health check (API availability)"
         echo "  test          Run comprehensive test suite (HTTP + gRPC via tests/test_all.sh)"
         echo "  test-basic    Run basic component functionality test"
         echo "  validate      Validate NebulaGraph infrastructure only"
-        echo "  clean         Clean up component (volumes and networks)"
+        echo "  clean         Clean up components (volumes and networks)"
         echo "  help          Show this help message"
         echo ""
         echo "Services for logs command:"
-        echo "  • nebulagraph-component  - The NebulaGraph Dapr component"
-        echo "  • daprd                  - The Dapr runtime"
+        echo "  • nebulagraph-component       - The NebulaGraph Dapr component (STORE_TYPE=nebulagraph)"
+        echo "  • scylladb-component         - The ScyllaDB Dapr component (STORE_TYPE=scylladb)"
+        echo "  • nebulagraph-component-sidecar - The Dapr runtime sidecar"
         echo ""
         echo "Setup will:"
         echo "  1. Validate NebulaGraph infrastructure is running"
-        echo "  2. Start Dapr pluggable component containers"
+        echo "  2. Start dual Dapr pluggable component containers"
         echo "  3. Test component functionality"
+        echo ""
+        echo "Components deployed:"
+        echo "  • NebulaGraph State Store (STORE_TYPE=nebulagraph)"
+        echo "  • ScyllaDB State Store (STORE_TYPE=scylladb)"
         echo ""
         echo "Prerequisites:"
         echo "  • NebulaGraph must be running (use ../../../dependencies/environment_setup.sh)"

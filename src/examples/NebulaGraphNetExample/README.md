@@ -96,7 +96,7 @@ cd /home/sen/repos/nebulagraph/src/dependencies
 
 ```bash
 cd /home/sen/repos/nebulagraph/src/dapr-pluggable
-./run_nebula.sh start
+./run_dapr_pluggables.sh start
 ```
 
 ### 3. Start TestAPI with Dapr Sidecar
@@ -155,7 +155,7 @@ cd /home/sen/repos/nebulagraph/src/dependencies
 
 # Main Dapr component management  
 cd /home/sen/repos/nebulagraph/src/dapr-pluggable
-./run_nebula.sh start|stop|status|test|clean
+./run_dapr_pluggables.sh start|stop|status|test|clean
 ```
 
 ## API Endpoints
@@ -258,7 +258,7 @@ Component discovery happens automatically via Unix Domain Sockets in `/tmp/dapr-
 
 ### Main Component Not Accessible
 If you get connection errors to the main component:
-1. Ensure the main Dapr component is running: `./run_nebula.sh status`
+1. Ensure the main Dapr component is running: `./run_dapr_pluggables.sh status`
 2. Check that port 3501 is accessible: `curl http://localhost:3501/v1.0/healthz`
 3. Verify the component logs for any startup errors
 
