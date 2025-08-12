@@ -1,7 +1,8 @@
 #!/bin/bash
 
 # NebulaGraph .NET Example Test Script
-# Manages Dapr component and NebulaGraph .NET TestAPI applications using Docker Compose
+# Tests NebulaGraph integration with .NET Dapr components
+# Assumes services are already running via run_dotnet_examples.sh
 
 set -e
 
@@ -39,173 +40,48 @@ print_warning() {
     echo -e "${YELLOW}⚠️  $1${NC}"
 }
 
-# Get docker compose command (docker-compose or docker compose)
-get_docker_compose_cmd() {
-    if command -v docker-compose >/dev/null 2>&1; then
-        echo "docker-compose"
-    elif docker compose version >/dev/null 2>&1; then
-        echo "docker compose"
+check_service_availability() {
+    print_header "Checking Service Availability"
+    
+    # Check if .NET Dapr Client API is responding
+    print_info "Testing .NET Dapr Client API availability..."
+    if curl -s --connect-timeout 10 "http://localhost:$DOT_NET_HOST_PORT/swagger" > /dev/null; then
+        print_success ".NET Dapr Client API is available"
     else
+        print_error ".NET Dapr Client API is not responding"
+        print_info "Please start services first: ./run_dotnet_examples.sh start"
         return 1
     fi
-}
-
-check_dependencies() {
-    print_header "Checking Dependencies"
     
-    # Check Docker
-    if command -v docker &> /dev/null; then
-        print_success "Docker is available: $(docker --version)"
+    # Check if Dapr sidecar is responding
+    print_info "Testing Dapr sidecar availability..."
+    if curl -s --connect-timeout 10 "http://localhost:$DOT_NET_HTTP_PORT/v1.0/healthz" > /dev/null; then
+        print_success "Dapr sidecar is available"
     else
-        print_error "Docker not found. Please install Docker first."
-        exit 1
-    fi
-    
-    # Check Docker Compose
-    local compose_cmd
-    if compose_cmd=$(get_docker_compose_cmd); then
-        if [[ "$compose_cmd" == "docker-compose" ]]; then
-            print_success "Docker Compose v1 is available: $(docker-compose --version)"
-        else
-            print_success "Docker Compose v2 is available: $(docker compose version)"
-        fi
-    else
-        print_error "Docker Compose not found. Please install Docker Compose."
-        exit 1
-    fi
-    
-    # Check if dapr-pluggable-net network exists
-    if docker network ls | grep -q "dapr-pluggable-net"; then
-        print_success "Docker network 'dapr-pluggable-net' is available"
-    else
-        print_error "Docker network 'dapr-pluggable-net' not found"
-        print_info "Please run: cd ../../dependencies && ./environment_setup.sh start"
-        exit 1
-    fi
-    
-    # Check NebulaGraph and verify dapr_state space exists
-    verify_result=$(docker run --rm --network dapr-pluggable-net vesoft/nebula-console:v3-nightly \
-        --addr nebula-graphd --port 9669 --user root --password nebula \
-        --eval "USE dapr_state; SHOW TAGS;" 2>&1)
-    
-    if echo "$verify_result" | grep -q "state"; then
-        print_success "NebulaGraph dapr_state space and schema are ready"
-    else
-        print_warning "NebulaGraph dapr_state space or schema not found"
-        print_info "Please run: cd ../../dependencies && ./environment_setup.sh start"
-        exit 1
-    fi
-    
-    print_success "All prerequisites validated - ready to start NebulaGraph .NET Example with embedded Dapr component"
-}
-
-build_testapi() {
-    print_header "Building NebulaGraph .NET Example Services"
-    
-    local compose_cmd
-    compose_cmd=$(get_docker_compose_cmd) || {
-        print_error "Docker Compose is not available"
-        return 1
-    }
-    
-    print_info "Building all Docker services with latest code changes..."
-    if $compose_cmd build; then
-        print_success "All NebulaGraph .NET Example services built successfully"
-    else
-        print_error "Failed to build NebulaGraph .NET Example services"
+        print_error "Dapr sidecar is not responding"
+        print_info "Please start services first: ./run_dotnet_examples.sh start"
         return 1
     fi
-}
-
-start_testapi() {
-    print_header "Starting NebulaGraph .NET Example with Docker Compose"
     
-    local compose_cmd
-    compose_cmd=$(get_docker_compose_cmd) || {
-        print_error "Docker Compose is not available"
-        return 1
-    }
-    
-    print_info "Starting NebulaGraph .NET Example services..."
-    if $compose_cmd up -d; then
-        print_success "NebulaGraph .NET Example services started successfully"
-        
-        # Wait for services to be ready
-        print_info "Waiting for services to initialize..."
-        sleep 15
-        
-        # Check if containers are running
-        local api_running=$($compose_cmd ps -q dotnet-dapr-client 2>/dev/null)
-        local sidecar_running=$($compose_cmd ps -q dotnet-dapr-client-sidecar 2>/dev/null)
-        
-        if [ -n "$api_running" ] && [ -n "$sidecar_running" ]; then
-            print_success "All .NET Dapr Client containers are running"
-        else
-            print_warning "Some containers may not be running properly"
-            $compose_cmd ps
-        fi
+    # Check if NebulaGraph component is loaded
+    print_info "Testing NebulaGraph component availability..."
+    metadata_response=$(curl -s --connect-timeout 10 "http://localhost:$DOT_NET_HTTP_PORT/v1.0/metadata" 2>/dev/null)
+    if echo "$metadata_response" | grep -q "nebulagraph-state"; then
+        print_success "NebulaGraph state store component is loaded"
     else
-        print_error "Failed to start NebulaGraph .NET Example services"
+        print_error "NebulaGraph state store component not found"
+        print_info "Available components:"
+        echo "$metadata_response" | jq '.components[].name' 2>/dev/null || echo "$metadata_response"
         return 1
     fi
-}
-
-stop_processes() {
-    print_header "Stopping NebulaGraph .NET Example Services"
     
-    local compose_cmd
-    compose_cmd=$(get_docker_compose_cmd) || {
-        print_error "Docker Compose is not available"
-        return 1
-    }
-    
-    print_info "Stopping NebulaGraph .NET Example services..."
-    $compose_cmd down
-    print_success "NebulaGraph .NET Example services stopped"
-}
-
-check_status() {
-    print_header "NebulaGraph .NET Example Services Status"
-    
-    local compose_cmd
-    compose_cmd=$(get_docker_compose_cmd) || {
-        print_error "Docker Compose is not available"
-        return 1
-    }
-    
-    # Show container status
-    print_info "Container Status:"
-    $compose_cmd ps
-    
-    echo ""
-    print_info "Service Endpoints:"
-    echo "  • NebulaGraph .NET Example API: http://localhost:$DOT_NET_HOST_PORT"
-    echo "  • NebulaGraph .NET Example Swagger: http://localhost:$DOT_NET_HOST_PORT/swagger"
-    echo "  • NebulaGraph .NET Example Dapr: http://localhost:$DOT_NET_HTTP_PORT"
-    
-    # Check if services are responding
-    echo ""
-    print_info "Service Health:"
-    
-    # Test NebulaGraph .NET Example API
-    if curl -s --connect-timeout 5 "http://localhost:$DOT_NET_HOST_PORT/swagger" >/dev/null 2>&1; then
-        print_success "NebulaGraph .NET Example API is responding"
-    else
-        print_warning "NebulaGraph .NET Example API is not responding"
-    fi
-    
-    # Test Dapr sidecar
-    if curl -s --connect-timeout 5 "http://localhost:$DOT_NET_HTTP_PORT/v1.0/healthz" >/dev/null 2>&1; then
-        print_success "NebulaGraph .NET Example Dapr sidecar is responding"
-    else
-        print_warning "NebulaGraph .NET Example Dapr sidecar is not responding"
-    fi
+    print_success "All required services are available for testing"
 }
 
 run_controller_tests() {
     print_header "Running StateStore Controller Test Suites"
     
-    local api_base_url="http://localhost:$DOT_NET_HOST_PORT/api/statestore"
+    local api_base_url="http://localhost:$DOT_NET_HOST_PORT/api/NebulaStateStore"
     
     print_info "Running comprehensive test suite..."
     
@@ -239,99 +115,69 @@ run_controller_tests() {
     fi
 }
 
-test_services() {
-    print_header "Testing NebulaGraph .NET Example Services"
+test_nebulagraph_operations() {
+    print_header "Testing NebulaGraph .NET Operations"
     
-    sleep 15  # Give services more time to start and load components - Dapr needs time for init
+    # Wait for services to be fully ready
+    print_info "Allowing time for NebulaGraph component initialization..."
+    sleep 10
     
-    # Test NebulaGraph .NET Example API health first
-    print_info "Testing NebulaGraph .NET Example API health..."
-    if curl -s --connect-timeout 10 "http://localhost:$DOT_NET_HOST_PORT/swagger" > /dev/null; then
-        print_success "NebulaGraph .NET Example API health test passed"
+    local api_base_url="http://localhost:$DOT_NET_HOST_PORT/api/NebulaStateStore"
+    
+    # Test HTTP REST API state operations via NebulaStateStore controller
+    print_info "Testing HTTP REST API basic CRUD operations..."
+    if curl -s --connect-timeout 10 -X POST "$api_base_url/basic-crud" \
+        -H "Content-Type: application/json" > /dev/null; then
+        print_success "HTTP basic CRUD operation test passed"
     else
-        print_error "NebulaGraph .NET Example API health test failed"
-        print_info "Checking container logs..."
-        local compose_cmd
-        compose_cmd=$(get_docker_compose_cmd)
-        $compose_cmd logs dotnet-dapr-client | tail -10
-        return 1
+        print_warning "HTTP basic CRUD operation test failed (check logs)"
     fi
     
-    # Test NebulaGraph .NET Example Dapr sidecar health
-    print_info "Testing NebulaGraph .NET Example Dapr sidecar health..."
-    if curl -s --connect-timeout 10 "http://localhost:$DOT_NET_HTTP_PORT/v1.0/healthz" > /dev/null; then
-        print_success "NebulaGraph .NET Example Dapr sidecar health test passed"
+    # Test quick test suite
+    print_info "Testing quick test suite..."
+    quick_response=$(curl -s --connect-timeout 30 -X POST "$api_base_url/run/quick" \
+        -H "Content-Type: application/json" 2>/dev/null)
+    if [ -n "$quick_response" ]; then
+        print_success "Quick test suite completed"
+        print_info "Quick test response: $(echo "$quick_response" | head -c 100)..."
     else
-        print_error "NebulaGraph .NET Example Dapr sidecar health test failed"
-        print_info "Checking sidecar logs..."
-        local compose_cmd
-        compose_cmd=$(get_docker_compose_cmd)
-        $compose_cmd logs dotnet-dapr-client-sidecar | tail -10
-        return 1
+        print_warning "Quick test suite failed"
     fi
     
-    # Test if NebulaGraph state store component is loaded
-    print_info "Testing NebulaGraph state store component availability..."
+    # Test direct Dapr state API
+    print_info "Testing direct Dapr state API..."
+    if curl -s --connect-timeout 10 -X POST "http://localhost:$DOT_NET_HTTP_PORT/v1.0/state/nebulagraph-state" \
+        -H "Content-Type: application/json" \
+        -d '[{"key":"direct-test","value":"Hello from direct Dapr API!"}]' > /dev/null; then
+        print_success "Direct Dapr state SET operation test passed"
+        
+        # Test direct GET
+        direct_response=$(curl -s --connect-timeout 10 "http://localhost:$DOT_NET_HTTP_PORT/v1.0/state/nebulagraph-state/direct-test" 2>/dev/null)
+        if [ -n "$direct_response" ]; then
+            print_success "Direct Dapr state GET operation test passed"
+            print_info "Direct response: $direct_response"
+        else
+            print_warning "Direct Dapr state GET operation test failed"
+        fi
+    else
+        print_warning "Direct Dapr state SET operation test failed"
+    fi
+    
+    # Run comprehensive StateStore controller tests
+    print_info "Running comprehensive StateStore controller tests..."
+    run_controller_tests
+}
+
+test_pubsub_operations() {
+    print_header "Testing Pub/Sub Operations"
+    
+    # Check if Redis pub/sub component is available
     metadata_response=$(curl -s --connect-timeout 10 "http://localhost:$DOT_NET_HTTP_PORT/v1.0/metadata" 2>/dev/null)
-    if echo "$metadata_response" | grep -q "nebulagraph-state"; then
-        print_success "NebulaGraph state store component is loaded"
-        
-        # Test HTTP REST API state operations via TestAPI
-        print_info "Testing HTTP REST API state operations..."
-        if curl -s --connect-timeout 10 -X POST "http://localhost:$DOT_NET_HOST_PORT/api/state/test-docker" \
-            -H "Content-Type: application/json" \
-            -d '{"value": "Hello from Docker test!"}' > /dev/null; then
-            print_success "HTTP state SET operation test passed"
-        else
-            print_warning "HTTP state SET operation test failed (check logs)"
-        fi
-        
-        # Test HTTP GET via REST API
-        print_info "Testing HTTP GET state operation..."
-        get_response=$(curl -s --connect-timeout 10 "http://localhost:$DOT_NET_HOST_PORT/api/state/test-docker" 2>/dev/null)
-        if [ -n "$get_response" ]; then
-            print_success "HTTP state GET operation test passed"
-            print_info "Retrieved: $get_response"
-        else
-            print_warning "HTTP state GET operation test failed"
-        fi
-        
-        # Test direct Dapr state API
-        print_info "Testing direct Dapr state API..."
-        if curl -s --connect-timeout 10 -X POST "http://localhost:$DOT_NET_HTTP_PORT/v1.0/state/nebulagraph-state" \
-            -H "Content-Type: application/json" \
-            -d '[{"key":"direct-test","value":"Hello from direct Dapr API!"}]' > /dev/null; then
-            print_success "Direct Dapr state SET operation test passed"
-            
-            # Test direct GET
-            direct_response=$(curl -s --connect-timeout 10 "http://localhost:$DOT_NET_HTTP_PORT/v1.0/state/nebulagraph-state/direct-test" 2>/dev/null)
-            if [ -n "$direct_response" ]; then
-                print_success "Direct Dapr state GET operation test passed"
-                print_info "Direct response: $direct_response"
-            else
-                print_warning "Direct Dapr state GET operation test failed"
-            fi
-        else
-            print_warning "Direct Dapr state SET operation test failed"
-        fi
-        
-        # Run comprehensive StateStore controller tests
-        print_info "Running comprehensive StateStore controller tests..."
-        print_info "Waiting additional 10 seconds for NebulaGraph component initialization..."
-        sleep 10
-        run_controller_tests
-    else
-        print_warning "NebulaGraph state store component not found in metadata"
-        print_info "Available components:"
-        echo "$metadata_response" | jq '.components[].name' 2>/dev/null || echo "$metadata_response"
-    fi
-    
-    # Test pub/sub functionality if Redis component is available
-    print_info "Testing pub/sub functionality..."
     if echo "$metadata_response" | grep -q "redis-pubsub"; then
+        print_info "Testing pub/sub functionality..."
         if curl -s --connect-timeout 10 -X POST "http://localhost:$DOT_NET_HTTP_PORT/v1.0/publish/redis-pubsub/test-topic" \
             -H "Content-Type: application/json" \
-            -d '{"message": "Hello from Docker pub/sub test!"}' > /dev/null; then
+            -d '{"message": "Hello from NebulaGraph test!"}' > /dev/null; then
             print_success "Pub/sub publish test passed"
         else
             print_warning "Pub/sub publish test failed"
@@ -339,88 +185,59 @@ test_services() {
     else
         print_info "Redis pub/sub component not available for testing"
     fi
-    
-    # Test basic service connectivity
-    print_info "Testing basic service connectivity..."
-    if curl -s --connect-timeout 10 "http://localhost:$DOT_NET_HOST_PORT" > /dev/null; then
-        print_success "Basic service connectivity test passed"
-    else
-        print_info "Basic service connectivity test completed"
-    fi
 }
 
-case "${1:-help}" in
-    "start")
-        check_dependencies
-        build_testapi
-        start_testapi
-        check_status
-        test_services
+run_all_tests() {
+    print_header "NebulaGraph .NET Integration Test Suite"
+    
+    # Check service availability first
+    if ! check_service_availability; then
+        print_error "Services are not available. Please start them first:"
+        print_info "Run: ./run_dotnet_examples.sh start"
+        exit 1
+    fi
+    
+    # Run all tests
+    test_nebulagraph_operations
+    test_pubsub_operations
+    
+    print_header "Test Summary"
+    print_success "NebulaGraph .NET integration tests completed"
+    print_info "For detailed logs, check: ./run_dotnet_examples.sh logs"
+}
+
+case "${1:-test}" in
+    "test"|"run")
+        run_all_tests
         ;;
-    "stop")
-        stop_processes
-        ;;
-    "restart")
-        stop_processes
-        sleep 2
-        check_dependencies
-        build_testapi
-        start_testapi
-        check_status
-        test_services
-        ;;
-    "status")
-        check_status
-        ;;
-    "test")
-        test_services
-        ;;
-    "build")
-        build_testapi
-        ;;
-    "logs")
-        print_header "NebulaGraph .NET Example Service Logs"
-        local compose_cmd
-        compose_cmd=$(get_docker_compose_cmd) || {
-            print_error "Docker Compose is not available"
-            exit 1
-        }
-        $compose_cmd logs -f
+    "check"|"status")
+        check_service_availability
         ;;
     "help"|"-h"|"--help")
         echo "Usage: $0 [COMMAND]"
         echo ""
-        echo "NebulaGraph .NET Example Management - Manages NebulaGraph .NET Example application using Docker Compose"
+        echo "NebulaGraph .NET Integration Test Suite"
         echo ""
         echo "Commands:"
-        echo "  start     Build and start NebulaGraph .NET Example services with Docker Compose"
-        echo "  stop      Stop NebulaGraph .NET Example services"
-        echo "  restart   Restart NebulaGraph .NET Example services"
-        echo "  status    Show service status and health"
-        echo "  test      Test running services"
-        echo "  build     Build NebulaGraph .NET Example Docker image"
-        echo "  logs      Show service logs (follow mode)"
+        echo "  test      Run all NebulaGraph integration tests (default)"
+        echo "  run       Same as test"
+        echo "  check     Check if required services are available"
+        echo "  status    Same as check"
         echo "  help      Show this help"
         echo ""
         echo "Prerequisites:"
-        echo "  • NebulaGraph dependencies must be running (./dependencies/environment_setup.sh start)"
-        echo "  • Docker and Docker Compose must be installed"
-        echo "  • dapr-pluggable-net Docker network must exist"
+        echo "  • Services must be running: ./run_dotnet_examples.sh start"
+        echo "  • NebulaGraph dependencies must be available"
         echo ""
-        echo "Environment Variables:"
-        echo "  • DOT_NET_HOST_PORT (default: 5090) - Host port for .NET Dapr Client API"
-        echo "  • DOT_NET_APP_PORT (default: 80) - Container port for .NET Dapr Client API"  
-        echo "  • DOT_NET_HTTP_PORT (default: 3502) - Dapr HTTP port"
+        echo "Test Coverage:"
+        echo "  • Service availability validation"
+        echo "  • NebulaGraph state store operations"
+        echo "  • Direct Dapr API testing"
+        echo "  • HTTP REST API testing"
+        echo "  • Comprehensive controller test suites"
+        echo "  • Pub/sub functionality (if available)"
         echo ""
-        echo "Services:"
-        echo "  • .NET Dapr Client API: http://localhost:$DOT_NET_HOST_PORT"
-        echo "  • .NET Dapr Client Swagger: http://localhost:$DOT_NET_HOST_PORT/swagger"
-        echo "  • .NET Dapr Client HTTP API: http://localhost:$DOT_NET_HTTP_PORT"
-        echo ""
-        echo "Notes:"
-        echo "  • Uses unified Dapr pluggable component supporting both NebulaGraph and ScyllaDB"
-        echo "  • Self-contained Docker Compose setup with integrated multi-store component"
-        echo "  • Automatically connects to existing NebulaGraph and Redis containers"
+        echo "Note: This script only tests services. Use run_dotnet_examples.sh to manage services."
         ;;
     *)
         echo "Unknown command: $1"

@@ -103,6 +103,13 @@ check_prerequisites() {
 build_services() {
     print_header "Building Dapr Pluggable Components"
     
+    # Ensure we're in the DotNet directory where docker-compose.yml is located
+    if [[ ! -d "DotNet" ]]; then
+        print_error "DotNet directory not found. Please run this script from the examples directory."
+        return 1
+    fi
+    cd DotNet
+    
     local compose_cmd
     compose_cmd=$(get_docker_compose_cmd) || {
         print_error "Docker Compose is not available"
@@ -120,6 +127,13 @@ build_services() {
 
 start_services() {
     print_header "Starting Dapr Pluggable Components"
+    
+    # Ensure we're in the DotNet directory where docker-compose.yml is located
+    if [[ ! -d "DotNet" ]]; then
+        print_error "DotNet directory not found. Please run this script from the examples directory."
+        return 1
+    fi
+    cd DotNet
     
     local compose_cmd
     compose_cmd=$(get_docker_compose_cmd) || {
@@ -155,6 +169,13 @@ start_services() {
 stop_services() {
     print_header "Stopping Dapr Pluggable Components"
     
+    # Ensure we're in the DotNet directory where docker-compose.yml is located
+    if [[ ! -d "DotNet" ]]; then
+        print_error "DotNet directory not found. Please run this script from the examples directory."
+        return 1
+    fi
+    cd DotNet
+    
     local compose_cmd
     compose_cmd=$(get_docker_compose_cmd) || {
         print_error "Docker Compose is not available"
@@ -168,6 +189,13 @@ stop_services() {
 
 check_status() {
     print_header "Dapr Pluggable Components Status"
+    
+    # Ensure we're in the DotNet directory where docker-compose.yml is located
+    if [[ ! -d "DotNet" ]]; then
+        print_error "DotNet directory not found. Please run this script from the examples directory."
+        return 1
+    fi
+    cd DotNet
     
     local compose_cmd
     compose_cmd=$(get_docker_compose_cmd) || {
@@ -233,6 +261,13 @@ check_status() {
 
 show_logs() {
     print_header "Dapr Pluggable Components Logs"
+    
+    # Ensure we're in the DotNet directory where docker-compose.yml is located
+    if [[ ! -d "DotNet" ]]; then
+        print_error "DotNet directory not found. Please run this script from the examples directory."
+        exit 1
+    fi
+    cd DotNet
     
     local compose_cmd
     compose_cmd=$(get_docker_compose_cmd) || {
@@ -348,6 +383,26 @@ case "${1:-help}" in
     "test")
         test_components
         ;;
+    "test-nebula")
+        print_header "Running NebulaGraph Specific Tests"
+        if [[ -f "tests/test_nebula_net.sh" ]]; then
+            print_info "Executing NebulaGraph .NET test suite..."
+            ./tests/test_nebula_net.sh test
+        else
+            print_error "NebulaGraph test file not found: tests/test_nebula_net.sh"
+            exit 1
+        fi
+        ;;
+    "test-all")
+        print_header "Running All Test Suites"
+        if [[ -f "tests/test_all_net.sh" ]]; then
+            print_info "Executing comprehensive test suite..."
+            ./tests/test_all_net.sh
+        else
+            print_error "Test orchestrator not found: tests/test_all_net.sh"
+            exit 1
+        fi
+        ;;
     "logs")
         show_logs "$@"
         ;;
@@ -363,6 +418,8 @@ case "${1:-help}" in
         echo "  build     Build Dapr pluggable component Docker images"
         echo "  status    Show service status and health"
         echo "  test      Test Dapr pluggable components functionality"
+        echo "  test-nebula   Run NebulaGraph specific tests (requires services running)"
+        echo "  test-all      Run all test suites (requires services running)"
         echo "  logs      Show service logs (optionally for specific service)"
         echo "  help      Show this help"
         echo ""
@@ -371,6 +428,11 @@ case "${1:-help}" in
         echo "  logs component    Show pluggable component logs"
         echo "  logs api          Show .NET API logs"
         echo "  logs sidecar      Show Dapr sidecar logs"
+        echo ""
+        echo "Test Commands:"
+        echo "  test              Basic component functionality tests"
+        echo "  test-nebula       NebulaGraph specific integration tests"
+        echo "  test-all          Comprehensive test suite (all components)"
         echo ""
         echo "Prerequisites:"
         echo "  • Dependencies must be running (../dependencies/environment_setup.sh start)"
@@ -392,6 +454,12 @@ case "${1:-help}" in
         echo "  • Unified pluggable component supporting NebulaGraph and ScyllaDB"
         echo "  • Self-contained Docker Compose setup"
         echo "  • Automatic component health checking"
+        echo ""
+        echo "Workflow:"
+        echo "  1. Start services: $0 start"
+        echo "  2. Run tests: $0 test-all or $0 test-nebula"
+        echo "  3. View logs: $0 logs"
+        echo "  4. Stop services: $0 stop"
         ;;
     *)
         echo "Unknown command: $1"
