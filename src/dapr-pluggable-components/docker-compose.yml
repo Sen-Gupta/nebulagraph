@@ -50,7 +50,6 @@ services:
       "--dapr-http-port", "${NEBULA_HTTP_PORT:-3501}",
       "--placement-host-address", "dapr-placement:${DAPR_PLACEMENT_PORT:-50090}",
       "--scheduler-host-address", "dapr-scheduler:${DAPR_SCHEDULER_PORT:-50091}",
-      "--components-path", "/components",
       "--resources-path", "/components",
       "--config", "/components/config.yaml"
     ]

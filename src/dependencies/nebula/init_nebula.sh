@@ -50,21 +50,43 @@ echo "Waiting for space to be ready..."
 sleep 5
 
 echo "Creating schema for Dapr state store..."
+echo "Dropping existing state tag if it exists to ensure proper schema..."
 docker run --rm --network $NEBULA_NETWORK_NAME vesoft/nebula-console:v3-nightly \
   --addr nebula-graphd --port $NEBULA_PORT --user $NEBULA_USERNAME --password $NEBULA_PASSWORD \
-  --eval "USE $NEBULA_SPACE; CREATE TAG IF NOT EXISTS state(data string);"
+  --eval "USE $NEBULA_SPACE; DROP TAG IF EXISTS state;"
+
+echo "Creating state tag with complete schema (data, etag, last_modified)..."
+docker run --rm --network $NEBULA_NETWORK_NAME vesoft/nebula-console:v3-nightly \
+  --addr nebula-graphd --port $NEBULA_PORT --user $NEBULA_USERNAME --password $NEBULA_PASSWORD \
+  --eval "USE $NEBULA_SPACE; CREATE TAG state(data string, etag string, last_modified int);"
 
 echo "Waiting for schema to be applied..."
 sleep 5
+
+echo "Verifying schema creation..."
+docker run --rm --network $NEBULA_NETWORK_NAME vesoft/nebula-console:v3-nightly \
+  --addr nebula-graphd --port $NEBULA_PORT --user $NEBULA_USERNAME --password $NEBULA_PASSWORD \
+  --eval "USE $NEBULA_SPACE; DESCRIBE TAG state;"
 
 echo "Verifying $NEBULA_SPACE space and schema creation..."
 docker run --rm --network $NEBULA_NETWORK_NAME vesoft/nebula-console:v3-nightly \
   --addr nebula-graphd --port $NEBULA_PORT --user $NEBULA_USERNAME --password $NEBULA_PASSWORD \
   --eval "SHOW SPACES;"
 
-echo "Verifying schema..."
+echo "Verifying state tag schema..."
 docker run --rm --network $NEBULA_NETWORK_NAME vesoft/nebula-console:v3-nightly \
   --addr nebula-graphd --port $NEBULA_PORT --user $NEBULA_USERNAME --password $NEBULA_PASSWORD \
   --eval "USE $NEBULA_SPACE; SHOW TAGS;"
+
+echo "Verifying complete schema details..."
+docker run --rm --network $NEBULA_NETWORK_NAME vesoft/nebula-console:v3-nightly \
+  --addr nebula-graphd --port $NEBULA_PORT --user $NEBULA_USERNAME --password $NEBULA_PASSWORD \
+  --eval "USE $NEBULA_SPACE; DESCRIBE TAG state;"
+
+echo ""
+echo "Schema verification complete. Expected fields:"
+echo "  • data (string) - for state value"
+echo "  • etag (string) - for optimistic concurrency control"
+echo "  • last_modified (int) - for timestamp tracking"
 
 echo "NebulaGraph cluster initialization completed!"

@@ -700,13 +700,30 @@ initialize_scylladb() {
 
 # Initialize NebulaGraph cluster
 initialize_nebula() {
-    print_info "Initializing NebulaGraph cluster..."
+    print_info "Initializing NebulaGraph cluster with proper schema..."
     
     if [ -f "nebula/init_nebula.sh" ]; then
         cd nebula
-        ./init_nebula.sh
+        if ./init_nebula.sh; then
+            print_success "NebulaGraph cluster initialized successfully"
+            
+            # Verify schema was created correctly
+            print_info "Verifying NebulaGraph schema creation..."
+            if docker run --rm --network ${NEBULA_NETWORK_NAME:-nebula-net} vesoft/nebula-console:v3-nightly \
+              --addr nebula-graphd --port ${NEBULA_PORT:-9669} --user ${NEBULA_USERNAME:-root} --password ${NEBULA_PASSWORD:-nebula} \
+              --eval "USE ${NEBULA_SPACE:-dapr_state}; DESCRIBE TAG state;" | grep -q "etag"; then
+                print_success "NebulaGraph schema verified - ETag support enabled"
+            else
+                print_error "Schema verification failed - ETag column not found"
+                cd ..
+                return 1
+            fi
+        else
+            print_error "NebulaGraph initialization failed"
+            cd ..
+            return 1
+        fi
         cd ..
-        print_success "NebulaGraph cluster initialized"
     else
         print_error "nebula/init_nebula.sh not found"
         return 1
@@ -966,14 +983,24 @@ quick_test_services() {
     print_info "Running quick connectivity test..."
     
     local tests_passed=0
-    local total_tests=6
+    local total_tests=7  # Increased to include schema test
     
     # Test NebulaGraph
     if nc -z localhost 9669 2>/dev/null; then
         print_success "NebulaGraph Graph Service (port 9669) - OK"
         tests_passed=$((tests_passed + 1))
+        
+        # If NebulaGraph is responding, also test schema
+        print_info "Testing NebulaGraph schema compatibility..."
+        if test_nebula_schema >/dev/null 2>&1; then
+            print_success "NebulaGraph Schema (Dapr compatibility) - OK"
+            tests_passed=$((tests_passed + 1))
+        else
+            print_warning "NebulaGraph Schema (Dapr compatibility) - INCOMPLETE"
+        fi
     else
         print_error "NebulaGraph Graph Service (port 9669) - FAILED"
+        print_warning "NebulaGraph Schema (Dapr compatibility) - SKIPPED (service unavailable)"
     fi
     
     # Test Redis on our configured port
@@ -1017,12 +1044,15 @@ quick_test_services() {
     fi
     
     echo ""
+    print_info "Quick test summary:"
     if [ $tests_passed -eq $total_tests ]; then
-        print_success "All essential services are running! ($tests_passed/$total_tests)"
+        print_success "All essential services and schema are ready! ($tests_passed/$total_tests)"
+    elif [ $tests_passed -ge 5 ]; then
+        print_warning "Most services are running ($tests_passed/$total_tests) - Should be functional"
     elif [ $tests_passed -gt 0 ]; then
-        print_warning "Some services are running ($tests_passed/$total_tests)"
+        print_warning "Some services are running ($tests_passed/$total_tests) - May have issues"
     else
-        print_error "No services are responding ($tests_passed/$total_tests)"
+        print_error "No services are responding ($tests_passed/$total_tests) - Environment not ready"
     fi
 }
 
@@ -1113,6 +1143,88 @@ test_nebula_services() {
         print_success "NebulaGraph Storage Service is responding"
     else
         print_error "NebulaGraph Storage Service is not responding on port 9779"
+    fi
+}
+
+# Test NebulaGraph schema for Dapr compatibility
+test_nebula_schema() {
+    print_header "Testing NebulaGraph Schema for Dapr Compatibility"
+    
+    print_info "Testing NebulaGraph schema for Dapr state store..."
+    
+    # Test if dapr_state space exists
+    print_info "Checking if dapr_state space exists..."
+    if docker run --rm --network ${NEBULA_NETWORK_NAME:-nebula-net} vesoft/nebula-console:v3-nightly \
+      --addr nebula-graphd --port ${NEBULA_PORT:-9669} --user ${NEBULA_USERNAME:-root} --password ${NEBULA_PASSWORD:-nebula} \
+      --eval "SHOW SPACES;" | grep -q "dapr_state"; then
+        print_success "dapr_state space exists"
+    else
+        print_error "dapr_state space not found"
+        return 1
+    fi
+    
+    # Test if state tag exists
+    print_info "Checking if state tag exists..."
+    if docker run --rm --network ${NEBULA_NETWORK_NAME:-nebula-net} vesoft/nebula-console:v3-nightly \
+      --addr nebula-graphd --port ${NEBULA_PORT:-9669} --user ${NEBULA_USERNAME:-root} --password ${NEBULA_PASSWORD:-nebula} \
+      --eval "USE dapr_state; SHOW TAGS;" | grep -q "state"; then
+        print_success "state tag exists"
+    else
+        print_error "state tag not found"
+        return 1
+    fi
+    
+    # Test schema fields
+    print_info "Verifying state tag schema..."
+    local schema_output=$(docker run --rm --network ${NEBULA_NETWORK_NAME:-nebula-net} vesoft/nebula-console:v3-nightly \
+      --addr nebula-graphd --port ${NEBULA_PORT:-9669} --user ${NEBULA_USERNAME:-root} --password ${NEBULA_PASSWORD:-nebula} \
+      --eval "USE dapr_state; DESCRIBE TAG state;" 2>/dev/null)
+    
+    # Check for required fields
+    local fields_found=0
+    if echo "$schema_output" | grep -q '"data"'; then
+        print_success "✓ data field found (string)"
+        fields_found=$((fields_found + 1))
+    else
+        print_error "✗ data field missing"
+    fi
+    
+    if echo "$schema_output" | grep -q '"etag"'; then
+        print_success "✓ etag field found (string) - ETag support enabled"
+        fields_found=$((fields_found + 1))
+    else
+        print_error "✗ etag field missing - ETag support disabled"
+    fi
+    
+    if echo "$schema_output" | grep -q '"last_modified"'; then
+        print_success "✓ last_modified field found (int) - Timestamp support enabled"
+        fields_found=$((fields_found + 1))
+    else
+        print_error "✗ last_modified field missing - Timestamp support disabled"
+    fi
+    
+    if [ $fields_found -eq 3 ]; then
+        print_success "NebulaGraph schema is fully compatible with Dapr state store requirements"
+        
+        # Test a simple state operation
+        print_info "Testing basic state operation..."
+        if docker run --rm --network ${NEBULA_NETWORK_NAME:-nebula-net} vesoft/nebula-console:v3-nightly \
+          --addr nebula-graphd --port ${NEBULA_PORT:-9669} --user ${NEBULA_USERNAME:-root} --password ${NEBULA_PASSWORD:-nebula} \
+          --eval "USE dapr_state; INSERT VERTEX state(data, etag, last_modified) VALUES 'test-key':('test-data', 'test-etag', 123456789);" >/dev/null 2>&1; then
+            print_success "Basic state operation test successful"
+            
+            # Clean up test data
+            docker run --rm --network ${NEBULA_NETWORK_NAME:-nebula-net} vesoft/nebula-console:v3-nightly \
+              --addr nebula-graphd --port ${NEBULA_PORT:-9669} --user ${NEBULA_USERNAME:-root} --password ${NEBULA_PASSWORD:-nebula} \
+              --eval "USE dapr_state; DELETE VERTEX 'test-key';" >/dev/null 2>&1
+        else
+            print_warning "Basic state operation test failed"
+        fi
+        
+        return 0
+    else
+        print_error "NebulaGraph schema is incomplete ($fields_found/3 fields) - Dapr state store may fail"
+        return 1
     fi
 }
 
@@ -1474,6 +1586,10 @@ case "${1:-setup}" in
     "test")
         test_nebula_services
         ;;
+    "test-schema")
+        print_header "NebulaGraph Schema Compatibility Test"
+        test_nebula_schema
+        ;;
     "quick-test"|"qt")
         print_header "Quick Service Test"
         quick_test_services
@@ -1537,6 +1653,7 @@ case "${1:-setup}" in
         echo "  logs              Show all services logs"
         echo "  init              Initialize all services"
         echo "  test              Full test of all services connectivity"
+        echo "  test-schema       Test NebulaGraph schema for Dapr compatibility"
         echo "  quick-test, qt    Quick test of essential services"
         echo "  dapr-status, ds   Show Dapr runtime status and containers"
         echo "  dapr-reinit, dr   Force reinitialize Dapr in container mode (fixes slim mode)"

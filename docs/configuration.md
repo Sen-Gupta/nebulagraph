@@ -130,7 +130,7 @@ services:
       "--app-id", "nebulagraph-test",
       "--dapr-http-port", "3501",
       "--dapr-grpc-port", "50001",
-      "--components-path", "/components",
+      "--resources-path", "/components",
       "--config", "/components/config.yaml",
       "--unix-domain-socket", "/var/run"
     ]
@@ -371,7 +371,7 @@ spec:
 
 | Issue | Cause | Solution |
 |-------|-------|----------|
-| Component not found | Wrong component path | Check `--components-path` |
+| Component not found | Wrong component path | Check `--resources-path` |
 | Connection refused | Wrong NebulaGraph host/port | Verify `hosts` and `port` in config |
 | Authentication failed | Wrong credentials | Check `username` and `password` |
 | Space not found | Database not initialized | Run initialization script |
