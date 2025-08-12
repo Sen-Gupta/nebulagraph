@@ -54,6 +54,9 @@ get_docker_compose_cmd() {
 check_prerequisites() {
     print_header "Checking Prerequisites"
     
+    # Save current directory
+    local original_dir="$(pwd)"
+    
     # Change to DotNet directory where docker-compose.yml is located
     if [[ ! -d "DotNet" ]]; then
         print_error "DotNet directory not found. Please run this script from the examples directory."
@@ -98,10 +101,16 @@ check_prerequisites() {
         print_error "docker-compose.yml not found in current directory"
         exit 1
     fi
+    
+    # Return to original directory
+    cd "$original_dir"
 }
 
 build_services() {
     print_header "Building Dapr Pluggable Components"
+    
+    # Save current directory
+    local original_dir="$(pwd)"
     
     # Ensure we're in the DotNet directory where docker-compose.yml is located
     if [[ ! -d "DotNet" ]]; then
@@ -123,10 +132,16 @@ build_services() {
         print_error "Failed to build Dapr pluggable component services"
         return 1
     fi
+    
+    # Return to original directory
+    cd "$original_dir"
 }
 
 start_services() {
     print_header "Starting Dapr Pluggable Components"
+    
+    # Save current directory
+    local original_dir="$(pwd)"
     
     # Ensure we're in the DotNet directory where docker-compose.yml is located
     if [[ ! -d "DotNet" ]]; then
@@ -164,10 +179,16 @@ start_services() {
         print_error "Failed to start Dapr pluggable component services"
         return 1
     fi
+    
+    # Return to original directory
+    cd "$original_dir"
 }
 
 stop_services() {
     print_header "Stopping Dapr Pluggable Components"
+    
+    # Save current directory
+    local original_dir="$(pwd)"
     
     # Ensure we're in the DotNet directory where docker-compose.yml is located
     if [[ ! -d "DotNet" ]]; then
@@ -185,10 +206,16 @@ stop_services() {
     print_info "Stopping Dapr pluggable component services..."
     $compose_cmd down
     print_success "Dapr pluggable component services stopped"
+    
+    # Return to original directory
+    cd "$original_dir"
 }
 
 check_status() {
     print_header "Dapr Pluggable Components Status"
+    
+    # Save current directory
+    local original_dir="$(pwd)"
     
     # Ensure we're in the DotNet directory where docker-compose.yml is located
     if [[ ! -d "DotNet" ]]; then
@@ -257,10 +284,16 @@ check_status() {
     else
         print_warning "Could not retrieve Dapr metadata"
     fi
+    
+    # Return to original directory
+    cd "$original_dir"
 }
 
 show_logs() {
     print_header "Dapr Pluggable Components Logs"
+    
+    # Save current directory
+    local original_dir="$(pwd)"
     
     # Ensure we're in the DotNet directory where docker-compose.yml is located
     if [[ ! -d "DotNet" ]]; then
@@ -301,6 +334,9 @@ show_logs() {
         print_info "Showing logs for all services..."
         $compose_cmd logs -f
     fi
+    
+    # Return to original directory
+    cd "$original_dir"
 }
 
 test_components() {

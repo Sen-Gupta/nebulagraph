@@ -141,9 +141,10 @@ start_services() {
     print_header "Starting Dapr Pluggable Services"
     
     local dapr_runner="$SCRIPT_DIR/../run_dotnet_examples.sh"
+    local examples_dir="$SCRIPT_DIR/.."
     
     print_info "Starting all Dapr pluggable components..."
-    if bash "$dapr_runner" start; then
+    if (cd "$examples_dir" && bash "./run_dotnet_examples.sh" start); then
         print_success "Dapr pluggable services started successfully"
         
         # Give services time to fully initialize
@@ -162,9 +163,10 @@ stop_services() {
     print_header "Stopping Dapr Pluggable Services"
     
     local dapr_runner="$SCRIPT_DIR/../run_dotnet_examples.sh"
+    local examples_dir="$SCRIPT_DIR/.."
     
     print_info "Stopping all Dapr pluggable components..."
-    if bash "$dapr_runner" stop; then
+    if (cd "$examples_dir" && bash "./run_dotnet_examples.sh" stop); then
         print_success "Dapr pluggable services stopped successfully"
         return 0
     else
@@ -259,7 +261,9 @@ check_service_status() {
     print_header "Checking Service Status"
     
     local dapr_runner="$SCRIPT_DIR/../run_dotnet_examples.sh"
-    bash "$dapr_runner" status
+    local examples_dir="$SCRIPT_DIR/.."
+    
+    (cd "$examples_dir" && bash "./run_dotnet_examples.sh" status)
 }
 
 # Cleanup function
