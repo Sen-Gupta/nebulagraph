@@ -7,6 +7,21 @@ services:
       dockerfile: Dockerfile
     environment:
       - DAPR_COMPONENT_SOCKETS_FOLDER=/var/run
+      - STORE_TYPE=nebulagraph
+    volumes:
+      - socket:/var/run
+    networks:
+      - nebula-net
+
+  # ScyllaDB Dapr Pluggable Component
+  scylladb-net-component:
+    container_name: scylladb-net-component
+    build:
+      context: ../../dapr-pluggable-components
+      dockerfile: Dockerfile
+    environment:
+      - DAPR_COMPONENT_SOCKETS_FOLDER=/var/run
+      - STORE_TYPE=scylladb
     volumes:
       - socket:/var/run
     networks:
@@ -52,6 +67,7 @@ services:
       - "../../.env"
     depends_on:
       - nebulagraph-net-component
+      - scylladb-net-component
     volumes:
       - socket:/var/run
       - "../../components:/components:ro"
