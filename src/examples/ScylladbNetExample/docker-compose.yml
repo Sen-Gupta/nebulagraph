@@ -1,0 +1,75 @@
+services:
+  # ScyllaDB Dapr Pluggable Component
+  scylladb-net-component:
+    container_name: scylladb-net-component
+    build:
+      context: ../../dapr-pluggable-components
+      dockerfile: Dockerfile
+    environment:
+      - DAPR_COMPONENT_SOCKETS_FOLDER=/var/run
+      - STORE_TYPE=scylladb
+    volumes:
+      - socket:/var/run
+    networks:
+      - dapr-pluggable-net
+
+  # NebulaGraph Dapr Pluggable Component (optional, for dual state store testing)
+  nebulagraph-net-component:
+    container_name: nebulagraph-net-component
+    build:
+      context: ../../dapr-pluggable-components
+      dockerfile: Dockerfile
+    environment:
+      - DAPR_COMPONENT_SOCKETS_FOLDER=/var/run
+      - STORE_TYPE=nebulagraph
+    volumes:
+      - socket:/var/run
+    networks:
+      - dapr-pluggable-net
+
+  # ScyllaDB .NET Example Application
+  scylladb-net-example:
+    container_name: scylladb-net-example
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "5001:5001"
+      - "7001:7001"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:5001;https://+:7001
+    depends_on:
+      - scylladb-net-component
+      - scylladb-net-example-dapr
+    networks:
+      - dapr-pluggable-net
+
+  # Dapr Sidecar for ScyllaDB .NET Example
+  scylladb-net-example-dapr:
+    container_name: scylladb-net-example-dapr
+    image: daprio/daprd:1.15.4
+    command: [
+      "./daprd",
+      "--app-id", "scylladb-net-example",
+      "--app-port", "5001",
+      "--dapr-http-port", "3501",
+      "--dapr-grpc-port", "50001",
+      "--resources-path", "/var/run/",
+      "--log-level", "info",
+      "--components-path", "/components"
+    ]
+    volumes:
+      - socket:/var/run
+      - ../../components:/components:ro
+    depends_on:
+      - scylladb-net-component
+    networks:
+      - dapr-pluggable-net
+
+volumes:
+  socket:
+
+networks:
+  dapr-pluggable-net:
+    external: true
