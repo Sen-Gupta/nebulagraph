@@ -301,8 +301,8 @@ run_comprehensive_test() {
     
     # Use the comprehensive test suite from the tests directory
     local test_all_script="tests/test_all.sh"
-    local test_http_script="tests/test_http.sh"
-    local test_grpc_script="tests/test_grpc.sh"
+    local test_http_script="stores/nebulagraph/tests/test_http.sh"
+    local test_grpc_script="stores/nebulagraph/tests/test_grpc.sh"
     
     if [ -f "$test_all_script" ]; then
         print_info "Running complete test suite (HTTP + gRPC) - 54 tests..."

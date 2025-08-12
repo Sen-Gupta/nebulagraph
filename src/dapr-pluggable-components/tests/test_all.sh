@@ -36,16 +36,15 @@ print_section() {
     echo "==========================================================="
 }
 
-# Check if we're in the tests directory
-if [ ! -f "test_http.sh" ] || [ ! -f "test_grpc.sh" ]; then
-    echo -e "${RED}❌ Error: Test scripts not found in current directory${NC}"
-    echo "Please run this script from the tests/ directory"
-    echo "Expected files: test_http.sh, test_grpc.sh"
+# Check if we're in the tests directory and NebulaGraph test files exist
+if [ ! -f "../stores/nebulagraph/tests/test_http.sh" ] || [ ! -f "../stores/nebulagraph/tests/test_grpc.sh" ]; then
+    echo -e "${RED}❌ Error: NebulaGraph test scripts not found${NC}"
+    echo "Expected files: ../stores/nebulagraph/tests/test_http.sh, ../stores/nebulagraph/tests/test_grpc.sh"
     exit 1
 fi
 
 # Make test scripts executable
-chmod +x test_http.sh test_grpc.sh
+chmod +x ../stores/nebulagraph/tests/test_http.sh ../stores/nebulagraph/tests/test_grpc.sh
 
 print_section "🌐 PHASE 1: HTTP Interface Testing (port $NEBULA_HTTP_PORT)"
 echo "Running comprehensive HTTP API tests..."
@@ -55,7 +54,7 @@ echo "• Query API functionality"
 echo "• Performance validation"
 echo ""
 
-./test_http.sh
+../stores/nebulagraph/tests/test_http.sh
 HTTP_RESULT=$?
 
 print_section "🔌 PHASE 2: gRPC Interface Testing (port $NEBULA_GRPC_PORT)"
@@ -67,7 +66,7 @@ echo "• Cross-protocol compatibility"
 echo "• Performance validation"
 echo ""
 
-./test_grpc.sh
+../stores/nebulagraph/tests/test_grpc.sh
 GRPC_RESULT=$?
 
 print_section " COMPREHENSIVE TEST RESULTS"
