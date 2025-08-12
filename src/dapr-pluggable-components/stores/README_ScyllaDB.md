@@ -180,12 +180,20 @@ Supported consistency levels:
 
 ## Testing
 
-```bash
-# Unit tests (requires running ScyllaDB)
-go test ./stores -v
+The ScyllaDB state store is tested through integration tests that validate the complete Dapr pluggable component stack:
 
-# Short tests (skip integration tests)
-go test ./stores -v -short
+```bash
+# Run comprehensive integration tests (HTTP + gRPC)
+cd ../tests
+./test_all.sh
+
+# Test ScyllaDB component specifically with STORE_TYPE
+cd ..
+STORE_TYPE=scylladb ./run_dapr_pluggables.sh test
+
+# Run .NET application integration tests
+cd ../examples/NebulaGraphNetExample
+./test_nebula_net.sh
 ```
 
 ## Troubleshooting
