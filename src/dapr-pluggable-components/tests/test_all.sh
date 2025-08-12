@@ -6,21 +6,17 @@ if [ -f "../../.env" ]; then
 fi
 
 # Set default values for ports and network if not already set
-NEBULA_HTTP_PORT=${NEBULA_HTTP_PORT:-3501}
-NEBULA_GRPC_PORT=${NEBULA_GRPC_PORT:-50001}
+PLUGGABLE_COMPONENTS_HTTP_PORT=${PLUGGABLE_COMPONENTS_HTTP_PORT:-3501}
+PLUGGABLE_COMPONENTS_GRPC_PORT=${PLUGGABLE_COMPONENTS_GRPC_PORT:-50001}
 DAPR_PLUGABBLE_NETWORK_NAME=${DAPR_PLUGABBLE_NETWORK_NAME:-dapr-pluggable-net}
-SCYLLADB_HTTP_PORT=${SCYLLADB_HTTP_PORT:-3501}
-SCYLLADB_GRPC_PORT=${SCYLLADB_GRPC_PORT:-50001}
 
 echo "Dapr State Store Components - Comprehensive Test Suite"
 echo "======================================================"
 echo "Testing Multiple State Store Implementations (HTTP & gRPC Interfaces)"
 echo "Includes: CRUD + Bulk Operations + Query API + Cross-Protocol Testing"
 echo "Configuration:"
-echo "  • NebulaGraph HTTP Port: $NEBULA_HTTP_PORT"
-echo "  • NebulaGraph gRPC Port: $NEBULA_GRPC_PORT"
-echo "  • ScyllaDB HTTP Port: $SCYLLADB_HTTP_PORT"
-echo "  • ScyllaDB gRPC Port: $SCYLLADB_GRPC_PORT"
+echo "  • Pluggable Components HTTP Port: $PLUGGABLE_COMPONENTS_HTTP_PORT"
+echo "  • Pluggable Components gRPC Port: $PLUGGABLE_COMPONENTS_GRPC_PORT"
 echo "  • Shared Network: $DAPR_PLUGABBLE_NETWORK_NAME"
 echo ""
 
@@ -47,50 +43,46 @@ print_store_section() {
     echo "==========================================================="
 }
 
-# Check if NebulaGraph test files exist
-NEBULA_TEST_AVAILABLE=false
-if [ -f "../stores/nebulagraph/tests/test_neubla.sh" ]; then
+# Check for NebulaGraph test availability
+if [ -f "../stores/nebulagraph/tests/test_nebula.sh" ]; then
     NEBULA_TEST_AVAILABLE=true
-    chmod +x ../stores/nebulagraph/tests/test_neubla.sh
+    chmod +x ../stores/nebulagraph/tests/test_nebula.sh
 fi
 
-# Check if ScyllaDB test files exist  
-SCYLLADB_TEST_AVAILABLE=false
-if [ -f "../stores/scylladb/tests/test_scyalldb.sh" ]; then
+# Check for ScyllaDB test availability
+if [ -f "../stores/scylladb/tests/test_scylladb.sh" ]; then
     SCYLLADB_TEST_AVAILABLE=true
-    chmod +x ../stores/scylladb/tests/test_scyalldb.sh
+    chmod +x ../stores/scylladb/tests/test_scylladb.sh
 fi
 
 # Verify at least one test suite is available
 if [ "$NEBULA_TEST_AVAILABLE" = false ] && [ "$SCYLLADB_TEST_AVAILABLE" = false ]; then
     echo -e "${RED}❌ Error: No state store test suites found${NC}"
     echo "Expected files:"
-    echo "  • ../stores/nebulagraph/tests/test_neubla.sh"
-    echo "  • ../stores/scylladb/tests/test_scyalldb.sh"
+    echo "  • ../stores/nebulagraph/tests/test_nebula.sh"
+    echo "  • ../stores/scylladb/tests/test_scylladb.sh"
     echo "At least one test suite must be available to run tests"
     exit 1
 fi
 
 print_section "🚀 COMPREHENSIVE STATE STORE TESTING SUITE"
 echo "Available test suites:"
-[ "$NEBULA_TEST_AVAILABLE" = true ] && echo -e "  ${GREEN}✅ NebulaGraph State Store${NC} (test_neubla.sh)"
-[ "$SCYLLADB_TEST_AVAILABLE" = true ] && echo -e "  ${GREEN}✅ ScyllaDB State Store${NC} (test_scyalldb.sh)"
+[ "$NEBULA_TEST_AVAILABLE" = true ] && echo -e "  ${GREEN}✅ NebulaGraph State Store${NC} (test_nebula.sh)"
+[ "$SCYLLADB_TEST_AVAILABLE" = true ] && echo -e "  ${GREEN}✅ ScyllaDB State Store${NC} (test_scylladb.sh)"
 echo ""
 
 # NebulaGraph State Store Testing
 if [ "$NEBULA_TEST_AVAILABLE" = true ]; then
     print_store_section "🌐 TESTING NEBULAGRAPH STATE STORE"
-    echo "Running comprehensive NebulaGraph tests (HTTP + gRPC)..."
-    echo "• Graph database state persistence"
-    echo "• Basic CRUD operations"
-    echo "• Bulk operations (BulkGet/BulkSet/BulkDelete)"
-    echo "• Query API functionality"
-    echo "• Cross-protocol compatibility"
-    echo "• Performance validation"
-    echo ""
     
-    ../stores/nebulagraph/tests/test_neubla.sh
+    # Export environment variables for both test scripts
+    export PLUGGABLE_COMPONENTS_HTTP_PORT=$PLUGGABLE_COMPONENTS_HTTP_PORT
+    export PLUGGABLE_COMPONENTS_GRPC_PORT=$PLUGGABLE_COMPONENTS_GRPC_PORT
+    
+    cd ../stores/nebulagraph/tests/
+    ./test_nebula.sh
     NEBULA_RESULT=$?
+    cd - > /dev/null
 else
     echo -e "${YELLOW}⚠️  Skipping NebulaGraph tests - test suite not found${NC}"
 fi
@@ -98,18 +90,15 @@ fi
 # ScyllaDB State Store Testing
 if [ "$SCYLLADB_TEST_AVAILABLE" = true ]; then
     print_store_section "🗃️  TESTING SCYLLADB STATE STORE"
-    echo "Running comprehensive ScyllaDB tests (HTTP + gRPC)..."
-    echo "• Distributed database state persistence"
-    echo "• Basic CRUD operations with ETag support"
-    echo "• Bulk operations (BulkGet/BulkSet/BulkDelete)"
-    echo "• Query API functionality"
-    echo "• Cross-protocol compatibility"
-    echo "• ScyllaDB-optimized performance validation"
-    echo "• Consistency level and cluster testing"
-    echo ""
     
-    ../stores/scylladb/tests/test_scyalldb.sh
+    # Export environment variables for ScyllaDB tests
+    export PLUGGABLE_COMPONENTS_HTTP_PORT=$PLUGGABLE_COMPONENTS_HTTP_PORT
+    export PLUGGABLE_COMPONENTS_GRPC_PORT=$PLUGGABLE_COMPONENTS_GRPC_PORT
+    
+    cd ../stores/scylladb/tests/
+    ./test_scylladb.sh
     SCYLLADB_RESULT=$?
+    cd - > /dev/null
 else
     echo -e "${YELLOW}⚠️  Skipping ScyllaDB tests - test suite not found${NC}"
 fi

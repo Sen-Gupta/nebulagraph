@@ -6,8 +6,8 @@ if [ -f "../../../../.env" ]; then
 fi
 
 # Set default values for ports and network if not already set
-SCYLLADB_HTTP_PORT=${SCYLLADB_HTTP_PORT:-${NEBULA_HTTP_PORT:-3502}}
-SCYLLADB_GRPC_PORT=${SCYLLADB_GRPC_PORT:-${NEBULA_GRPC_PORT:-50002}}
+PLUGGABLE_COMPONENTS_HTTP_PORT=${PLUGGABLE_COMPONENTS_HTTP_PORT:-3501}
+PLUGGABLE_COMPONENTS_GRPC_PORT=${PLUGGABLE_COMPONENTS_GRPC_PORT:-50001}
 DAPR_PLUGABBLE_NETWORK_NAME=${DAPR_PLUGABBLE_NETWORK_NAME:-dapr-pluggable-net}
 
 echo "ScyllaDB Dapr Component - Comprehensive Test Suite"
@@ -15,8 +15,8 @@ echo "=================================================="
 echo "Testing ScyllaDB State Store (HTTP & gRPC Interfaces)"
 echo "Includes: CRUD + Bulk Operations + Query API + Cross-Protocol Testing + ETag Support"
 echo "Configuration:"
-echo "  • HTTP Port: $SCYLLADB_HTTP_PORT"
-echo "  • gRPC Port: $SCYLLADB_GRPC_PORT"
+echo "  • HTTP Port: $PLUGGABLE_COMPONENTS_HTTP_PORT"
+echo "  • gRPC Port: $PLUGGABLE_COMPONENTS_GRPC_PORT"
 echo "  • Network: $DAPR_PLUGABBLE_NETWORK_NAME"
 echo "  • Component: scylladb-state"
 echo ""
@@ -49,7 +49,7 @@ fi
 # Make test scripts executable
 chmod +x test_http.sh test_grpc.sh
 
-print_section "🗃️  PHASE 1: HTTP Interface Testing (port $SCYLLADB_HTTP_PORT)"
+print_section "🗃️  PHASE 1: HTTP Interface Testing (port $PLUGGABLE_COMPONENTS_HTTP_PORT)"
 echo "Running comprehensive ScyllaDB HTTP API tests..."
 echo "• Basic CRUD operations (GET/SET/DELETE)"
 echo "• ETag support for optimistic concurrency"
@@ -62,7 +62,7 @@ echo ""
 ./test_http.sh
 HTTP_RESULT=$?
 
-print_section "🔌 PHASE 2: gRPC Interface Testing (port $SCYLLADB_GRPC_PORT)"
+print_section "🔌 PHASE 2: gRPC Interface Testing (port $PLUGGABLE_COMPONENTS_GRPC_PORT)"
 echo "Running comprehensive ScyllaDB gRPC API tests..."
 echo "• Basic CRUD operations (GET/SET/DELETE)"
 echo "• Base64 encoding/decoding for gRPC protocol"
@@ -133,14 +133,14 @@ else
     echo "ScyllaDB Troubleshooting:"
     
     if [ $HTTP_RESULT -ne 0 ]; then
-        echo "  • HTTP Interface: Check Dapr HTTP port $SCYLLADB_HTTP_PORT accessibility"
+        echo "  • HTTP Interface: Check Dapr HTTP port $PLUGGABLE_COMPONENTS_HTTP_PORT accessibility"
         echo "    - Verify ScyllaDB component configuration and connectivity"
         echo "    - Check ScyllaDB cluster status: docker ps | grep scylladb"
         echo "    - Verify keyspace and table creation"
     fi
     
     if [ $GRPC_RESULT -ne 0 ]; then
-        echo "  • gRPC Interface: Verify grpcurl installation and Dapr gRPC port $SCYLLADB_GRPC_PORT"
+        echo "  • gRPC Interface: Verify grpcurl installation and Dapr gRPC port $PLUGGABLE_COMPONENTS_GRPC_PORT"
         echo "    - Check Dapr sidecar and ScyllaDB component registration"
         echo "    - Verify gRPC service discovery and reflection"
     fi
