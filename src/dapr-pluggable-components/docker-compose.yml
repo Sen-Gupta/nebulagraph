@@ -23,8 +23,6 @@ services:
       - socket:/var/run
     networks:
       - dapr-pluggable-net
-    profiles:
-      - dual
 
   # Dapr runtime sidecar
   dapr-pluggable-component-sidecar:
@@ -57,8 +55,6 @@ services:
       - ../secrets:/secrets:ro
     networks:
       - dapr-pluggable-net
-    profiles:
-      - dual
 
   # Test application (optional)
   nebulagraph-test-app:
@@ -73,8 +69,6 @@ services:
       - dapr-pluggable-component-sidecar
     networks:
       - dapr-pluggable-net
-    profiles:
-      - test
 
 volumes:
   socket:

@@ -119,10 +119,10 @@ start_component() {
     print_success "Docker services built successfully"
     
     if $compose_cmd up -d; then
-        print_success "Dual Dapr pluggable components started"
+        print_success "Dapr pluggable components started"
         
         # Wait for services to initialize
-        print_info "Waiting for Dapr runtime to initialize..."
+        print_info "Waiting for services to initialize..."
         sleep 10
         
         # Check if containers are running
@@ -133,7 +133,7 @@ start_component() {
             return 1
         fi
     else
-        print_error "Failed to start dual Dapr pluggable components"
+        print_error "Failed to start Dapr pluggable components"
         return 1
     fi
 }
@@ -432,7 +432,7 @@ case "${1:-start}" in
         echo "NebulaGraph & ScyllaDB Dapr Pluggable Components Management"
         echo ""
         echo "Commands:"
-        echo "  start, setup  Set up and start the dual Dapr pluggable components (default)"
+        echo "  start, setup  Set up and start the Dapr pluggable components (default)"
         echo "  stop, down    Stop the Dapr pluggable components"
         echo "  status        Show components status"
         echo "  logs [SERVICE] Show component logs (optionally for specific service)"
@@ -444,18 +444,19 @@ case "${1:-start}" in
         echo "  help          Show this help message"
         echo ""
         echo "Services for logs command:"
-        echo "  • nebulagraph-component       - The NebulaGraph Dapr component (STORE_TYPE=nebulagraph)"
-        echo "  • scylladb-component         - The ScyllaDB Dapr component (STORE_TYPE=scylladb)"
-        echo "  • nebulagraph-component-sidecar - The Dapr runtime sidecar"
+        echo "  • dapr-pluggable-component        - The Dapr pluggable component (multi-store support)"
+        echo "  • dapr-pluggable-component-sidecar - The Dapr runtime sidecar"
+        echo "  • nebulagraph-test-app            - The test application"
         echo ""
         echo "Setup will:"
         echo "  1. Validate NebulaGraph infrastructure is running"
-        echo "  2. Start dual Dapr pluggable component containers"
+        echo "  2. Start Dapr pluggable component container"
         echo "  3. Test component functionality"
         echo ""
         echo "Components deployed:"
-        echo "  • NebulaGraph State Store (STORE_TYPE=nebulagraph)"
-        echo "  • ScyllaDB State Store (STORE_TYPE=scylladb)"
+        echo "  • Multi-Store Support (STORE_TYPES=nebulagraph,scylladb)"
+        echo "  • NebulaGraph State Store: nebulagraph-state"
+        echo "  • ScyllaDB State Store: scylladb-state"
         echo ""
         echo "Prerequisites:"
         echo "  • NebulaGraph must be running (use ../../../dependencies/environment_setup.sh)"
