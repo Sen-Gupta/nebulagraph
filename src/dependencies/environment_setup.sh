@@ -885,10 +885,10 @@ show_dapr_status() {
         cd ..
         
         print_info "\nDapr Service URLs:"
-        echo -e "  • Placement: localhost:${DAPR_PLACEMENT_PORT:-50005}"
+        echo -e "  • Placement: localhost:${DAPR_PLACEMENT_PORT:-50090}"
         echo -e "  • Redis: localhost:${DAPR_REDIS_PORT:-6379}"
         echo -e "  • Zipkin: http://localhost:${DAPR_ZIPKIN_PORT:-9411}"
-        echo -e "  • Scheduler: localhost:${DAPR_SCHEDULER_PORT:-50006}"
+        echo -e "  • Scheduler: localhost:${DAPR_SCHEDULER_PORT:-50091}"
         
         print_info "\nHealth Check Status:"
         local health_cmd="curl -s"
@@ -903,14 +903,14 @@ show_dapr_status() {
         fi
         
         # Check Placement health
-        if $health_cmd -f "http://localhost:${DAPR_PLACEMENT_HEALTH_HOST_PORT:-58080}/v1.0/healthz" >/dev/null 2>&1; then
+        if $health_cmd -f "http://localhost:${DAPR_PLACEMENT_HEALTH_HOST_PORT:-58090}/healthz" >/dev/null 2>&1; then
             print_success "Placement service is healthy"
         else
             print_warning "Placement service health check failed"
         fi
         
         # Check Scheduler health
-        if $health_cmd -f "http://localhost:${DAPR_SCHEDULER_HEALTH_HOST_PORT:-58081}/v1.0/healthz" >/dev/null 2>&1; then
+        if $health_cmd -f "http://localhost:${DAPR_SCHEDULER_HEALTH_HOST_PORT:-58091}/healthz" >/dev/null 2>&1; then
             print_success "Scheduler service is healthy"
         else
             print_warning "Scheduler service health check failed"

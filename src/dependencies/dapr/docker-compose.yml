@@ -43,7 +43,7 @@ services:
     volumes:
       - dapr-placement-data:/var/run/dapr
     healthcheck:
-      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:${DAPR_PLACEMENT_HEALTH_PORT:-8090}/v1.0/healthz || exit 1"]
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:${DAPR_PLACEMENT_HEALTH_PORT:-8090}/healthz || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -74,7 +74,7 @@ services:
     environment:
       - ETCD_UNSUPPORTED_ARCH=${DAPR_ETCD_UNSUPPORTED_ARCH:-arm64}
     healthcheck:
-      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:${DAPR_SCHEDULER_HEALTH_PORT:-8091}/v1.0/healthz || exit 1"]
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:${DAPR_SCHEDULER_HEALTH_PORT:-8091}/healthz || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
