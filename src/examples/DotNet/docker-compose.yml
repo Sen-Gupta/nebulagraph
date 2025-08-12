@@ -32,12 +32,12 @@ services:
     build: .
     container_name: dotnet-dapr-client
     ports:
-      - "${TEST_API_HOST_PORT:-5090}:${TEST_API_APP_PORT:-80}"
+      - "${DOT_NET_HOST_PORT:-5090}:${DOT_NET_APP_PORT:-80}"
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
-      - ASPNETCORE_URLS=http://+:${TEST_API_APP_PORT:-80}
-      - DAPR_HTTP_ENDPOINT=http://dotnet-dapr-client-sidecar:${TEST_API_HTTP_PORT:-3502}
-      - DAPR_GRPC_ENDPOINT=http://dotnet-dapr-client-sidecar:${TEST_API_GRPC_PORT:-50002}
+      - ASPNETCORE_URLS=http://+:${DOT_NET_APP_PORT:-80}
+      - DAPR_HTTP_ENDPOINT=http://dotnet-dapr-client-sidecar:${DOT_NET_HTTP_PORT:-3502}
+      - DAPR_GRPC_ENDPOINT=http://dotnet-dapr-client-sidecar:${DOT_NET_GRPC_PORT:-50002}
     env_file:
       - "../../.env"
     networks:
@@ -53,9 +53,9 @@ services:
       "./daprd",
       "--log-level", "debug",
       "--app-id", "dotnet-dapr-client",
-      "--app-port", "${TEST_API_APP_PORT:-80}",
-      "--dapr-http-port", "${TEST_API_HTTP_PORT:-3502}",
-      "--dapr-grpc-port", "${TEST_API_GRPC_PORT:-50002}",
+      "--app-port", "${DOT_NET_APP_PORT:-80}",
+      "--dapr-http-port", "${DOT_NET_HTTP_PORT:-3502}",
+      "--dapr-grpc-port", "${DOT_NET_GRPC_PORT:-50002}",
       "--placement-host-address", "dapr-placement:${DAPR_PLACEMENT_PORT:-50090}",
       "--scheduler-host-address", "dapr-scheduler:${DAPR_SCHEDULER_PORT:-50091}",
       "--resources-path", "/components",
@@ -73,8 +73,8 @@ services:
       - "../../components:/components:ro"
       - "../../secrets:/secrets:ro"
     ports:
-      - "${TEST_API_HTTP_PORT:-3502}:${TEST_API_HTTP_PORT:-3502}"
-      - "${TEST_API_GRPC_PORT:-50002}:${TEST_API_GRPC_PORT:-50002}"
+      - "${DOT_NET_HTTP_PORT:-3502}:${DOT_NET_HTTP_PORT:-3502}"
+      - "${DOT_NET_GRPC_PORT:-50002}:${DOT_NET_GRPC_PORT:-50002}"
     networks:
       - dapr-pluggable-net
 

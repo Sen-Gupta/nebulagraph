@@ -13,9 +13,9 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Port definitions (from .env or defaults)
-TEST_API_HOST_PORT=${TEST_API_HOST_PORT:-5090}
-TEST_API_APP_PORT=${TEST_API_APP_PORT:-80}
-TEST_API_HTTP_PORT=${TEST_API_HTTP_PORT:-3502}
+DOT_NET_HOST_PORT=${DOT_NET_HOST_PORT:-5090}
+DOT_NET_APP_PORT=${DOT_NET_APP_PORT:-80}
+DOT_NET_HTTP_PORT=${DOT_NET_HTTP_PORT:-3502}
 
 print_header() {
     echo -e "\n${BLUE}======================================${NC}"
@@ -179,23 +179,23 @@ check_status() {
     
     echo ""
     print_info "Service Endpoints:"
-    echo "  • NebulaGraph .NET Example API: http://localhost:$TEST_API_HOST_PORT"
-    echo "  • NebulaGraph .NET Example Swagger: http://localhost:$TEST_API_HOST_PORT/swagger"
-    echo "  • NebulaGraph .NET Example Dapr: http://localhost:$TEST_API_HTTP_PORT"
+    echo "  • NebulaGraph .NET Example API: http://localhost:$DOT_NET_HOST_PORT"
+    echo "  • NebulaGraph .NET Example Swagger: http://localhost:$DOT_NET_HOST_PORT/swagger"
+    echo "  • NebulaGraph .NET Example Dapr: http://localhost:$DOT_NET_HTTP_PORT"
     
     # Check if services are responding
     echo ""
     print_info "Service Health:"
     
     # Test NebulaGraph .NET Example API
-    if curl -s --connect-timeout 5 "http://localhost:$TEST_API_HOST_PORT/swagger" >/dev/null 2>&1; then
+    if curl -s --connect-timeout 5 "http://localhost:$DOT_NET_HOST_PORT/swagger" >/dev/null 2>&1; then
         print_success "NebulaGraph .NET Example API is responding"
     else
         print_warning "NebulaGraph .NET Example API is not responding"
     fi
     
     # Test Dapr sidecar
-    if curl -s --connect-timeout 5 "http://localhost:$TEST_API_HTTP_PORT/v1.0/healthz" >/dev/null 2>&1; then
+    if curl -s --connect-timeout 5 "http://localhost:$DOT_NET_HTTP_PORT/v1.0/healthz" >/dev/null 2>&1; then
         print_success "NebulaGraph .NET Example Dapr sidecar is responding"
     else
         print_warning "NebulaGraph .NET Example Dapr sidecar is not responding"
@@ -205,7 +205,7 @@ check_status() {
 run_controller_tests() {
     print_header "Running StateStore Controller Test Suites"
     
-    local api_base_url="http://localhost:$TEST_API_HOST_PORT/api/statestore"
+    local api_base_url="http://localhost:$DOT_NET_HOST_PORT/api/statestore"
     
     print_info "Running comprehensive test suite..."
     
@@ -246,7 +246,7 @@ test_services() {
     
     # Test NebulaGraph .NET Example API health first
     print_info "Testing NebulaGraph .NET Example API health..."
-    if curl -s --connect-timeout 10 "http://localhost:$TEST_API_HOST_PORT/swagger" > /dev/null; then
+    if curl -s --connect-timeout 10 "http://localhost:$DOT_NET_HOST_PORT/swagger" > /dev/null; then
         print_success "NebulaGraph .NET Example API health test passed"
     else
         print_error "NebulaGraph .NET Example API health test failed"
@@ -259,7 +259,7 @@ test_services() {
     
     # Test NebulaGraph .NET Example Dapr sidecar health
     print_info "Testing NebulaGraph .NET Example Dapr sidecar health..."
-    if curl -s --connect-timeout 10 "http://localhost:$TEST_API_HTTP_PORT/v1.0/healthz" > /dev/null; then
+    if curl -s --connect-timeout 10 "http://localhost:$DOT_NET_HTTP_PORT/v1.0/healthz" > /dev/null; then
         print_success "NebulaGraph .NET Example Dapr sidecar health test passed"
     else
         print_error "NebulaGraph .NET Example Dapr sidecar health test failed"
@@ -272,13 +272,13 @@ test_services() {
     
     # Test if NebulaGraph state store component is loaded
     print_info "Testing NebulaGraph state store component availability..."
-    metadata_response=$(curl -s --connect-timeout 10 "http://localhost:$TEST_API_HTTP_PORT/v1.0/metadata" 2>/dev/null)
+    metadata_response=$(curl -s --connect-timeout 10 "http://localhost:$DOT_NET_HTTP_PORT/v1.0/metadata" 2>/dev/null)
     if echo "$metadata_response" | grep -q "nebulagraph-state"; then
         print_success "NebulaGraph state store component is loaded"
         
         # Test HTTP REST API state operations via TestAPI
         print_info "Testing HTTP REST API state operations..."
-        if curl -s --connect-timeout 10 -X POST "http://localhost:$TEST_API_HOST_PORT/api/state/test-docker" \
+        if curl -s --connect-timeout 10 -X POST "http://localhost:$DOT_NET_HOST_PORT/api/state/test-docker" \
             -H "Content-Type: application/json" \
             -d '{"value": "Hello from Docker test!"}' > /dev/null; then
             print_success "HTTP state SET operation test passed"
@@ -288,7 +288,7 @@ test_services() {
         
         # Test HTTP GET via REST API
         print_info "Testing HTTP GET state operation..."
-        get_response=$(curl -s --connect-timeout 10 "http://localhost:$TEST_API_HOST_PORT/api/state/test-docker" 2>/dev/null)
+        get_response=$(curl -s --connect-timeout 10 "http://localhost:$DOT_NET_HOST_PORT/api/state/test-docker" 2>/dev/null)
         if [ -n "$get_response" ]; then
             print_success "HTTP state GET operation test passed"
             print_info "Retrieved: $get_response"
@@ -298,13 +298,13 @@ test_services() {
         
         # Test direct Dapr state API
         print_info "Testing direct Dapr state API..."
-        if curl -s --connect-timeout 10 -X POST "http://localhost:$TEST_API_HTTP_PORT/v1.0/state/nebulagraph-state" \
+        if curl -s --connect-timeout 10 -X POST "http://localhost:$DOT_NET_HTTP_PORT/v1.0/state/nebulagraph-state" \
             -H "Content-Type: application/json" \
             -d '[{"key":"direct-test","value":"Hello from direct Dapr API!"}]' > /dev/null; then
             print_success "Direct Dapr state SET operation test passed"
             
             # Test direct GET
-            direct_response=$(curl -s --connect-timeout 10 "http://localhost:$TEST_API_HTTP_PORT/v1.0/state/nebulagraph-state/direct-test" 2>/dev/null)
+            direct_response=$(curl -s --connect-timeout 10 "http://localhost:$DOT_NET_HTTP_PORT/v1.0/state/nebulagraph-state/direct-test" 2>/dev/null)
             if [ -n "$direct_response" ]; then
                 print_success "Direct Dapr state GET operation test passed"
                 print_info "Direct response: $direct_response"
@@ -329,7 +329,7 @@ test_services() {
     # Test pub/sub functionality if Redis component is available
     print_info "Testing pub/sub functionality..."
     if echo "$metadata_response" | grep -q "redis-pubsub"; then
-        if curl -s --connect-timeout 10 -X POST "http://localhost:$TEST_API_HTTP_PORT/v1.0/publish/redis-pubsub/test-topic" \
+        if curl -s --connect-timeout 10 -X POST "http://localhost:$DOT_NET_HTTP_PORT/v1.0/publish/redis-pubsub/test-topic" \
             -H "Content-Type: application/json" \
             -d '{"message": "Hello from Docker pub/sub test!"}' > /dev/null; then
             print_success "Pub/sub publish test passed"
@@ -342,7 +342,7 @@ test_services() {
     
     # Test basic service connectivity
     print_info "Testing basic service connectivity..."
-    if curl -s --connect-timeout 10 "http://localhost:$TEST_API_HOST_PORT" > /dev/null; then
+    if curl -s --connect-timeout 10 "http://localhost:$DOT_NET_HOST_PORT" > /dev/null; then
         print_success "Basic service connectivity test passed"
     else
         print_info "Basic service connectivity test completed"
@@ -408,14 +408,14 @@ case "${1:-help}" in
         echo "  • dapr-pluggable-net Docker network must exist"
         echo ""
         echo "Environment Variables:"
-        echo "  • TEST_API_HOST_PORT (default: 5090) - Host port for NebulaGraph .NET Example API"
+        echo "  • DOT_NET_HOST_PORT (default: 5090) - Host port for .NET Dapr Client API"
         echo "  • TEST_API_APP_PORT (default: 80) - Container port for NebulaGraph .NET Example API"  
-        echo "  • TEST_API_HTTP_PORT (default: 3502) - Dapr HTTP port"
+        echo "  • DOT_NET_HTTP_PORT (default: 3502) - Dapr HTTP port"
         echo ""
         echo "Services:"
-        echo "  • NebulaGraph .NET Example API: http://localhost:$TEST_API_HOST_PORT"
-        echo "  • NebulaGraph .NET Example Swagger: http://localhost:$TEST_API_HOST_PORT/swagger"
-        echo "  • NebulaGraph .NET Example Dapr: http://localhost:$TEST_API_HTTP_PORT"
+        echo "  • .NET Dapr Client API: http://localhost:$DOT_NET_HOST_PORT"
+        echo "  • .NET Dapr Client Swagger: http://localhost:$DOT_NET_HOST_PORT/swagger"
+        echo "  • .NET Dapr Client HTTP API: http://localhost:$DOT_NET_HTTP_PORT"
         echo ""
         echo "Notes:"
         echo "  • Self-contained Docker Compose setup with integrated NebulaGraph component"
