@@ -178,12 +178,12 @@ cd ../examples/NebulaGraphTestHttpApi
 ./test_net.sh test
 
 # Test pub/sub (Redis backend)  
-dapr run --app-id test-app --resources-path ../../components \
+dapr run --app-id test-app --components-path ../../components \
   -- curl -X POST http://localhost:3500/v1.0/publish/redis-pubsub/test \
   -H "Content-Type: application/json" -d '{"message":"hello world"}'
 
 # Test state operations
-dapr run --app-id test-app --resources-path ../../components \
+dapr run --app-id test-app --components-path ../../components \
   -- curl -X POST http://localhost:3500/v1.0/state/nebulagraph-state \
   -H "Content-Type: application/json" \
   -d '[{"key":"test","value":"hello from dapr"}]'
