@@ -10,44 +10,32 @@
 # limitations under the License.
 
 services:
-  # NebulaGraph Dapr Component
-  nebulagraph-component:
-    container_name: nebulagraph-dapr-component
+  # Dapr Pluggable Component (Multi-Store Support)
+  dapr-pluggable-component:
+    container_name: dapr-pluggable-component
     build:
       context: .  # Current directory contains the Dockerfile
       dockerfile: Dockerfile
     environment:
       - DAPR_COMPONENT_SOCKETS_FOLDER=/var/run
-      - STORE_TYPE=nebulagraph
+      - STORE_TYPES=nebulagraph,scylladb
     volumes:
       - socket:/var/run
     networks:
       - dapr-pluggable-net
+    profiles:
+      - dual
 
-  # ScyllaDB Dapr Component
-  scylladb-component:
-    container_name: scylladb-dapr-component
-    build:
-      context: .  # Current directory contains the Dockerfile
-      dockerfile: Dockerfile
-    environment:
-      - DAPR_COMPONENT_SOCKETS_FOLDER=/var/run
-      - STORE_TYPE=scylladb
-    volumes:
-      - socket:/var/run
-    networks:
-      - dapr-pluggable-net
-
-  # Dapr runtime
-  nebulagraph-component-sidecar:
-    container_name: nebulagraph-component-sidecar
+  # Dapr runtime sidecar
+  dapr-pluggable-component-sidecar:
+    container_name: dapr-pluggable-component-sidecar
     restart: on-failure
     image: "ghcr.io/dapr/daprd:latest"
     command: [
       "./daprd",
       "--log-level=debug",
-      "--app-id", "nebulagraph-test",
-      "--dapr-http-port", "${NEBULA_HTTP_PORT:-3501}",
+      "--app-id", "dual-state-test",
+      "--dapr-http-port", "${DUAL_HTTP_PORT:-3502}",
       "--placement-host-address", "dapr-placement:${DAPR_PLACEMENT_PORT:-50090}",
       "--scheduler-host-address", "dapr-scheduler:${DAPR_SCHEDULER_PORT:-50091}",
       "--resources-path", "/components",
@@ -58,11 +46,10 @@ services:
     env_file:
       - ../.env
     depends_on:
-      - nebulagraph-component
-      - scylladb-component
+      - dapr-pluggable-component
     ports:
-      - "${NEBULA_HTTP_PORT:-3501}:${NEBULA_HTTP_PORT:-3501}"  # Dapr HTTP API
-      - "${NEBULA_GRPC_PORT:-50001}:${NEBULA_GRPC_PORT:-50001}"  # Dapr gRPC API
+      - "${DUAL_HTTP_PORT:-3502}:${DUAL_HTTP_PORT:-3502}"  # Dapr HTTP API
+      - "${DUAL_GRPC_PORT:-50002}:${DUAL_GRPC_PORT:-50002}"  # Dapr gRPC API
     volumes:
       - socket:/var/run
       # Mount component files and secrets
@@ -70,18 +57,20 @@ services:
       - ../secrets:/secrets:ro
     networks:
       - dapr-pluggable-net
+    profiles:
+      - dual
 
   # Test application (optional)
-  nebulagraph-component-test-app:
-    container_name: nebulagraph-component-test-app
+  nebulagraph-test-app:
+    container_name: nebulagraph-test-app
     build:
       context: ../../  # Point to dapr-pluggable-components root directory
       dockerfile: Dockerfile.test
     environment:
-      - DAPR_HTTP_ENDPOINT=http://nebulagraph-component-sidecar:${NEBULA_HTTP_PORT:-3501}
-      - DAPR_GRPC_ENDPOINT=nebulagraph-component-sidecar:${NEBULA_GRPC_PORT:-50001}
+      - DAPR_HTTP_ENDPOINT=http://dapr-pluggable-component-sidecar:${DUAL_HTTP_PORT:-3502}
+      - DAPR_GRPC_ENDPOINT=dapr-pluggable-component-sidecar:${DUAL_GRPC_PORT:-50002}
     depends_on:
-      - nebulagraph-component-sidecar
+      - dapr-pluggable-component-sidecar
     networks:
       - dapr-pluggable-net
     profiles:
