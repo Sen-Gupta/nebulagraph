@@ -966,7 +966,7 @@ quick_test_services() {
     print_info "Running quick connectivity test..."
     
     local tests_passed=0
-    local total_tests=5
+    local total_tests=6
     
     # Test NebulaGraph
     if nc -z localhost 9669 2>/dev/null; then
@@ -982,6 +982,14 @@ quick_test_services() {
         tests_passed=$((tests_passed + 1))
     else
         print_error "Redis Service (port $REDIS_HOST_PORT) - FAILED"
+    fi
+    
+    # Test ScyllaDB
+    if nc -z localhost ${SCYLLA_CQL_PORT:-9042} 2>/dev/null; then
+        print_success "ScyllaDB Service (port ${SCYLLA_CQL_PORT:-9042}) - OK"
+        tests_passed=$((tests_passed + 1))
+    else
+        print_error "ScyllaDB Service (port ${SCYLLA_CQL_PORT:-9042}) - FAILED"
     fi
     
     # Test Dapr Placement Service
@@ -1020,7 +1028,7 @@ quick_test_services() {
 
 # Test NebulaGraph services connectivity
 test_nebula_services() {
-    print_header "Testing NebulaGraph and Redis Dependencies"
+    print_header "Testing NebulaGraph, Redis, and ScyllaDB Dependencies"
     
     # Test NebulaGraph Graph Service
     print_info "Testing NebulaGraph Graph Service (port 9669)..."
@@ -1037,7 +1045,7 @@ test_nebula_services() {
         
         # Test Redis authentication
         if command_exists redis-cli; then
-            if redis-cli -h localhost -p $REDIS_HOST_PORT -a $REDIS_PASSWORD ping >/dev/null 2>&1; then
+            if redis-cli -h localhost -p $REDIS_HOST_PORT -a $REDIS_SERVER_PASSWORD ping >/dev/null 2>&1; then
                 print_success "Redis authentication is working"
             else
                 print_warning "Redis is running but authentication failed"
@@ -1047,6 +1055,40 @@ test_nebula_services() {
         fi
     else
         print_error "Redis Service is not responding on port $REDIS_HOST_PORT"
+    fi
+    
+    # Test ScyllaDB Service
+    print_info "Testing ScyllaDB Service (port ${SCYLLA_CQL_PORT:-9042})..."
+    if nc -z localhost ${SCYLLA_CQL_PORT:-9042} 2>/dev/null; then
+        print_success "ScyllaDB Service is responding"
+        
+        # Test ScyllaDB connectivity with cqlsh if available
+        if command_exists cqlsh; then
+            if timeout 10 cqlsh localhost ${SCYLLA_CQL_PORT:-9042} -e "DESCRIBE KEYSPACES;" >/dev/null 2>&1; then
+                print_success "ScyllaDB connectivity is working"
+                
+                # Test if dapr_state keyspace exists
+                if timeout 10 cqlsh localhost ${SCYLLA_CQL_PORT:-9042} -e "USE ${SCYLLA_KEYSPACE:-dapr_state};" >/dev/null 2>&1; then
+                    print_success "ScyllaDB dapr_state keyspace is accessible"
+                else
+                    print_warning "ScyllaDB dapr_state keyspace not found - may need initialization"
+                fi
+            else
+                print_warning "ScyllaDB is running but connectivity test failed"
+            fi
+        else
+            print_info "cqlsh not available for ScyllaDB connectivity test"
+        fi
+    else
+        print_error "ScyllaDB Service is not responding on port ${SCYLLA_CQL_PORT:-9042}"
+    fi
+    
+    # Test ScyllaDB Manager
+    print_info "Testing ScyllaDB Manager (port ${SCYLLA_MANAGER_WEB_PORT:-7004})..."
+    if curl -s --connect-timeout 5 http://localhost:${SCYLLA_MANAGER_WEB_PORT:-7004} >/dev/null 2>&1; then
+        print_success "ScyllaDB Manager is responding"
+    else
+        print_warning "ScyllaDB Manager is not responding on port ${SCYLLA_MANAGER_WEB_PORT:-7004}"
     fi
     
     # Test NebulaGraph Studio

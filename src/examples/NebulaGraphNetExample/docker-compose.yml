@@ -41,6 +41,8 @@ services:
       "--app-port", "${TEST_API_APP_PORT:-80}",
       "--dapr-http-port", "${TEST_API_HTTP_PORT:-3502}",
       "--dapr-grpc-port", "${TEST_API_GRPC_PORT:-50002}",
+      "--placement-host-address", "dapr-placement:${DAPR_PLACEMENT_PORT:-50090}",
+      "--scheduler-host-address", "dapr-scheduler:${DAPR_SCHEDULER_PORT:-50091}",
       "--components-path", "/components",
       "--resources-path", "/components",
       "--config", "/components/config.yaml"
