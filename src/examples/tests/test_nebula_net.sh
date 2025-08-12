@@ -213,17 +213,33 @@ case "${1:-test}" in
     "check"|"status")
         check_service_availability
         ;;
+    "health")
+        check_service_availability
+        # Note: NebulaGraph doesn't have a separate health endpoint like ScyllaDB
+        print_info "NebulaGraph health is validated through service availability check"
+        ;;
+    "crud")
+        check_service_availability
+        test_nebulagraph_operations
+        ;;
+    "comprehensive")
+        check_service_availability
+        run_controller_tests
+        ;;
     "help"|"-h"|"--help")
         echo "Usage: $0 [COMMAND]"
         echo ""
         echo "NebulaGraph .NET Integration Test Suite"
         echo ""
         echo "Commands:"
-        echo "  test      Run all NebulaGraph integration tests (default)"
-        echo "  run       Same as test"
-        echo "  check     Check if required services are available"
-        echo "  status    Same as check"
-        echo "  help      Show this help"
+        echo "  test          Run all NebulaGraph integration tests (default)"
+        echo "  run           Same as test"
+        echo "  check         Check if required services are available"
+        echo "  status        Same as check"
+        echo "  health        Run health check (service availability)"
+        echo "  crud          Test CRUD operations and comprehensive suite"
+        echo "  comprehensive Run comprehensive test suite"
+        echo "  help          Show this help"
         echo ""
         echo "Prerequisites:"
         echo "  • Services must be running: ./run_dotnet_examples.sh start"

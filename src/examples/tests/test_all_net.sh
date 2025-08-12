@@ -272,23 +272,23 @@ cleanup() {
 trap cleanup EXIT
 
 # Main execution logic
-case "${1:-help}" in
+case "${1:-test}" in
     "start")
         check_prerequisites
         start_services
         run_all_tests
         ;;
-    "test")
+    "test"|"run")
         run_all_tests
+        ;;
+    "check"|"status")
+        check_service_status
         ;;
     "nebula"|"nebulagraph")
         run_individual_test "nebula"
         ;;
     "scylla"|"scylladb")
         run_individual_test "scylla"
-        ;;
-    "status")
-        check_service_status
         ;;
     "stop")
         stop_services
@@ -303,14 +303,16 @@ case "${1:-help}" in
         echo ".NET Examples Test Suite - Comprehensive testing for all .NET Dapr examples"
         echo ""
         echo "Commands:"
-        echo "  start        Start services and run all tests"
-        echo "  test         Run all tests (assumes services are running)"
-        echo "  nebula       Run only NebulaGraph tests"
-        echo "  scylla       Run only ScyllaDB tests"
-        echo "  status       Check service status"
-        echo "  stop         Stop all services"
-        echo "  clean        Stop services and cleanup"
-        echo "  help         Show this help"
+        echo "  test          Run all .NET integration tests (default)"
+        echo "  run           Same as test"
+        echo "  start         Start services and run all tests"
+        echo "  check         Check service status"
+        echo "  status        Same as check"
+        echo "  nebula        Run only NebulaGraph tests"
+        echo "  scylla        Run only ScyllaDB tests"
+        echo "  stop          Stop all services"
+        echo "  clean         Stop services and cleanup"
+        echo "  help          Show this help"
         echo ""
         echo "Test Components:"
         echo "  • NebulaGraph .NET Example - Full integration testing"
@@ -329,10 +331,12 @@ case "${1:-help}" in
         echo "  • Automatic cleanup on exit"
         echo ""
         echo "Examples:"
-        echo "  $0 start          # Start services and run all tests"
         echo "  $0 test           # Run tests on already running services"
+        echo "  $0 start          # Start services and run all tests"
         echo "  $0 nebula         # Test only NebulaGraph functionality"
         echo "  $0 scylla         # Test only ScyllaDB functionality"
+        echo ""
+        echo "Note: This script coordinates testing across multiple .NET examples."
         ;;
     *)
         echo "Unknown command: $1"
