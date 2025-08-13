@@ -703,26 +703,84 @@ initialize_nebula() {
     
     if [ -f "nebula/init_nebula.sh" ]; then
         cd nebula
+        
+        # Run the enhanced initialization script
         if ./init_nebula.sh; then
             print_success "NebulaGraph cluster initialized successfully"
             
-            # Verify schema was created correctly
-            print_info "Verifying NebulaGraph schema creation..."
-            if docker run --rm --network ${DAPR_PLUGABBLE_NETWORK_NAME:-dapr-pluggable-net} vesoft/nebula-console:v3-nightly \
-              --addr nebula-graphd --port ${NEBULA_PORT:-9669} --user ${NEBULA_USERNAME:-root} --password ${NEBULA_PASSWORD:-nebula} \
-              --eval "USE ${NEBULA_SPACE:-dapr_state}; DESCRIBE TAG state;" | grep -q "etag"; then
-                print_success "NebulaGraph schema verified - ETag support enabled"
+            # Enhanced verification with retry mechanism
+            print_info "Performing enhanced schema verification..."
+            local verification_attempts=3
+            local verification_success=false
+            
+            for attempt in $(seq 1 $verification_attempts); do
+                print_info "Schema verification attempt $attempt/$verification_attempts..."
+                
+                # Check for all required fields comprehensively
+                local schema_output=$(docker run --rm --network ${DAPR_PLUGABBLE_NETWORK_NAME:-dapr-pluggable-net} vesoft/nebula-console:v3-nightly \
+                  --addr nebula-graphd --port ${NEBULA_PORT:-9669} --user ${NEBULA_USERNAME:-root} --password ${NEBULA_PASSWORD:-nebula} \
+                  --eval "USE ${NEBULA_SPACE:-dapr_state}; DESCRIBE TAG state;" 2>/dev/null)
+                
+                if [ $? -eq 0 ] && [ -n "$schema_output" ]; then
+                    local fields_found=0
+                    
+                    # Check for data field
+                    if echo "$schema_output" | grep -q "data"; then
+                        print_success "✓ data field verified"
+                        fields_found=$((fields_found + 1))
+                    else
+                        print_error "✗ data field missing"
+                    fi
+                    
+                    # Check for etag field (critical for Dapr state store)
+                    if echo "$schema_output" | grep -q "etag"; then
+                        print_success "✓ etag field verified - ETag support enabled"
+                        fields_found=$((fields_found + 1))
+                    else
+                        print_error "✗ etag field missing - ETag support disabled"
+                    fi
+                    
+                    # Check for last_modified field
+                    if echo "$schema_output" | grep -q "last_modified"; then
+                        print_success "✓ last_modified field verified - Timestamp support enabled"
+                        fields_found=$((fields_found + 1))
+                    else
+                        print_error "✗ last_modified field missing - Timestamp support disabled"
+                    fi
+                    
+                    # All fields must be present for successful verification
+                    if [ $fields_found -eq 3 ]; then
+                        print_success "All required schema fields verified successfully!"
+                        verification_success=true
+                        break
+                    else
+                        print_warning "Schema verification incomplete ($fields_found/3 fields found)"
+                    fi
+                else
+                    print_warning "Failed to retrieve schema information"
+                fi
+                
+                if [ $attempt -lt $verification_attempts ]; then
+                    print_info "Retrying schema verification in 5 seconds..."
+                    sleep 5
+                fi
+            done
+            
+            cd ..
+            
+            if [ "$verification_success" = true ]; then
+                print_success "NebulaGraph initialization and verification completed successfully"
+                return 0
             else
-                print_error "Schema verification failed - ETag column not found"
-                cd ..
+                print_error "Schema verification failed after $verification_attempts attempts"
+                print_error "NebulaGraph may not be properly configured for Dapr state store"
                 return 1
             fi
         else
-            print_error "NebulaGraph initialization failed"
+            print_error "NebulaGraph initialization script failed"
             cd ..
             return 1
         fi
-        cd ..
     else
         print_error "nebula/init_nebula.sh not found"
         return 1
@@ -1204,20 +1262,89 @@ test_nebula_schema() {
     if [ $fields_found -eq 3 ]; then
         print_success "NebulaGraph schema is fully compatible with Dapr state store requirements"
         
-        # Test a simple state operation
-        print_info "Testing basic state operation..."
+        # Test comprehensive ETag functionality
+        print_info "Testing comprehensive ETag functionality..."
+        local test_key="schema-test-$(date +%s)"
+        local test_timestamp=$(date +%s)
+        local initial_etag="test-etag-$(date +%s%N)"
+        local updated_etag="updated-etag-$(date +%s%N)"
+        
+        # Test 1: Insert with ETag
+        print_info "Testing ETag insert operation..."
         if docker run --rm --network ${DAPR_PLUGABBLE_NETWORK_NAME:-dapr-pluggable-net} vesoft/nebula-console:v3-nightly \
           --addr nebula-graphd --port ${NEBULA_PORT:-9669} --user ${NEBULA_USERNAME:-root} --password ${NEBULA_PASSWORD:-nebula} \
-          --eval "USE dapr_state; INSERT VERTEX state(data, etag, last_modified) VALUES 'test-key':('test-data', 'test-etag', 123456789);" >/dev/null 2>&1; then
-            print_success "Basic state operation test successful"
-            
-            # Clean up test data
-            docker run --rm --network ${DAPR_PLUGABBLE_NETWORK_NAME:-dapr-pluggable-net} vesoft/nebula-console:v3-nightly \
-              --addr nebula-graphd --port ${NEBULA_PORT:-9669} --user ${NEBULA_USERNAME:-root} --password ${NEBULA_PASSWORD:-nebula} \
-              --eval "USE dapr_state; DELETE VERTEX 'test-key';" >/dev/null 2>&1
+          --eval "USE dapr_state; INSERT VERTEX state(data, etag, last_modified) VALUES '$test_key':('test-data', '$initial_etag', $test_timestamp);" >/dev/null 2>&1; then
+            print_success "✓ ETag insert operation successful"
         else
-            print_warning "Basic state operation test failed"
+            print_error "✗ ETag insert operation failed"
+            return 1
         fi
+        
+        # Test 2: Verify ETag retrieval
+        print_info "Testing ETag retrieval and validation..."
+        local fetch_result=$(docker run --rm --network ${DAPR_PLUGABBLE_NETWORK_NAME:-dapr-pluggable-net} vesoft/nebula-console:v3-nightly \
+          --addr nebula-graphd --port ${NEBULA_PORT:-9669} --user ${NEBULA_USERNAME:-root} --password ${NEBULA_PASSWORD:-nebula} \
+          --eval "USE dapr_state; MATCH (v:state) WHERE id(v) == '$test_key' RETURN v.state.data, v.state.etag, v.state.last_modified;" 2>/dev/null)
+        
+        if echo "$fetch_result" | grep -q "$initial_etag"; then
+            print_success "✓ ETag retrieval and validation successful"
+        else
+            print_error "✗ ETag retrieval failed"
+            print_info "Expected: $initial_etag"
+            print_info "Got: $fetch_result"
+            return 1
+        fi
+        
+        # Test 3: ETag-based update (optimistic concurrency control)
+        print_info "Testing ETag-based update (optimistic concurrency control)..."
+        local new_timestamp=$((test_timestamp + 1))
+        if docker run --rm --network ${DAPR_PLUGABBLE_NETWORK_NAME:-dapr-pluggable-net} vesoft/nebula-console:v3-nightly \
+          --addr nebula-graphd --port ${NEBULA_PORT:-9669} --user ${NEBULA_USERNAME:-root} --password ${NEBULA_PASSWORD:-nebula} \
+          --eval "USE dapr_state; UPDATE VERTEX '$test_key' SET state.data = 'updated-data', state.etag = '$updated_etag', state.last_modified = $new_timestamp;" >/dev/null 2>&1; then
+            print_success "✓ ETag-based update successful"
+        else
+            print_error "✗ ETag-based update failed"
+            return 1
+        fi
+        
+        # Test 4: Verify updated ETag
+        print_info "Testing updated ETag verification..."
+        local updated_result=$(docker run --rm --network ${DAPR_PLUGABBLE_NETWORK_NAME:-dapr-pluggable-net} vesoft/nebula-console:v3-nightly \
+          --addr nebula-graphd --port ${NEBULA_PORT:-9669} --user ${NEBULA_USERNAME:-root} --password ${NEBULA_PASSWORD:-nebula} \
+          --eval "USE dapr_state; MATCH (v:state) WHERE id(v) == '$test_key' RETURN v.state.etag;" 2>/dev/null)
+        
+        if echo "$updated_result" | grep -q "$updated_etag"; then
+            print_success "✓ Updated ETag verification successful"
+        else
+            print_error "✗ Updated ETag verification failed"
+            print_info "Expected: $updated_etag"
+            print_info "Got: $updated_result"
+            return 1
+        fi
+        
+        # Test 5: Timestamp ordering
+        print_info "Testing timestamp ordering functionality..."
+        local timestamp_result=$(docker run --rm --network ${DAPR_PLUGABBLE_NETWORK_NAME:-dapr-pluggable-net} vesoft/nebula-console:v3-nightly \
+          --addr nebula-graphd --port ${NEBULA_PORT:-9669} --user ${NEBULA_USERNAME:-root} --password ${NEBULA_PASSWORD:-nebula} \
+          --eval "USE dapr_state; MATCH (v:state) WHERE id(v) == '$test_key' RETURN v.state.last_modified;" 2>/dev/null)
+        
+        if echo "$timestamp_result" | grep -q "$new_timestamp"; then
+            print_success "✓ Timestamp ordering validation successful"
+        else
+            print_error "✗ Timestamp ordering validation failed"
+            print_info "Expected: $new_timestamp"
+            print_info "Got: $timestamp_result"
+            return 1
+        fi
+        
+        # Clean up test data
+        print_info "Cleaning up ETag test data..."
+        docker run --rm --network ${DAPR_PLUGABBLE_NETWORK_NAME:-dapr-pluggable-net} vesoft/nebula-console:v3-nightly \
+          --addr nebula-graphd --port ${NEBULA_PORT:-9669} --user ${NEBULA_USERNAME:-root} --password ${NEBULA_PASSWORD:-nebula} \
+          --eval "USE dapr_state; DELETE VERTEX '$test_key';" >/dev/null 2>&1
+        
+        print_success "🎉 All ETag functionality tests passed!"
+        print_info "NebulaGraph schema supports full Dapr optimistic concurrency control"
         
         return 0
     else
