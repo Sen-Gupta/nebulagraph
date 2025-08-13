@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 
-# Build arguments for CI/CD metadata
+# Build arguments for metadata injection
 ARG BUILDTIME
 ARG VERSION
 ARG REVISION
