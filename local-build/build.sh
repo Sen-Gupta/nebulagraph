@@ -15,7 +15,7 @@ fi
 
 # Configuration (can be overridden by .env file)
 REGISTRY_USERNAME="${DOCKER_REGISTRY_USERNAME:-foodinvitesadmin}"
-IMAGE_NAME="${DOCKER_IMAGE_NAME:-experiom}"
+IMAGE_NAME="${DOCKER_IMAGE_NAME:-dapr-pluggables}"
 DEFAULT_TAG="${DOCKER_DEFAULT_TAG:-latest}"
 COMPONENT_DIR="../src/dapr-pluggable-components"
 TOKEN_FILE=".docker_token"
