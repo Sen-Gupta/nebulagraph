@@ -1,33 +1,44 @@
 # NebulaGraph Infrastructure
 
-NebulaGraph database cluster setup and management for the Dapr component.
+NebulaGraph cluster setup for Dapr component development.
 
-## Quick Start
+## Quick Commands
 
 ```bash
-# From the dependencies folder, setup and start everything
-cd ../
-./environment_setup.sh
-
-# Daily operations
-./environment_setup.sh start    # Start services
-./environment_setup.sh status   # Check status  
-./environment_setup.sh stop     # Stop services
-./environment_setup.sh clean    # Clean reset
+# From dependencies/ directory
+./environment_setup.sh start    # Start all services (including NebulaGraph)
+./environment_setup.sh status   # Check NebulaGraph cluster status
+./environment_setup.sh stop     # Stop all services
+./environment_setup.sh clean    # Reset and clean environment
 ```
 
 ## What's Included
 
-- **NebulaGraph Cluster**: metad, storaged, graphd services
-- **NebulaGraph Studio**: Web UI for database management
-- **Automatic Initialization**: Required spaces and schemas
-- **Health Checks**: Service readiness verification
+- **NebulaGraph Cluster**: metad, storaged, graphd services with automatic initialization
+- **NebulaGraph Studio**: Web UI available at http://localhost:7001
+- **Health Checks**: Automatic readiness verification
+- **Schema Setup**: `dapr_state` space and `state` tag created automatically
 
-## Typical Workflow
+## Cluster Services
 
-### For New Setup (First Time)
+| Service | Container | Port | Purpose |
+|---------|-----------|------|---------|
+| Meta | nebula-metad | 9559 | Metadata management |
+| Storage | nebula-storaged | 9779 | Data storage |
+| Graph | nebula-graphd | 9669 | Query processing |
+| Studio | nebula-studio | 7001 | Web interface |
+
+## Direct Access
+
 ```bash
-# Complete setup with prerequisites check (from dependencies folder)
+# Connect via console (requires nebula-console installed)
+nebula-console -addr nebula-graphd -port 9669 -u root -p nebula
+
+# Example queries
+USE dapr_state;
+SHOW HOSTS;
+MATCH (v:state) RETURN v LIMIT 10;
+```
 cd ../
 ./environment_setup.sh
 

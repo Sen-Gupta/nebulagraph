@@ -1,31 +1,52 @@
-# DotNet Dapr Client
+# .NET Dapr Client Implementation
 
-.NET 9 HTTP REST API demonstrating multiple Dapr state store components including NebulaGraph and ScyllaDB.
+.NET 9 API demonstrating multi-backend Dapr state store integration.
 
 ## Quick Start
 
-### Prerequisites
-- .NET 9.0
-- NebulaGraph infrastructure running (see `src/dependencies/`)
-- Dapr component running (see `src/dapr-pluggable-components/`)
-
-### Run the API
-
-**Docker (Recommended):**
 ```bash
-docker-compose up --build
+# Start via parent script (recommended)
+cd ../ && ./run_dotnet_examples.sh start
+
+# Or build and run directly
+docker-compose --env-file ../../.env up --build
 ```
-API available at: `http://localhost:5092` (or `$TEST_HTTP_API_HOST_PORT`)
 
-**Local Development:**
-```bash
-dotnet run
-```
-API available at: `http://localhost:5090`
+## API Features
 
-### Test the API
+- **Multi-Backend Support**: NebulaGraph and ScyllaDB state stores
+- **Full CRUD Operations**: Get, Set, Delete, Bulk operations
+- **Health Monitoring**: Component and service health endpoints
+- **Swagger Documentation**: Interactive API docs at `/swagger`
+- **Performance Testing**: Load testing and benchmarking
+
+## Key Endpoints
+
+### State Operations
+- `GET /api/statestore/nebula/{key}` - NebulaGraph operations
+- `POST /api/statestore/scylla` - ScyllaDB operations
+- `POST /api/statestore/bulk` - Bulk operations
+
+### Monitoring
+- `GET /health` - Service health
+- `GET /swagger` - API documentation
+
+## Configuration
+
+Environment variables from `../../.env`:
+- `DOT_NET_HOST_PORT=5092` - API host port
+- `DOT_NET_HTTP_PORT=3502` - Dapr HTTP port
+- `DOT_NET_GRPC_PORT=50002` - Dapr gRPC port
+
+## Testing
+
 ```bash
-./test_nebula_net.sh start
+# Automated test suite
+../tests/test_all_net.sh
+
+# Component-specific tests  
+../tests/test_nebula_net.sh
+../tests/test_scylladb_net.sh
 ```
 
 For comprehensive testing and management:

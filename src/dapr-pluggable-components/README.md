@@ -1,53 +1,64 @@
-# NebulaGraph Dapr Component
+# Dapr Pluggable Components
 
-Dapr pluggable state store component using NebulaGraph as the backend.
+Multi-backend state store components implemented in Go supporting NebulaGraph and ScyllaDB.
+
+## Features
+
+- **Multi-Store Support**: Single binary serves both NebulaGraph and ScyllaDB backends
+- **Environment-Driven**: `STORE_TYPE` variable selects backend (nebulagraph|scylladb)
+- **Full Dapr Compatibility**: Implements complete state store interface
+- **Docker Ready**: Containerized deployment with Docker Compose
+- **Production Ready**: Health checks, metrics, and error handling
 
 ## Quick Start
 
-### Prerequisites
-- Docker and Docker Compose
-- Dapr CLI 
-- Go 1.24.5+
-
-### Run the Component
 ```bash
-# Start NebulaGraph infrastructure first
-cd ../dependencies
-./environment_setup.sh
+# Start infrastructure
+cd ../dependencies && ./environment_setup.sh start
 
-# Run the dual components
-cd ../dapr-pluggable-components
+# Run both components
 ./run_dapr_pluggables.sh start
 
-# Test all operations
+# Test functionality  
 ./tests/test_all.sh
 ```
 
-## Component Configuration
+## Implementation
 
-### STORE_TYPE Environment Variable
+### Component Types
 
-The same Docker image and Go binary can serve different component types by setting the `STORE_TYPE` environment variable:
+| Environment Variable | Backend | Port | Database |
+|---------------------|---------|------|----------|
+| `STORE_TYPE=nebulagraph` | NebulaGraph | 9669 | Graph database |
+| `STORE_TYPE=scylladb` | ScyllaDB | 9042 | Wide-column store |
 
-- **STORE_TYPE=nebulagraph** - NebulaGraph state store component
-- **STORE_TYPE=scylladb** - ScyllaDB state store component
+### State Store Operations
 
-### Docker Compose Configuration
+- **Get/Set/Delete**: Standard CRUD operations
+- **Bulk Operations**: Multi-key get/set for performance
+- **Transactions**: Multi-operation consistency (where supported)
+- **ETags**: Optimistic concurrency control
 
-The `docker-compose.yml` demonstrates dual component deployment:
+## Management Commands
 
-```yaml
-services:
-  # NebulaGraph Component
-  nebulagraph-component:
-    build: .
-    environment:
-      - DAPR_COMPONENT_SOCKETS_FOLDER=/var/run
-      - STORE_TYPE=nebulagraph
-    volumes:
-      - socket:/var/run
+```bash
+./run_dapr_pluggables.sh start     # Start both components
+./run_dapr_pluggables.sh stop      # Stop all services
+./run_dapr_pluggables.sh status    # Check component status
+./run_dapr_pluggables.sh logs      # View component logs
+./run_dapr_pluggables.sh test-basic # Run basic functionality tests
+```
 
-  # ScyllaDB Component  
+## Testing
+
+```bash
+# Comprehensive test suite
+./tests/test_all.sh
+
+# Individual component tests
+./stores/nebulagraph/tests/test_nebulagraph.sh
+./stores/scylladb/tests/test_scylladb.sh
+```  
   scylladb-component:
     build: .
     environment:

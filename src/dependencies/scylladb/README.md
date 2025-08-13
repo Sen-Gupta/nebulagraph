@@ -1,53 +1,59 @@
-# ScyllaDB Setup for Dapr State Store
+# ScyllaDB Infrastructure
 
-This directory contains the Docker Compose setup for ScyllaDB to be used as a Dapr state store component.
+ScyllaDB cluster setup for Dapr component development.
 
-## Components
+## Quick Commands
 
-- **ScyllaDB Node**: Primary database node running on port 9042
-- **ScyllaDB Manager**: Web-based management interface on port 5080
-- **Redis**: Additional Redis instance for pub/sub on port 6381
+```bash
+# From dependencies/ directory  
+./environment_setup.sh start    # Start all services (including ScyllaDB)
+./environment_setup.sh status   # Check ScyllaDB cluster status
+./environment_setup.sh stop     # Stop all services
+./environment_setup.sh clean    # Reset and clean environment
+```
 
-## Quick Start
+## What's Included
 
-1. **Start ScyllaDB cluster:**
-   ```bash
-   cd /home/sen/repos/nebulagraph/src/dependencies/scylladb
-   docker-compose up -d
-   ```
+- **ScyllaDB Cluster**: Multi-node cluster with automatic initialization
+- **ScyllaDB Manager**: Web UI available at http://localhost:5081
+- **Health Checks**: Automatic readiness verification  
+- **Schema Setup**: `dapr_state` keyspace and `state` table created automatically
 
-2. **Initialize the database:**
-   ```bash
-   ./init_scylladb.sh
-   ```
+## Cluster Services
 
-3. **Check status:**
-   ```bash
-   docker-compose ps
-   ```
+| Service | Container | Port | Purpose |
+|---------|-----------|------|---------|
+| ScyllaDB Node | scylladb-node1 | 9042 | CQL native protocol |
+| ScyllaDB Manager | scylladb-manager | 5081 | Web management interface |
+| Redis | redis-pubsub | 6381 | Pub/sub for component coordination |
 
-## Ports
+## Database Schema
 
-- **9042**: CQL Native Protocol (main database connection)
-- **7199**: JMX monitoring
-- **10000**: REST API
-- **9180**: Prometheus metrics
-- **7002**: Inter-node communication (host port, maps to container 7000)
-- **7003**: SSL Inter-node communication (host port, maps to container 7001)
-- **5081**: ScyllaDB Manager Web UI (changed from 5080 to avoid conflicts)
-- **5091**: ScyllaDB Manager API (changed from 5090 to avoid conflicts)
+```sql
+-- Keyspace
+CREATE KEYSPACE dapr_state 
+WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1};
 
-## Database Details
+-- State table
+CREATE TABLE dapr_state.state (
+    key text PRIMARY KEY,
+    value text,
+    etag text,
+    last_modified timestamp
+);
+```
 
-- **Keyspace**: `dapr_state`
-- **Table**: `state`
-- **Columns**:
-  - `key` (TEXT, PRIMARY KEY)
-  - `value` (TEXT)
-  - `etag` (TEXT)
-  - `last_modified` (TIMESTAMP)
+## Direct Access
 
-## Management
+```bash
+# Connect via cqlsh (requires ScyllaDB tools)
+cqlsh localhost 9042
+
+# Example queries  
+USE dapr_state;
+DESCRIBE TABLES;
+SELECT * FROM state LIMIT 10;
+```
 
 - **Web UI**: http://localhost:5081 (ScyllaDB Manager - updated port)
 - **CQL Shell**: `docker exec -it scylladb-node1 cqlsh`

@@ -1,52 +1,70 @@
-# Dapr Pluggable Components .NET Examples
+# .NET Examples
 
-This directory contains comprehensive .NET examples demonstrating the integration of Dapr pluggable state store components with .NET 9 applications.
+Comprehensive .NET 9 examples demonstrating Dapr state store integration with NebulaGraph and ScyllaDB.
 
 ## Overview
 
-The `dapr_pluggables.sln` solution includes two parallel .NET example projects that showcase different state store backends:
+The unified `DotNet/` project provides a single API that can connect to either backend, demonstrating the power of Dapr's abstraction layer.
 
-- **NebulaGraphNetExample** - Demonstrates NebulaGraph as a Dapr state store
-- **ScylladbNetExample** - Demonstrates ScyllaDB as a Dapr state store
+## Features
 
-Both examples provide identical API interfaces, making it easy to compare performance, features, and behavior across different database backends.
+- **Multi-Backend API**: Single codebase works with both NebulaGraph and ScyllaDB
+- **Full CRUD Operations**: Get, Set, Delete, Bulk operations
+- **Performance Testing**: Benchmarking and load testing capabilities
+- **Health Monitoring**: Service health checks and status endpoints
+- **Swagger Documentation**: Interactive API documentation
+- **Docker Ready**: Containerized deployment with Docker Compose
 
-## Projects
+## Quick Start
 
-### NebulaGraphNetExample
-A comprehensive .NET web application demonstrating NebulaGraph integration with Dapr's state management API.
+```bash
+# Start infrastructure and components
+cd ../dependencies && ./environment_setup.sh start
+cd ../dapr-pluggable-components && ./run_dapr_pluggables.sh start
 
-**Features:**
-- Full CRUD operations using Dapr state store
-- Performance testing and benchmarking
-- Bulk operations for high-throughput scenarios
-- Health checks and monitoring
-- Swagger API documentation
+# Run .NET examples
+cd ../examples && ./run_dotnet_examples.sh start
 
-**Key Files:**
-- `NebulaGraphNetExample.csproj` - Project configuration
-- `Controllers/StateStoreController.cs` - Main API implementation
-- `docker-compose.yml` - Container orchestration
-- `test_nebula_net.sh` - Automated test suite
+# Access Swagger UI
+open http://localhost:5092/swagger
+```
 
-### ScylladbNetExample
-A parallel .NET web application demonstrating ScyllaDB integration with identical functionality to the NebulaGraph example.
+## API Endpoints
 
-**Features:**
-- Identical API interface to NebulaGraphNetExample
-- ScyllaDB-optimized state store operations
-- Comprehensive test suite with 20+ test scenarios
-- Performance benchmarking and monitoring
-- Docker containerization support
+### State Store Operations
+- `GET /api/statestore/nebula/{key}` - Get from NebulaGraph
+- `POST /api/statestore/nebula` - Set in NebulaGraph
+- `DELETE /api/statestore/nebula/{key}` - Delete from NebulaGraph
+- `GET /api/statestore/scylla/{key}` - Get from ScyllaDB
+- `POST /api/statestore/scylla` - Set in ScyllaDB
+- `DELETE /api/statestore/scylla/{key}` - Delete from ScyllaDB
 
-**Key Files:**
-- `ScylladbNetExample.csproj` - Project configuration
-- `Controllers/StateStoreController.cs` - Main API implementation
-- `docker-compose.yml` - Container orchestration
-- `test_scylladb_net.sh` - Automated test suite
-- `README.md` - Detailed project documentation
+### Bulk Operations
+- `POST /api/statestore/nebula/bulk` - Bulk operations for NebulaGraph
+- `POST /api/statestore/scylla/bulk` - Bulk operations for ScyllaDB
 
-## Common Features
+### Health & Monitoring
+- `GET /health` - Application health status
+- `GET /api/statestore/health` - Component health status
+
+## Testing
+
+```bash
+# Run automated test suites
+./tests/test_all_net.sh          # All tests
+./tests/test_nebula_net.sh       # NebulaGraph specific
+./tests/test_scylladb_net.sh     # ScyllaDB specific
+```
+
+## Management
+
+```bash
+./run_dotnet_examples.sh start   # Start services
+./run_dotnet_examples.sh stop    # Stop services  
+./run_dotnet_examples.sh status  # Check status
+./run_dotnet_examples.sh logs    # View logs
+./run_dotnet_examples.sh test    # Run functionality tests
+```
 
 Both examples share the following capabilities:
 

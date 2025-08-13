@@ -1,33 +1,40 @@
-# ScyllaDB State Store Tests
+# ScyllaDB Component Tests
 
-This directory contains comprehensive tests for the ScyllaDB Dapr state store component.
+Comprehensive test suite for ScyllaDB state store component.
 
-## Test Files
+## Test Scripts
 
-### `test_http.sh` ✅ **IMPLEMENTED**
-Tests the ScyllaDB state store via Dapr's HTTP API including:
-- Basic CRUD operations (GET/SET/DELETE)
-- ETag support for optimistic concurrency control
-- Bulk operations (BulkGet/BulkSet/BulkDelete)
-- ScyllaDB-specific performance testing
-- Query API functionality
-- Performance validation and benchmarking
-- ScyllaDB-optimized data handling
+- `test_http.sh` - HTTP API testing (CRUD, bulk operations, ETags)
+- `test_grpc.sh` - gRPC API testing (all operations, performance)  
+- `test_scylladb.sh` - Comprehensive test runner
 
-### `test_grpc.sh` ✅ **IMPLEMENTED**
-Tests the ScyllaDB state store via Dapr's gRPC API including:
-- Basic CRUD operations (GET/SET/DELETE)
-- Bulk operations (BulkGet/BulkSet/BulkDelete)
-- ETag support and optimistic concurrency testing
-- Query API functionality
-- Cross-protocol compatibility testing (gRPC ↔ HTTP)
-- Performance validation and benchmarking
-- ScyllaDB-specific data patterns and consistency levels
+## Features Tested
 
-### `test_scyalldb.sh` 🚧 **TODO** (typo in filename - should be `test_scylladb.sh`)
-Comprehensive test runner for ScyllaDB (similar to test_nebula.sh for NebulaGraph)
+### Core Operations
+- **CRUD**: Get, Set, Delete operations
+- **Bulk Operations**: Multi-key get/set/delete
+- **ETags**: Optimistic concurrency control
+- **Query API**: Advanced querying capabilities
 
-## ScyllaDB-Specific Features Tested
+### ScyllaDB-Specific
+- **Consistency Levels**: LOCAL_QUORUM, ONE, ALL
+- **Performance**: Latency and throughput testing
+- **Data Patterns**: Time-series and wide-row patterns
+- **Error Handling**: Timeout and connection errors
+
+## Running Tests
+
+```bash
+# Individual tests
+./test_http.sh
+./test_grpc.sh
+
+# Comprehensive suite
+./test_scylladb.sh
+
+# From parent directory
+cd ../../ && ./tests/test_all.sh
+```
 
 ### HTTP Interface (`test_http.sh`)
 ✅ **Core Functionality**:

@@ -1,25 +1,17 @@
-# Docker Desktop + Dapr Compatibility Workarounds
+# Docker Desktop Compatibility Notes
 
-## Problem
-When using Docker Desktop (especially on Linux/macOS with desktop-linux context), Dapr's `dapr init` command fails with:
-```
-❌ could not connect to docker. docker may not be installed or running
-```
+## Issue: Dapr Init Failures with Docker Desktop
 
-This is a known issue documented in [GitHub Issue #5011](https://github.com/dapr/dapr/issues/5011).
+**Problem**: `dapr init` fails on Docker Desktop with connectivity errors.
 
-## ✅ Issue Resolution (August 2025)
-
-**RESOLVED:** Docker Desktop + Dapr connectivity issue successfully fixed!
-
-Our `environment_setup.sh` script now automatically:
+**Solution**: Automatically handled by `environment_setup.sh`:
 1. Detects Docker Desktop configurations
-2. Applies socket symlink workaround: `sudo ln -sf ~/.docker/desktop/docker.sock /var/run/docker.sock`
-3. Initializes Dapr in full container mode with core services (Zipkin, Placement, Scheduler)
+2. Creates socket symlink: `sudo ln -sf ~/.docker/desktop/docker.sock /var/run/docker.sock`
+3. Initializes Dapr in container mode
 
-**Verification:**
+## Verification
+
 ```bash
-# Check Dapr container mode status
 ./environment_setup.sh dapr-status
 
 # Expected output:
@@ -28,6 +20,23 @@ Our `environment_setup.sh` script now automatically:
 # dapr_placement   daprio/dapr:1.15.9   Up 2 minutes
 # dapr_scheduler   daprio/dapr:1.15.9   Up 2 minutes  
 # dapr_zipkin      openzipkin/zipkin    Up 2 minutes
+```
+
+## Manual Troubleshooting
+
+If automatic detection fails:
+```bash
+# Check Docker context
+docker context list
+
+# Manual socket link (if needed)
+sudo ln -sf ~/.docker/desktop/docker.sock /var/run/docker.sock
+
+# Verify Dapr initialization
+dapr --version
+```
+
+**Reference**: [Dapr GitHub Issue #5011](https://github.com/dapr/dapr/issues/5011)
 ```
 
 ## Root Cause

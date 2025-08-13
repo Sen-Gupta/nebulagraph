@@ -1,52 +1,46 @@
-# NebulaGraph Dapr Pluggable Component
+# NebulaGraph Dapr Pluggable Components
 
-## Project Intent
+A production-ready implementation of Dapr pluggable state store components supporting both NebulaGraph and ScyllaDB backends.
 
-This project provides a complete, containerized implementation of a Dapr pluggable state store component using NebulaGraph as the backend database. It is designed to enable cloud-native applications to leverage graph database capabilities for state management, with seamless integration into the Dapr ecosystem.
+## Features
 
-### Key Features
-- **Dapr Pluggable Component**: Implements the Dapr state store protocol, supporting both HTTP and gRPC APIs.
-- **NebulaGraph Backend**: Uses NebulaGraph for persistent, scalable, and schema-driven state storage.
-- **ScyllaDB Backend**: Alternative distributed database backend with high performance and scalability.
-- **Containerized Deployment**: All components (Dapr, NebulaGraph, ScyllaDB) run in Docker containers for easy setup and reproducibility.
-- **Automatic Schema Management**: Initializes required spaces and schemas automatically.
-- **Comprehensive Testing**: Includes .NET 9 HTTP and gRPC test APIs, with scripts for automated testing of all operations.
-
-## Architecture Overview
-- **Client Applications** interact with Dapr via HTTP (port 3501) or gRPC (port 50001).
-- **Dapr Sidecar** communicates with the pluggable component over a shared Unix domain socket.
-- **State Store Component** exposes a gRPC server and implements the state store logic.
-- **Database Backend** provides the actual persistent storage (NebulaGraph or ScyllaDB).
+- **Multi-Backend Support**: NebulaGraph (graph database) and ScyllaDB (wide-column) state stores
+- **Dapr Integration**: Full HTTP/gRPC API compatibility with automatic schema management
+- **Container-First**: Docker Compose orchestration for development and production
+- **Comprehensive Testing**: .NET 9 examples and automated test suites
+- **Production Ready**: Health checks, monitoring, and robust error handling
 
 ## Quick Start
 
-### Prerequisites
-- Docker & Docker Compose
-- Dapr CLI
-- Go 1.24.5+
-- .NET 9.0 (for test APIs)
-
-### Setup & Run
 ```bash
-# 1. Setup infrastructure
-cd src/dependencies
-./environment_setup.sh
+# 1. Start infrastructure (NebulaGraph, ScyllaDB, Dapr, Redis)
+cd src/dependencies && ./environment_setup.sh start
 
-# 2. Run the Dapr component
-cd ../dapr-pluggable-components
-./run_nebula.sh start
+# 2. Run pluggable components
+cd ../dapr-pluggable-components && ./run_dapr_pluggables.sh start
 
-# 3. Test all operations
-./tests/test_all.sh
+# 3. Test with .NET examples
+cd ../examples && ./run_dotnet_examples.sh start
+
+# 4. Run comprehensive tests
+cd ../dapr-pluggable-components && ./tests/test_all.sh
 ```
 
-## Example APIs
-- **HTTP API**: `src/examples/NebulaGraphTestHttpApi/`
-- **gRPC API**: `src/examples/NebulaGraphTestGrpcApi/`
+## Architecture
 
-## Configuration
-- See `.env` and `src/components/*.yaml` for all environment and component settings.
-- Full configuration guide: `docs/configuration.md`
+**Client App** → **Dapr Sidecar** → **Unix Socket** → **Pluggable Component** → **Backend Database**
+
+- **Dapr Sidecar**: HTTP (3501) and gRPC (50001) APIs
+- **Components**: Multi-store Go binary supporting NebulaGraph/ScyllaDB
+- **Backends**: NebulaGraph cluster (graphd:9669) or ScyllaDB cluster (9042)
+
+## Project Structure
+
+- `src/dependencies/` - Infrastructure setup and management
+- `src/dapr-pluggable-components/` - Go implementation of state store components  
+- `src/examples/` - .NET 9 API examples and integration tests
+- `src/components/` - Dapr component configurations
+- `docs/` - Architecture and configuration documentation
 
 ## Documentation
 - **Architecture**: `docs/architecture.md`

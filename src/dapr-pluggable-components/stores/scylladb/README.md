@@ -1,32 +1,54 @@
-# ScyllaDB State Store Implementation
+# ScyllaDB State Store
 
-This directory contains a production-ready ScyllaDB state store implementation for Dapr using the ScyllaDB-optimized GoCQL driver.
+Production-ready ScyllaDB implementation for Dapr state store using shard-aware GoCQL driver.
 
 ## Features
 
-✅ **Full Dapr State Store Interface**
-- Get, Set, Delete operations
-- Bulk operations (BulkGet, BulkSet, BulkDelete)
-- Query interface for arbitrary CQL execution
-- ETag support for optimistic concurrency control
+- **Full Dapr Interface**: Complete state store operations (CRUD, bulk, query)
+- **ScyllaDB Optimized**: Shard-aware driver, automatic schema management
+- **Production Ready**: Connection pooling, retry logic, configurable consistency
 
-✅ **ScyllaDB Optimizations**
-- Uses ScyllaDB's shard-aware GoCQL driver
-- Automatic keyspace and table creation
-- Configurable consistency levels
-- Connection pooling and retry logic
+## Implementation Details
 
-✅ **Production Features**
-- Comprehensive error handling
-- Configurable timeouts and connection parameters
-- Logging and debugging support
-- Thread-safe operations
+### Database Schema
+```sql
+CREATE KEYSPACE dapr_state 
+WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1};
 
-## Configuration
+CREATE TABLE state (
+    key text PRIMARY KEY,
+    value text,
+    etag text,
+    last_modified timestamp
+);
+```
 
-### Component Configuration
+### Configuration
+Set via environment variable: `STORE_TYPE=scylladb`
 
-Create a component file (e.g., `scylladb-state.yaml`):
+Component metadata (from `scylladb-state.yaml`):
+- `hosts` - ScyllaDB cluster nodes
+- `port` - CQL port (default: 9042)  
+- `username` - Database username
+- `password` - Database password
+- `keyspace` - Keyspace name
+- `consistency` - Consistency level
+
+### Performance Optimizations
+- **Shard-aware routing** for optimal performance
+- **Connection pooling** with configurable limits
+- **Prepared statements** for repeated queries
+- **Batch operations** for bulk updates
+- **Configurable timeouts** for operations
+
+## Testing
+
+```bash
+# Component-specific tests
+./tests/test_http.sh
+./tests/test_grpc.sh
+./tests/test_scylladb.sh
+```
 
 ```yaml
 apiVersion: dapr.io/v1alpha1

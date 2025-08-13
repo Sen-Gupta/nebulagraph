@@ -1,33 +1,46 @@
-# Redis for Dapr Pub/Sub
+# Redis Infrastructure
 
-This directory contains the Redis setup for Dapr pub/sub messaging, isolated from the NebulaGraph cluster.
+Redis setup for Dapr pub/sub messaging.
 
-## Overview
+## Quick Commands
 
-Redis serves as the pub/sub messaging backend for Dapr applications. This setup uses environment variables from the root `.env` file for configuration.
+```bash
+# From dependencies/ directory
+./environment_setup.sh start    # Start all services (including Redis)
+./environment_setup.sh status   # Check Redis status
+./environment_setup.sh stop     # Stop all services
+./environment_setup.sh clean    # Reset and clean environment
+```
+
+## What's Included
+
+- **Redis Server**: Pub/sub messaging backend on port 6380
+- **Health Checks**: Automatic readiness verification
+- **Authentication**: Password-protected access
+
+## Service Details
+
+| Service | Container | Port | Purpose |
+|---------|-----------|------|---------|
+| Redis | redis-pubsub | 6380 | Pub/sub messaging |
 
 ## Configuration
 
-The Redis service uses the following environment variables from `../../.env`:
+Environment variables from `src/.env`:
+- `REDIS_HOST_PORT=6380` - Host port mapping
+- `REDIS_PASSWORD` - Authentication password
 
-- `REDIS_HOST_PORT`: Host port mapping (default: 6380)
-- `REDIS_PASSWORD`: Redis authentication password
-
-## Files
-
-- `docker-compose.yml`: Redis service definition
-- `init_redis.sh`: Initialization and validation script
-- `README.md`: This documentation
-
-## Usage
-
-### Start Redis
+## Direct Access
 
 ```bash
-# From the redis directory
-docker-compose up -d
+# Connect via redis-cli (requires Redis tools)
+redis-cli -h localhost -p 6380 -a ${REDIS_PASSWORD}
 
-# Or from the root dependencies directory
+# Example commands
+PING
+INFO server
+PUBSUB CHANNELS
+```
 cd redis && docker-compose up -d
 ```
 

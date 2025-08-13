@@ -1,33 +1,54 @@
-# Dapr Runtime Services
+# Dapr Runtime Infrastructure
 
-This folder contains a Docker Compose configuration for running Dapr runtime services with controlled ports and networking.
+Dapr runtime services for placement, scheduling, and tracing.
 
-## Overview
-
-Instead of using the default `dapr init` which creates containers with fixed configurations, this setup provides:
-
-- **Controlled port mapping** - All ports are parameterized and configurable
-- **Shared network integration** - Uses the same `dapr-pluggable-net` network as other services
-- **Consistent parameterization** - Follows the `${VAR:-default}` pattern used by other services
-- **Health checks** - Built-in health monitoring for all services
-- **Persistence** - Named volumes for data persistence
-
-## Services
-
-| Service | Default Port | Purpose | Health Check |
-|---------|-------------|---------|--------------|
-| `dapr-placement` | 50090 | Actor placement service | HTTP healthz endpoint |
-| `dapr-scheduler` | 50091 | Scheduled jobs and reminders | HTTP healthz endpoint |
-| `dapr-zipkin` | 9411 | Distributed tracing | HTTP health endpoint |
-
-## Port Configuration
-
-All ports are configurable via environment variables in `../.env`:
+## Quick Commands
 
 ```bash
-# Dapr Runtime Configuration
-DAPR_VERSION=1.15.9
-DAPR_LOG_LEVEL=info
+# From dependencies/ directory
+./environment_setup.sh start    # Start all services (including Dapr runtime)
+./environment_setup.sh status   # Check Dapr services status  
+./environment_setup.sh stop     # Stop all services
+./environment_setup.sh clean    # Reset and clean environment
+```
+
+## What's Included
+
+- **Dapr Placement**: Actor placement service with health checks
+- **Dapr Scheduler**: Job scheduling and reminders
+- **Zipkin**: Distributed tracing for observability
+- **Shared Networking**: Integration with `dapr-pluggable-net`
+
+## Runtime Services
+
+| Service | Container | Port | Purpose |
+|---------|-----------|------|---------|
+| Placement | dapr-placement | 50005 | Actor placement |
+| Scheduler | dapr-scheduler | 50006 | Job scheduling |
+| Zipkin | dapr-zipkin | 9411 | Distributed tracing |
+
+## Configuration
+
+Environment variables from `src/.env`:
+- `DAPR_VERSION=1.15.9` - Dapr runtime version
+- `DAPR_LOG_LEVEL=info` - Logging level
+- `DAPR_PLACEMENT_PORT=50005` - Placement service port
+- `DAPR_SCHEDULER_PORT=50006` - Scheduler service port
+
+## Health Checks
+
+All services include health checks:
+- **Placement**: HTTP endpoint on `/v1.0/healthz`
+- **Scheduler**: HTTP endpoint on `/v1.0/healthz`  
+- **Zipkin**: HTTP endpoint on `/health`
+
+## Observability
+
+Access tracing dashboard:
+```bash
+# Zipkin UI
+open http://localhost:9411
+```
 
 # Dapr Placement Service
 DAPR_PLACEMENT_PORT=50090
