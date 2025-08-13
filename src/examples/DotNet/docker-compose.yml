@@ -1,10 +1,13 @@
 services:
   # Dapr Pluggable Component (Multi-Store Support)
+  # Using published Docker image instead of local build for better performance
   dot-net-dapr-pluggables-components:
     container_name: dot-net-dapr-pluggables-components
-    build:
-      context: ../../dapr-pluggable-components
-      dockerfile: Dockerfile
+    image: foodinvitesadmin/dapr-pluggables:latest
+    # Local build option (commented out):
+    # build:
+    #   context: ../../dapr-pluggable-components
+    #   dockerfile: Dockerfile
     environment:
       - DAPR_COMPONENT_SOCKETS_FOLDER=/var/run
       - STORE_TYPES=nebulagraph,scylladb
@@ -16,6 +19,7 @@ services:
   # .NET Dapr Client API
   dotnet-dapr-client:
     build: .
+    image: dotnet-dapr-client:latest
     container_name: dotnet-dapr-client
     ports:
       - "${DOT_NET_HOST_PORT}:${DOT_NET_APP_PORT}"

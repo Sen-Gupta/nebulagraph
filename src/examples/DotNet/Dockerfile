@@ -6,14 +6,18 @@ EXPOSE 80
 # Use the .NET 9.0 SDK for building
 FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
 WORKDIR /src
+
+# Copy project file and restore dependencies first (for better layer caching)
 COPY ["DotNetDaprClient.csproj", "./"]
 RUN dotnet restore "DotNetDaprClient.csproj"
+
+# Copy source code (excluding bin/, obj/ via .dockerignore)
 COPY . .
 WORKDIR "/src"
 RUN dotnet build "DotNetDaprClient.csproj" -c Release -o /app/build
 
 FROM build AS publish
-RUN dotnet publish "DotNetDaprClient.csproj" -c Release -o /app/publish
+RUN dotnet publish "DotNetDaprClient.csproj" -c Release -o /app/publish /p:UseAppHost=false
 
 FROM base AS final
 WORKDIR /app
