@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	nebulastore "nebulagraph/stores/nebulagraph"
 	scyllastore "nebulagraph/stores/scylladb"
@@ -12,8 +13,27 @@ import (
 	"github.com/dapr/kit/logger"
 )
 
+// Version information set by build flags
+var (
+	version = "dev"
+	commit  = "unknown"
+	date    = "unknown"
+)
+
 func main() {
-	fmt.Println("DEBUG: Starting Dapr component registration")
+	// Handle version flag
+	versionFlag := flag.Bool("version", false, "Print version information")
+	flag.Parse()
+
+	if *versionFlag {
+		fmt.Printf("Dapr Pluggable Component\n")
+		fmt.Printf("Version: %s\n", version)
+		fmt.Printf("Commit: %s\n", commit)
+		fmt.Printf("Build Date: %s\n", date)
+		os.Exit(0)
+	}
+
+	fmt.Printf("DEBUG: Starting Dapr component registration (version: %s)\n", version)
 
 	// Get list of stores to register from environment variable
 	// Examples:
