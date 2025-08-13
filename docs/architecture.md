@@ -1,103 +1,82 @@
-# NebulaGraph Dapr Component Architecture
+# Architecture Documentation
 
-Complete architecture documentation for the NebulaGraph Dapr pluggable state store component.
+## System Overview
 
-## Overview
-
-This project implements a Dapr pluggable component that provides state store functionality using NebulaGraph as the backend database. It follows Dapr's official pluggable component architecture pattern.
-
-## System Architecture
-
-### High-Level Architecture
+**Multi-Backend Dapr Pluggable Components** supporting NebulaGraph and ScyllaDB state stores.
 
 ```mermaid
 graph TB
-    subgraph "Client Applications"
-        A[Dapr HTTP Client<br/>Port 3501]
-        B[Dapr gRPC Client<br/>Port 50001]
+    subgraph "Client Layer"
+        A[Dapr HTTP Client :3501]
+        B[Dapr gRPC Client :50001]
     end
     
-    subgraph "Docker Network: dapr-pluggable-net"
-        subgraph "Dapr Runtime Container"
-            C[Dapr Sidecar<br/>daprd-nebulagraph]
-            C1[HTTP API :3501]
-            C2[gRPC API :50001]
-        end
-        
-        subgraph "NebulaGraph Component Container"
-            D[NebulaGraph Pluggable Component]
-            D1[gRPC Server]
-            D2[State Store Implementation]
-        end
-        
-        subgraph "NebulaGraph Infrastructure"
-            F[NebulaGraph Cluster<br/>nebula-graphd:9669]
-        end
+    subgraph "Dapr Runtime"
+        C[Dapr Sidecar]
+        D[Unix Socket]
     end
     
-    subgraph "Unix Domain Socket"
-        G["/var/run socket<br/>Shared Volume"]
+    subgraph "Pluggable Components"
+        E[Multi-Store Component<br/>NebulaGraph + ScyllaDB]
     end
     
-    A --> C1
-    B --> C2
-    C --> G
-    D1 --> G
-    D2 --> F
+    subgraph "Database Backends"
+        F[NebulaGraph Cluster :9669]
+        G[ScyllaDB Cluster :9042]
+    end
     
-    style C fill:#f3e5f5
-    style D fill:#e8f5e8
-    style F fill:#fce4ec
+    A --> C
+    B --> C
+    C <--> D
+    D <--> E
+    E --> F
+    E --> G
 ```
 
-### Communication Flow
+## Component Implementation
 
-```mermaid
-sequenceDiagram
-    participant Client as Client App
-    participant HTTP as Dapr HTTP API
-    participant Runtime as Dapr Runtime
-    participant Component as NebulaGraph Component
-    participant DB as NebulaGraph DB
-    
-    Client->>HTTP: POST /state (Set Value)
-    HTTP->>Runtime: Process Request
-    Runtime->>Component: gRPC over Unix Socket
-    Component->>DB: nGQL Query
-    DB-->>Component: Response
-    Component-->>Runtime: gRPC Response
-    Runtime-->>HTTP: HTTP Response
-    HTTP-->>Client: 200 OK
+### State Store Operations
+
+| Operation | NebulaGraph Query | ScyllaDB Query |
+|-----------|------------------|----------------|
+| **Get** | `MATCH (v:state {key: $key}) RETURN v.data` | `SELECT data FROM dapr_state WHERE key = ?` |
+| **Set** | `INSERT VERTEX state(key, data) VALUES $key: ($data)` | `INSERT INTO dapr_state (key, data) VALUES (?, ?)` |
+| **Delete** | `DELETE VERTEX state WHERE key == $key` | `DELETE FROM dapr_state WHERE key = ?` |
+| **Bulk** | `MATCH (v:state) WHERE v.key IN $keys RETURN v` | `SELECT * FROM dapr_state WHERE key IN ?` |
+
+### Data Models
+
+**NebulaGraph Schema:**
+```sql
+CREATE SPACE dapr_state;
+CREATE TAG state (key string, data string, etag string);
+CREATE TAG INDEX state_key_index ON state(key);
 ```
 
-## Component Architecture
+**ScyllaDB Schema:**
+```sql
+CREATE KEYSPACE dapr_state WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 3};
+CREATE TABLE state (key text PRIMARY KEY, data text, etag text);
+```
 
-### Built-in vs Pluggable Components
+## Deployment Architecture
 
-**Built-in Components (Traditional Dapr):**
-- Components compiled into Dapr runtime
-- Limited to predefined state stores (Redis, Cosmos DB, etc.)
-- Static configuration
+### Multi-Component Setup
 
-**Pluggable Components (Our Implementation):**
-- External processes communicating via Unix sockets
-- Custom state store implementations
-- Dynamic loading and configuration
-- Language-agnostic (our component is written in Go)
+The same Go binary serves both backends using environment variables:
 
-### Pluggable Component Pattern
-
-```mermaid
-graph TB
-    subgraph "Application Container"
-        A1[Your Application]
-        A2[Dapr SDK]
-    end
-    
-    subgraph "Dapr Sidecar Container"
-        S1[Dapr Runtime - daprd]
-        S2[HTTP/gRPC APIs]
-        S3[Component Loader]
+```yaml
+services:
+  nebulagraph-component:
+    environment:
+      - STORE_TYPE=nebulagraph
+      - NEBULA_HOST=nebula-graphd:9669
+  
+  scylladb-component:
+    environment:
+      - STORE_TYPE=scylladb  
+      - SCYLLA_HOSTS=scylladb-node:9042
+```
     end
     
     subgraph "NebulaGraph Component Container"

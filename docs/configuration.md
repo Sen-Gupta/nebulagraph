@@ -1,28 +1,51 @@
 # Configuration Guide
 
-Complete configuration guide for the NebulaGraph Dapr component setup and deployment.
+## Quick Setup
 
-## Quick Start
-
-### Development Setup
 ```bash
-# 1. Setup infrastructure
-cd src/dependencies
-./environment_setup.sh
+# 1. Infrastructure setup
+cd src/dependencies && ./environment_setup.sh start
 
-# 2. Run component
-cd ../dapr-pluggable-components  
-./run_nebula.sh start
+# 2. Start components  
+cd ../dapr-pluggable-components && ./run_dapr_pluggables.sh start
 
-# 3. Test
-./tests/test_all.sh
+# 3. Run examples
+cd ../examples && ./run_dotnet_examples.sh start
 ```
 
-## Component Configuration
+## Environment Configuration
 
-### Dapr Component Definition
+### Primary Environment File: `src/.env`
 
-The main component configuration file: `src/components/nebulagraph-state.yaml`
+```env
+# Database Connections
+NEBULA_HOST=nebula-graphd
+NEBULA_PORT=9669
+NEBULA_USERNAME=root
+NEBULA_PASSWORD=nebula
+
+SCYLLA_HOSTS=scylladb-node1,scylladb-node2
+SCYLLA_PORT=9042
+SCYLLA_USERNAME=cassandra
+SCYLLA_PASSWORD=cassandra
+
+# Dapr Settings
+DAPR_HTTP_PORT=3501
+DAPR_GRPC_PORT=50001
+DAPR_PLACEMENT_PORT=50005
+DAPR_SCHEDULER_PORT=50006
+
+# Component Settings
+COMPONENT_SOCKET_PATH=/var/run/dapr-components-sockets
+
+# Application Ports
+DOT_NET_HOST_PORT=5092
+DOT_NET_APP_PORT=80
+```
+
+## Component Configurations
+
+### NebulaGraph State Store: `src/components/nebulagraph-state.yaml`
 
 ```yaml
 apiVersion: dapr.io/v1alpha1
@@ -34,13 +57,13 @@ spec:
   version: v1
   metadata:
   - name: hosts
-    value: "nebula-graphd"
+    value: "${NEBULA_HOST}"
   - name: port
-    value: "9669"
+    value: "${NEBULA_PORT}"
   - name: username
-    value: "root"
+    value: "${NEBULA_USERNAME}"
   - name: password
-    value: "nebula"
+    value: "${NEBULA_PASSWORD}"
   - name: space
     value: "dapr_state"
   - name: connectionTimeout
@@ -49,55 +72,58 @@ spec:
     value: "30s"
 ```
 
-### Configuration Parameters
+### ScyllaDB State Store: `src/components/scylladb-state.yaml`
+
+```yaml
+apiVersion: dapr.io/v1alpha1
+kind: Component
+metadata:
+  name: scylladb-state
+spec:
+  type: state.scylladb-state
+  version: v1
+  metadata:
+  - name: hosts
+    value: "${SCYLLA_HOSTS}"
+  - name: port
+    value: "${SCYLLA_PORT}"
+  - name: username
+    value: "${SCYLLA_USERNAME}"
+  - name: password
+    value: "${SCYLLA_PASSWORD}"
+  - name: keyspace
+    value: "dapr_state"
+  - name: consistency
+    value: "LOCAL_QUORUM"
+  - name: replicationFactor
+    value: "3"
+```
+
+## Configuration Parameters
+
+### NebulaGraph Parameters
 
 | Parameter | Description | Default | Required |
 |-----------|-------------|---------|----------|
-| `hosts` | NebulaGraph server address | `localhost` | Yes |
-| `port` | NebulaGraph server port | `9669` | Yes |
+| `hosts` | Graph service address | `localhost` | Yes |
+| `port` | Graph service port | `9669` | Yes |
 | `username` | Database username | `root` | Yes |
 | `password` | Database password | `nebula` | Yes |
-| `space` | NebulaGraph space name | `dapr_state` | Yes |
+| `space` | NebulaGraph space | `dapr_state` | Yes |
 | `connectionTimeout` | Connection timeout | `10s` | No |
-| `executionTimeout` | Query execution timeout | `30s` | No |
+| `executionTimeout` | Query timeout | `30s` | No |
 
-## Environment Variables
+### ScyllaDB Parameters
 
-### Development Environment
-
-The project uses a `.env` file for Docker development:
-
-```bash
-# NebulaGraph Configuration
-NEBULA_HOST=nebula-graphd
-NEBULA_PORT=9669
-NEBULA_USERNAME=root
-NEBULA_PASSWORD=nebula
-NEBULA_SPACE=dapr_state
-
-# Dapr Configuration
-DAPR_HTTP_PORT=3501
-DAPR_GRPC_PORT=50001
-DAPR_APP_ID=nebulagraph-test
-
-# Component Configuration
-COMPONENT_SOCKET_PATH=/var/run/dapr-components-sockets
-```
-
-### Production Environment
-
-For production deployments, use Kubernetes secrets:
-
-```yaml
-apiVersion: v1
-kind: Secret
-metadata:
-  name: nebulagraph-credentials
-type: Opaque
-stringData:
-  username: "production-user"
-  password: "secure-password"
-  hosts: "nebula-cluster.prod.svc.cluster.local"
+| Parameter | Description | Default | Required |
+|-----------|-------------|---------|----------|
+| `hosts` | Node addresses (comma-separated) | `localhost` | Yes |
+| `port` | CQL port | `9042` | Yes |
+| `username` | Database username | `cassandra` | Yes |
+| `password` | Database password | `cassandra` | Yes |
+| `keyspace` | Keyspace name | `dapr_state` | Yes |
+| `consistency` | Consistency level | `LOCAL_QUORUM` | No |
+| `replicationFactor` | Replication factor | `3` | No |
 ```
 
 Reference in component:
