@@ -1,4 +1,14 @@
-# NebulaGraph Dapr Pluggable Components
+# NebulaGraph Da```bash
+# Pull the latest image
+docker pull foodinvitesadmin/dapr-pluggables:latest
+
+# Or use in your docker-compose.yml
+services:
+  dapr-pluggable:
+    image: foodinvitesadmin/dapr-pluggables:latest
+    environment:
+      - STORE_TYPES=nebulagraph,scylladb
+```e Components
 
 A production-ready implementation of Dapr pluggable state store components supporting both NebulaGraph and ScyllaDB backends.
 
@@ -12,6 +22,30 @@ A production-ready implementation of Dapr pluggable state store components suppo
 
 ## Quick Start
 
+### Using Pre-built Docker Image
+
+```bash
+# Pull the latest image
+docker pull sengupta/dapr-pluggable:latest
+
+# Or use in your docker-compose.yml
+services:
+  dapr-component:
+    image: sengupta/dapr-pluggable:latest
+    environment:
+      - STORE_TYPES=nebulagraph,scylladb
+```
+
+### Building from Source
+
+**Quick Local Build:**
+```bash
+# Build and push Docker image locally  
+cd local-build
+./build.sh
+```
+
+**Development Setup:**
 ```bash
 # 1. Start infrastructure (NebulaGraph, ScyllaDB, Dapr, Redis)
 cd src/dependencies && ./environment_setup.sh start

@@ -21,6 +21,11 @@ go.work
 nebulagraph
 nebulagraph-component
 
+# Docker secrets and tokens
+.docker_token
+*.docker_token
+local-build/.docker_token
+
 # .NET Core build artifacts
 bin/
 obj/
