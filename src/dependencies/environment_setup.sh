@@ -494,21 +494,21 @@ start_nebula_cluster() {
         # Try to start the cluster
         print_info "Starting containers with docker-compose..."
         cd nebula
-        if $compose_cmd --env-file ../.env up -d; then
+        if $compose_cmd --env-file ../../.env up -d; then
             print_success "NebulaGraph cluster started"
             print_info "Waiting for services to initialize..."
             sleep 20
         else
             print_warning "Initial startup failed, trying to recreate..."
             # If startup fails, try to recreate
-            $compose_cmd --env-file ../.env down 2>/dev/null || true
+            $compose_cmd --env-file ../../.env down 2>/dev/null || true
             sleep 2
             
             # Recreate network if needed
             docker network rm "$DAPR_PLUGABBLE_NETWORK_NAME" 2>/dev/null || true
             if docker network create "$DAPR_PLUGABBLE_NETWORK_NAME"; then
                 print_info "Network recreated, attempting to start containers again..."
-                if $compose_cmd --env-file ../.env up -d; then
+                if $compose_cmd --env-file ../../.env up -d; then
                     print_success "NebulaGraph cluster started after recreation"
                     print_info "Waiting for services to initialize..."
                     sleep 20
@@ -549,7 +549,7 @@ start_redis_service() {
         
         print_info "Starting Redis container..."
         cd redis
-        if $compose_cmd --env-file ../.env up -d; then
+        if $compose_cmd --env-file ../../.env up -d; then
             print_success "Redis service started successfully"
             print_info "Waiting for Redis to initialize..."
             sleep 5
@@ -584,7 +584,7 @@ start_scylladb_service() {
         
         print_info "Starting ScyllaDB containers..."
         cd scylladb
-        if $compose_cmd --env-file ../.env up -d; then
+        if $compose_cmd --env-file ../../.env up -d; then
             print_success "ScyllaDB service started successfully"
             print_info "Waiting for ScyllaDB to initialize..."
             sleep 10
@@ -624,7 +624,7 @@ start_dapr_runtime() {
         
         print_info "Starting controlled Dapr runtime containers..."
         cd dapr
-        if $compose_cmd --env-file ../.env up -d; then
+        if $compose_cmd --env-file ../../.env up -d; then
             print_success "Controlled Dapr runtime services started successfully"
             print_info "Dapr services running with controlled configuration:"
             print_info "  - Placement: ${DAPR_PLACEMENT_PORT}"
@@ -656,7 +656,7 @@ stop_dapr_runtime() {
         }
         
         cd dapr
-        if $compose_cmd --env-file ../.env down; then
+        if $compose_cmd --env-file ../../.env down; then
             print_success "Dapr runtime services stopped successfully"
         else
             print_warning "Some issues stopping Dapr runtime services"
@@ -849,7 +849,7 @@ stop_nebula_cluster() {
             return 1
         }
         cd nebula
-        $compose_cmd --env-file ../.env down
+        $compose_cmd --env-file ../../.env down
         cd ..
         print_success "NebulaGraph cluster stopped"
     else
@@ -868,7 +868,7 @@ stop_redis_service() {
             return 1
         }
         cd redis
-        $compose_cmd --env-file ../.env down
+        $compose_cmd --env-file ../../.env down
         cd ..
         print_success "Redis service stopped"
     else
@@ -887,7 +887,7 @@ stop_scylladb_service() {
             return 1
         }
         cd scylladb
-        $compose_cmd --env-file ../.env down
+        $compose_cmd --env-file ../../.env down
         cd ..
         print_success "ScyllaDB service stopped"
     else
@@ -916,7 +916,7 @@ show_nebula_status() {
             return 1
         }
         cd nebula
-        $compose_cmd --env-file ../.env ps
+        $compose_cmd --env-file ../../.env ps
         cd ..
     else
         print_error "nebula/docker-compose.yml not found"
@@ -934,7 +934,7 @@ show_nebula_logs() {
             return 1
         }
         cd nebula
-        $compose_cmd --env-file ../.env logs -f
+        $compose_cmd --env-file ../../.env logs -f
         cd ..
     else
         print_error "nebula/docker-compose.yml not found"
@@ -955,7 +955,7 @@ show_dapr_status() {
         
         print_info "Dapr Runtime Services:"
         cd dapr
-        $compose_cmd --env-file ../.env ps
+        $compose_cmd --env-file ../../.env ps
         cd ..
         
         print_info "\nDapr Service URLs:"
@@ -1014,7 +1014,7 @@ clean_nebula_cluster() {
         
         print_info "Stopping and removing containers and volumes..."
         cd nebula
-        $compose_cmd --env-file ../.env down -v --remove-orphans
+        $compose_cmd --env-file ../../.env down -v --remove-orphans
         cd ..
         
         # Also remove the network if it exists
