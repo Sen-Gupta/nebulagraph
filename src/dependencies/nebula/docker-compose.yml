@@ -16,8 +16,8 @@ services:
     container_name: nebula-metad
     restart: unless-stopped
     ports:
-      - "${NEBULA_META_PORT:-9559}:${NEBULA_META_PORT:-9559}"
-      - "${NEBULA_META_HTTP_PORT:-19559}:${NEBULA_META_HTTP_PORT:-19559}"
+      - "${NEBULA_META_PORT}:${NEBULA_META_PORT}"
+      - "${NEBULA_META_HTTP_PORT}:${NEBULA_META_HTTP_PORT}"
     environment:
       - USER=root
     volumes:
@@ -26,11 +26,11 @@ services:
     networks:
       - dapr-pluggable-net
     command:
-      - --meta_server_addrs=nebula-metad:${NEBULA_META_PORT:-9559}
+      - --meta_server_addrs=nebula-metad:${NEBULA_META_PORT}
       - --local_ip=nebula-metad
       - --ws_ip=nebula-metad
-      - --port=${NEBULA_META_PORT:-9559}
-      - --ws_http_port=${NEBULA_META_HTTP_PORT:-19559}
+      - --port=${NEBULA_META_PORT}
+      - --ws_http_port=${NEBULA_META_HTTP_PORT}
 
   # NebulaGraph Storage Service
   nebula-storaged:
@@ -38,8 +38,8 @@ services:
     container_name: nebula-storaged
     restart: unless-stopped
     ports:
-      - "${NEBULA_STORAGE_PORT:-9779}:${NEBULA_STORAGE_PORT:-9779}"
-      - "${NEBULA_STORAGE_HTTP_PORT:-19779}:${NEBULA_STORAGE_HTTP_PORT:-19779}"
+      - "${NEBULA_STORAGE_PORT}:${NEBULA_STORAGE_PORT}"
+      - "${NEBULA_STORAGE_HTTP_PORT}:${NEBULA_STORAGE_HTTP_PORT}"
     environment:
       - USER=root
     volumes:
@@ -50,11 +50,11 @@ services:
     depends_on:
       - nebula-metad
     command:
-      - --meta_server_addrs=nebula-metad:${NEBULA_META_PORT:-9559}
+      - --meta_server_addrs=nebula-metad:${NEBULA_META_PORT}
       - --local_ip=nebula-storaged
       - --ws_ip=nebula-storaged
-      - --port=${NEBULA_STORAGE_PORT:-9779}
-      - --ws_http_port=${NEBULA_STORAGE_HTTP_PORT:-19779}
+      - --port=${NEBULA_STORAGE_PORT}
+      - --ws_http_port=${NEBULA_STORAGE_HTTP_PORT}
 
   # NebulaGraph Graph Service
   nebula-graphd:
@@ -62,8 +62,8 @@ services:
     container_name: nebula-graphd
     restart: unless-stopped
     ports:
-      - "${NEBULA_PORT:-9669}:${NEBULA_PORT:-9669}"
-      - "${NEBULA_HTTP_PORT:-19669}:${NEBULA_HTTP_PORT:-19669}"
+      - "${NEBULA_PORT}:${NEBULA_PORT}"
+      - "${NEBULA_HTTP_PORT}:${NEBULA_HTTP_PORT}"
     environment:
       - USER=root
     volumes:
@@ -75,11 +75,11 @@ services:
       - nebula-metad
       - nebula-storaged
     command:
-      - --meta_server_addrs=nebula-metad:${NEBULA_META_PORT:-9559}
+      - --meta_server_addrs=nebula-metad:${NEBULA_META_PORT}
       - --local_ip=nebula-graphd
       - --ws_ip=nebula-graphd
-      - --port=${NEBULA_PORT:-9669}
-      - --ws_http_port=${NEBULA_HTTP_PORT:-19669}
+      - --port=${NEBULA_PORT}
+      - --ws_http_port=${NEBULA_HTTP_PORT}
 
   # NebulaGraph Console (for management)
   nebula-console:
@@ -91,7 +91,7 @@ services:
       - nebula-graphd
     stdin_open: true
     tty: true
-    command: ["nebula-console", "-addr", "nebula-graphd", "-port", "${NEBULA_PORT:-9669}", "-u", "root", "-p", "nebula"]
+    command: ["nebula-console", "-addr", "nebula-graphd", "-port", "${NEBULA_PORT}", "-u", "root", "-p", "nebula"]
 
   # NebulaGraph Studio (web-based management interface)
   nebula-studio:
@@ -102,7 +102,7 @@ services:
     networks:
       - dapr-pluggable-net
     ports:
-      - "${NEBULA_STUDIO_PORT:-7001}:7001"
+      - "${NEBULA_STUDIO_PORT}:7001"
     depends_on:
       - nebula-graphd
     volumes:

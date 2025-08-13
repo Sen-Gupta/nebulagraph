@@ -64,7 +64,7 @@ From Dapr components or applications:
 
 ```yaml
 # For docker-compose services in same network
-host: redis:6379
+host: redis-pubsub:6379
 password: <REDIS_PASSWORD>
 
 # For host connections

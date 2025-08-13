@@ -6,6 +6,11 @@
 
 set -e
 
+# Load environment configuration if available
+if [ -f "../../.env" ]; then
+    source ../../.env
+fi
+
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -14,9 +19,9 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Port definitions (from .env or defaults)
-DOT_NET_HOST_PORT=${DOT_NET_HOST_PORT:-5090}
-DOT_NET_APP_PORT=${DOT_NET_APP_PORT:-80}
-DOT_NET_HTTP_PORT=${DOT_NET_HTTP_PORT:-3502}
+DOT_NET_HOST_PORT=${DOT_NET_HOST_PORT}
+DOT_NET_APP_PORT=${DOT_NET_APP_PORT}
+DOT_NET_HTTP_PORT=${DOT_NET_HTTP_PORT}
 
 print_header() {
     echo -e "\n${BLUE}======================================${NC}"

@@ -5,6 +5,13 @@
 
 set -e
 
+# Load environment variables from .env file if it exists
+if [[ -f "../.env" ]]; then
+    set -a  # automatically export all variables
+    source ../.env
+    set +a  # stop automatically exporting
+fi
+
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -13,10 +20,10 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Port definitions (from .env or defaults)
-DOT_NET_HOST_PORT=${DOT_NET_HOST_PORT:-5090}
-DOT_NET_APP_PORT=${DOT_NET_APP_PORT:-80}
-DOT_NET_HTTP_PORT=${DOT_NET_HTTP_PORT:-3502}
-DOT_NET_GRPC_PORT=${DOT_NET_GRPC_PORT:-50002}
+DOT_NET_HOST_PORT=${DOT_NET_HOST_PORT}
+DOT_NET_APP_PORT=${DOT_NET_APP_PORT}
+DOT_NET_HTTP_PORT=${DOT_NET_HTTP_PORT}
+DOT_NET_GRPC_PORT=${DOT_NET_GRPC_PORT}
 
 print_header() {
     echo -e "\n${BLUE}======================================${NC}"
@@ -126,7 +133,7 @@ build_services() {
     }
     
     print_info "Building all Docker services with latest code changes..."
-    if $compose_cmd build; then
+    if $compose_cmd --env-file ../../.env build; then
         print_success "All Dapr pluggable component services built successfully"
     else
         print_error "Failed to build Dapr pluggable component services"
@@ -157,7 +164,7 @@ start_services() {
     }
     
     print_info "Starting Dapr pluggable component services..."
-    if $compose_cmd up -d; then
+    if $compose_cmd --env-file ../../.env up -d; then
         print_success "Dapr pluggable component services started successfully"
         
         # Wait for services to be ready
@@ -165,15 +172,15 @@ start_services() {
         sleep 10
         
         # Check if containers are running
-        local component_running=$($compose_cmd ps -q dot-net-dapr-pluggables-components 2>/dev/null)
-        local api_running=$($compose_cmd ps -q dotnet-dapr-client 2>/dev/null)
-        local sidecar_running=$($compose_cmd ps -q dotnet-dapr-client-sidecar 2>/dev/null)
+        local component_running=$($compose_cmd --env-file ../../.env ps -q dot-net-dapr-pluggables-components 2>/dev/null)
+        local api_running=$($compose_cmd --env-file ../../.env ps -q dotnet-dapr-client 2>/dev/null)
+        local sidecar_running=$($compose_cmd --env-file ../../.env ps -q dotnet-dapr-client-sidecar 2>/dev/null)
         
         if [ -n "$component_running" ] && [ -n "$api_running" ] && [ -n "$sidecar_running" ]; then
             print_success "All Dapr pluggable component containers are running"
         else
             print_warning "Some containers may not be running properly"
-            $compose_cmd ps
+            $compose_cmd --env-file ../../.env ps
         fi
     else
         print_error "Failed to start Dapr pluggable component services"
@@ -204,7 +211,7 @@ stop_services() {
     }
     
     print_info "Stopping Dapr pluggable component services..."
-    $compose_cmd down
+    $compose_cmd --env-file ../../.env down
     print_success "Dapr pluggable component services stopped"
     
     # Return to original directory
@@ -232,7 +239,7 @@ check_status() {
     
     # Show container status
     print_info "Container Status:"
-    $compose_cmd ps
+    $compose_cmd --env-file ../../.env ps
     
     echo ""
     print_info "Service Endpoints:"
@@ -314,15 +321,15 @@ show_logs() {
         case "$service" in
             "component"|"pluggable")
                 print_info "Showing logs for dot-net-dapr-pluggables-components..."
-                $compose_cmd logs -f dot-net-dapr-pluggables-components
+                $compose_cmd --env-file ../../.env logs -f dot-net-dapr-pluggables-components
                 ;;
             "api"|"client")
                 print_info "Showing logs for dotnet-dapr-client..."
-                $compose_cmd logs -f dotnet-dapr-client
+                $compose_cmd --env-file ../../.env logs -f dotnet-dapr-client
                 ;;
             "sidecar"|"dapr")
                 print_info "Showing logs for dotnet-dapr-client-sidecar..."
-                $compose_cmd logs -f dotnet-dapr-client-sidecar
+                $compose_cmd --env-file ../../.env logs -f dotnet-dapr-client-sidecar
                 ;;
             *)
                 print_error "Unknown service: $service"
@@ -332,7 +339,7 @@ show_logs() {
         esac
     else
         print_info "Showing logs for all services..."
-        $compose_cmd logs -f
+        $compose_cmd --env-file ../../.env logs -f
     fi
     
     # Return to original directory

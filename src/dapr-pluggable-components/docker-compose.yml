@@ -33,10 +33,10 @@ services:
       "./daprd",
       "--log-level=debug",
       "--app-id", "dual-state-test",
-      "--dapr-http-port", "${PLUGGABLE_COMPONENTS_HTTP_PORT:-3501}",
-      "--dapr-grpc-port", "${PLUGGABLE_COMPONENTS_GRPC_PORT:-50001}",
-      "--placement-host-address", "dapr-placement:${DAPR_PLACEMENT_PORT:-50090}",
-      "--scheduler-host-address", "dapr-scheduler:${DAPR_SCHEDULER_PORT:-50091}",
+      "--dapr-http-port", "${PLUGGABLE_COMPONENTS_HTTP_PORT}",
+      "--dapr-grpc-port", "${PLUGGABLE_COMPONENTS_GRPC_PORT}",
+      "--placement-host-address", "dapr-placement:${DAPR_PLACEMENT_PORT}",
+      "--scheduler-host-address", "dapr-scheduler:${DAPR_SCHEDULER_PORT}",
       "--resources-path", "/components",
       "--config", "/components/config.yaml"
     ]
@@ -47,8 +47,8 @@ services:
     depends_on:
       - dapr-pluggable-component
     ports:
-      - "${PLUGGABLE_COMPONENTS_HTTP_PORT:-3501}:${PLUGGABLE_COMPONENTS_HTTP_PORT:-3501}"  # Dapr HTTP API
-      - "${PLUGGABLE_COMPONENTS_GRPC_PORT:-50001}:${PLUGGABLE_COMPONENTS_GRPC_PORT:-50001}"  # Dapr gRPC API
+      - "${PLUGGABLE_COMPONENTS_HTTP_PORT}:${PLUGGABLE_COMPONENTS_HTTP_PORT}"  # Dapr HTTP API
+      - "${PLUGGABLE_COMPONENTS_GRPC_PORT}:${PLUGGABLE_COMPONENTS_GRPC_PORT}"  # Dapr gRPC API
     volumes:
       - socket:/var/run
       # Mount component files and secrets
@@ -64,4 +64,4 @@ volumes:
 networks:
   dapr-pluggable-net:
     external: true
-    name: ${DAPR_PLUGABBLE_NETWORK_NAME:-dapr-pluggable-net}
+    name: ${DAPR_PLUGABBLE_NETWORK_NAME}

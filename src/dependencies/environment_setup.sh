@@ -494,21 +494,21 @@ start_nebula_cluster() {
         # Try to start the cluster
         print_info "Starting containers with docker-compose..."
         cd nebula
-        if $compose_cmd up -d; then
+        if $compose_cmd --env-file ../.env up -d; then
             print_success "NebulaGraph cluster started"
             print_info "Waiting for services to initialize..."
             sleep 20
         else
             print_warning "Initial startup failed, trying to recreate..."
             # If startup fails, try to recreate
-            $compose_cmd down 2>/dev/null || true
+            $compose_cmd --env-file ../.env down 2>/dev/null || true
             sleep 2
             
             # Recreate network if needed
             docker network rm "$DAPR_PLUGABBLE_NETWORK_NAME" 2>/dev/null || true
             if docker network create "$DAPR_PLUGABBLE_NETWORK_NAME"; then
                 print_info "Network recreated, attempting to start containers again..."
-                if $compose_cmd up -d; then
+                if $compose_cmd --env-file ../.env up -d; then
                     print_success "NebulaGraph cluster started after recreation"
                     print_info "Waiting for services to initialize..."
                     sleep 20
@@ -549,7 +549,7 @@ start_redis_service() {
         
         print_info "Starting Redis container..."
         cd redis
-        if $compose_cmd up -d; then
+        if $compose_cmd --env-file ../.env up -d; then
             print_success "Redis service started successfully"
             print_info "Waiting for Redis to initialize..."
             sleep 5
@@ -584,7 +584,7 @@ start_scylladb_service() {
         
         print_info "Starting ScyllaDB containers..."
         cd scylladb
-        if $compose_cmd up -d; then
+        if $compose_cmd --env-file ../.env up -d; then
             print_success "ScyllaDB service started successfully"
             print_info "Waiting for ScyllaDB to initialize..."
             sleep 10
@@ -624,12 +624,12 @@ start_dapr_runtime() {
         
         print_info "Starting controlled Dapr runtime containers..."
         cd dapr
-        if $compose_cmd up -d; then
+        if $compose_cmd --env-file ../.env up -d; then
             print_success "Controlled Dapr runtime services started successfully"
             print_info "Dapr services running with controlled configuration:"
-            print_info "  - Placement: ${DAPR_PLACEMENT_PORT:-50090}"
-            print_info "  - Zipkin: ${DAPR_ZIPKIN_PORT:-9411}"
-            print_info "  - Scheduler: ${DAPR_SCHEDULER_PORT:-50091}"
+            print_info "  - Placement: ${DAPR_PLACEMENT_PORT}"
+            print_info "  - Zipkin: ${DAPR_ZIPKIN_PORT}"
+            print_info "  - Scheduler: ${DAPR_SCHEDULER_PORT}"
             print_info "Waiting for Dapr services to initialize..."
             sleep 15
         else
@@ -656,7 +656,7 @@ stop_dapr_runtime() {
         }
         
         cd dapr
-        if $compose_cmd down; then
+        if $compose_cmd --env-file ../.env down; then
             print_success "Dapr runtime services stopped successfully"
         else
             print_warning "Some issues stopping Dapr runtime services"
@@ -718,7 +718,7 @@ initialize_nebula() {
                 
                 # Check for all required fields comprehensively
                 local schema_output=$(docker run --rm --network ${DAPR_PLUGABBLE_NETWORK_NAME:-dapr-pluggable-net} vesoft/nebula-console:v3-nightly \
-                  --addr nebula-graphd --port ${NEBULA_PORT:-9669} --user ${NEBULA_USERNAME:-root} --password ${NEBULA_PASSWORD:-nebula} \
+                  --addr nebula-graphd --port ${NEBULA_PORT} --user ${NEBULA_USERNAME:-root} --password ${NEBULA_PASSWORD:-nebula} \
                   --eval "USE ${NEBULA_SPACE:-dapr_state}; DESCRIBE TAG state;" 2>/dev/null)
                 
                 if [ $? -eq 0 ] && [ -n "$schema_output" ]; then
@@ -823,7 +823,7 @@ wait_for_nebula_ready() {
     local redis_attempt=0
     
     while [ $redis_attempt -lt $redis_attempts ]; do
-        if docker exec redis redis-cli -a dapr_redis ping >/dev/null 2>&1; then
+        if docker exec redis-pubsub redis-cli -a dapr_redis ping >/dev/null 2>&1; then
             print_success "Redis is ready and accepting connections"
             break
         else
@@ -849,7 +849,7 @@ stop_nebula_cluster() {
             return 1
         }
         cd nebula
-        $compose_cmd down
+        $compose_cmd --env-file ../.env down
         cd ..
         print_success "NebulaGraph cluster stopped"
     else
@@ -868,7 +868,7 @@ stop_redis_service() {
             return 1
         }
         cd redis
-        $compose_cmd down
+        $compose_cmd --env-file ../.env down
         cd ..
         print_success "Redis service stopped"
     else
@@ -887,7 +887,7 @@ stop_scylladb_service() {
             return 1
         }
         cd scylladb
-        $compose_cmd down
+        $compose_cmd --env-file ../.env down
         cd ..
         print_success "ScyllaDB service stopped"
     else
@@ -916,7 +916,7 @@ show_nebula_status() {
             return 1
         }
         cd nebula
-        $compose_cmd ps
+        $compose_cmd --env-file ../.env ps
         cd ..
     else
         print_error "nebula/docker-compose.yml not found"
@@ -934,7 +934,7 @@ show_nebula_logs() {
             return 1
         }
         cd nebula
-        $compose_cmd logs -f
+        $compose_cmd --env-file ../.env logs -f
         cd ..
     else
         print_error "nebula/docker-compose.yml not found"
@@ -955,20 +955,20 @@ show_dapr_status() {
         
         print_info "Dapr Runtime Services:"
         cd dapr
-        $compose_cmd ps
+        $compose_cmd --env-file ../.env ps
         cd ..
         
         print_info "\nDapr Service URLs:"
-        echo -e "  • Placement: localhost:${DAPR_PLACEMENT_PORT:-50090}"
-        echo -e "  • Zipkin: http://localhost:${DAPR_ZIPKIN_PORT:-9411}"
-        echo -e "  • Scheduler: localhost:${DAPR_SCHEDULER_PORT:-50091}"
+        echo -e "  • Placement: localhost:${DAPR_PLACEMENT_PORT}"
+        echo -e "  • Zipkin: http://localhost:${DAPR_ZIPKIN_PORT}"
+        echo -e "  • Scheduler: localhost:${DAPR_SCHEDULER_PORT}"
         
         print_info "\nHealth Check Status:"
         local health_cmd="curl -s"
         
         # Check Zipkin health
         if command_exists curl; then
-            if $health_cmd -f "http://localhost:${DAPR_ZIPKIN_PORT:-9411}/health" >/dev/null 2>&1; then
+            if $health_cmd -f "http://localhost:${DAPR_ZIPKIN_PORT}/health" >/dev/null 2>&1; then
                 print_success "Zipkin is healthy"
             else
                 print_warning "Zipkin health check failed"
@@ -976,14 +976,14 @@ show_dapr_status() {
         fi
         
         # Check Placement health
-        if $health_cmd -f "http://localhost:${DAPR_PLACEMENT_HEALTH_HOST_PORT:-58090}/healthz" >/dev/null 2>&1; then
+        if $health_cmd -f "http://localhost:${DAPR_PLACEMENT_HEALTH_HOST_PORT}/healthz" >/dev/null 2>&1; then
             print_success "Placement service is healthy"
         else
             print_warning "Placement service health check failed"
         fi
         
         # Check Scheduler health
-        if $health_cmd -f "http://localhost:${DAPR_SCHEDULER_HEALTH_HOST_PORT:-58091}/healthz" >/dev/null 2>&1; then
+        if $health_cmd -f "http://localhost:${DAPR_SCHEDULER_HEALTH_HOST_PORT}/healthz" >/dev/null 2>&1; then
             print_success "Scheduler service is healthy"
         else
             print_warning "Scheduler service health check failed"
@@ -1014,7 +1014,7 @@ clean_nebula_cluster() {
         
         print_info "Stopping and removing containers and volumes..."
         cd nebula
-        $compose_cmd down -v --remove-orphans
+        $compose_cmd --env-file ../.env down -v --remove-orphans
         cd ..
         
         # Also remove the network if it exists
@@ -1068,27 +1068,27 @@ quick_test_services() {
     fi
     
     # Test ScyllaDB
-    if nc -z localhost ${SCYLLA_CQL_PORT:-9042} 2>/dev/null; then
-        print_success "ScyllaDB Service (port ${SCYLLA_CQL_PORT:-9042}) - OK"
+    if nc -z localhost ${SCYLLA_CQL_PORT} 2>/dev/null; then
+        print_success "ScyllaDB Service (port ${SCYLLA_CQL_PORT}) - OK"
         tests_passed=$((tests_passed + 1))
     else
-        print_error "ScyllaDB Service (port ${SCYLLA_CQL_PORT:-9042}) - FAILED"
+        print_error "ScyllaDB Service (port ${SCYLLA_CQL_PORT}) - FAILED"
     fi
     
     # Test Dapr Placement Service
-    if nc -z localhost ${DAPR_PLACEMENT_PORT:-50090} 2>/dev/null; then
-        print_success "Dapr Placement Service (port ${DAPR_PLACEMENT_PORT:-50090}) - OK"
+    if nc -z localhost ${DAPR_PLACEMENT_PORT} 2>/dev/null; then
+        print_success "Dapr Placement Service (port ${DAPR_PLACEMENT_PORT}) - OK"
         tests_passed=$((tests_passed + 1))
     else
-        print_error "Dapr Placement Service (port ${DAPR_PLACEMENT_PORT:-50090}) - FAILED"
+        print_error "Dapr Placement Service (port ${DAPR_PLACEMENT_PORT}) - FAILED"
     fi
     
     # Test Dapr Scheduler Service
-    if nc -z localhost ${DAPR_SCHEDULER_PORT:-50091} 2>/dev/null; then
-        print_success "Dapr Scheduler Service (port ${DAPR_SCHEDULER_PORT:-50091}) - OK"
+    if nc -z localhost ${DAPR_SCHEDULER_PORT} 2>/dev/null; then
+        print_success "Dapr Scheduler Service (port ${DAPR_SCHEDULER_PORT}) - OK"
         tests_passed=$((tests_passed + 1))
     else
-        print_error "Dapr Scheduler Service (port ${DAPR_SCHEDULER_PORT:-50091}) - FAILED"
+        print_error "Dapr Scheduler Service (port ${DAPR_SCHEDULER_PORT}) - FAILED"
     fi
     
     # Test NebulaGraph Studio
@@ -1144,17 +1144,17 @@ test_nebula_services() {
     fi
     
     # Test ScyllaDB Service
-    print_info "Testing ScyllaDB Service (port ${SCYLLA_CQL_PORT:-9042})..."
-    if nc -z localhost ${SCYLLA_CQL_PORT:-9042} 2>/dev/null; then
+    print_info "Testing ScyllaDB Service (port ${SCYLLA_CQL_PORT})..."
+    if nc -z localhost ${SCYLLA_CQL_PORT} 2>/dev/null; then
         print_success "ScyllaDB Service is responding"
         
         # Test ScyllaDB connectivity with cqlsh if available
         if command_exists cqlsh; then
-            if timeout 10 cqlsh localhost ${SCYLLA_CQL_PORT:-9042} -e "DESCRIBE KEYSPACES;" >/dev/null 2>&1; then
+            if timeout 10 cqlsh localhost ${SCYLLA_CQL_PORT} -e "DESCRIBE KEYSPACES;" >/dev/null 2>&1; then
                 print_success "ScyllaDB connectivity is working"
                 
                 # Test if dapr_state keyspace exists
-                if timeout 10 cqlsh localhost ${SCYLLA_CQL_PORT:-9042} -e "USE ${SCYLLA_KEYSPACE:-dapr_state};" >/dev/null 2>&1; then
+                if timeout 10 cqlsh localhost ${SCYLLA_CQL_PORT} -e "USE ${SCYLLA_KEYSPACE:-dapr_state};" >/dev/null 2>&1; then
                     print_success "ScyllaDB dapr_state keyspace is accessible"
                 else
                     print_warning "ScyllaDB dapr_state keyspace not found - may need initialization"
@@ -1166,15 +1166,15 @@ test_nebula_services() {
             print_info "cqlsh not available for ScyllaDB connectivity test"
         fi
     else
-        print_error "ScyllaDB Service is not responding on port ${SCYLLA_CQL_PORT:-9042}"
+        print_error "ScyllaDB Service is not responding on port ${SCYLLA_CQL_PORT}"
     fi
     
     # Test ScyllaDB Manager
-    print_info "Testing ScyllaDB Manager (port ${SCYLLA_MANAGER_WEB_PORT:-7004})..."
-    if curl -s --connect-timeout 5 http://localhost:${SCYLLA_MANAGER_WEB_PORT:-7004} >/dev/null 2>&1; then
+    print_info "Testing ScyllaDB Manager (port ${SCYLLA_MANAGER_WEB_PORT})..."
+    if curl -s --connect-timeout 5 http://localhost:${SCYLLA_MANAGER_WEB_PORT} >/dev/null 2>&1; then
         print_success "ScyllaDB Manager is responding"
     else
-        print_warning "ScyllaDB Manager is not responding on port ${SCYLLA_MANAGER_WEB_PORT:-7004}"
+        print_warning "ScyllaDB Manager is not responding on port ${SCYLLA_MANAGER_WEB_PORT}"
     fi
     
     # Test NebulaGraph Studio
@@ -1211,7 +1211,7 @@ test_nebula_schema() {
     # Test if dapr_state space exists
     print_info "Checking if dapr_state space exists..."
     if docker run --rm --network ${DAPR_PLUGABBLE_NETWORK_NAME:-dapr-pluggable-net} vesoft/nebula-console:v3-nightly \
-      --addr nebula-graphd --port ${NEBULA_PORT:-9669} --user ${NEBULA_USERNAME:-root} --password ${NEBULA_PASSWORD:-nebula} \
+      --addr nebula-graphd --port ${NEBULA_PORT} --user ${NEBULA_USERNAME:-root} --password ${NEBULA_PASSWORD:-nebula} \
       --eval "SHOW SPACES;" | grep -q "dapr_state"; then
         print_success "dapr_state space exists"
     else
@@ -1222,7 +1222,7 @@ test_nebula_schema() {
     # Test if state tag exists
     print_info "Checking if state tag exists..."
     if docker run --rm --network ${DAPR_PLUGABBLE_NETWORK_NAME:-dapr-pluggable-net} vesoft/nebula-console:v3-nightly \
-      --addr nebula-graphd --port ${NEBULA_PORT:-9669} --user ${NEBULA_USERNAME:-root} --password ${NEBULA_PASSWORD:-nebula} \
+      --addr nebula-graphd --port ${NEBULA_PORT} --user ${NEBULA_USERNAME:-root} --password ${NEBULA_PASSWORD:-nebula} \
       --eval "USE dapr_state; SHOW TAGS;" | grep -q "state"; then
         print_success "state tag exists"
     else
@@ -1233,7 +1233,7 @@ test_nebula_schema() {
     # Test schema fields
     print_info "Verifying state tag schema..."
     local schema_output=$(docker run --rm --network ${DAPR_PLUGABBLE_NETWORK_NAME:-dapr-pluggable-net} vesoft/nebula-console:v3-nightly \
-      --addr nebula-graphd --port ${NEBULA_PORT:-9669} --user ${NEBULA_USERNAME:-root} --password ${NEBULA_PASSWORD:-nebula} \
+      --addr nebula-graphd --port ${NEBULA_PORT} --user ${NEBULA_USERNAME:-root} --password ${NEBULA_PASSWORD:-nebula} \
       --eval "USE dapr_state; DESCRIBE TAG state;" 2>/dev/null)
     
     # Check for required fields
@@ -1272,7 +1272,7 @@ test_nebula_schema() {
         # Test 1: Insert with ETag
         print_info "Testing ETag insert operation..."
         if docker run --rm --network ${DAPR_PLUGABBLE_NETWORK_NAME:-dapr-pluggable-net} vesoft/nebula-console:v3-nightly \
-          --addr nebula-graphd --port ${NEBULA_PORT:-9669} --user ${NEBULA_USERNAME:-root} --password ${NEBULA_PASSWORD:-nebula} \
+          --addr nebula-graphd --port ${NEBULA_PORT} --user ${NEBULA_USERNAME:-root} --password ${NEBULA_PASSWORD:-nebula} \
           --eval "USE dapr_state; INSERT VERTEX state(data, etag, last_modified) VALUES '$test_key':('test-data', '$initial_etag', $test_timestamp);" >/dev/null 2>&1; then
             print_success "✓ ETag insert operation successful"
         else
@@ -1283,7 +1283,7 @@ test_nebula_schema() {
         # Test 2: Verify ETag retrieval
         print_info "Testing ETag retrieval and validation..."
         local fetch_result=$(docker run --rm --network ${DAPR_PLUGABBLE_NETWORK_NAME:-dapr-pluggable-net} vesoft/nebula-console:v3-nightly \
-          --addr nebula-graphd --port ${NEBULA_PORT:-9669} --user ${NEBULA_USERNAME:-root} --password ${NEBULA_PASSWORD:-nebula} \
+          --addr nebula-graphd --port ${NEBULA_PORT} --user ${NEBULA_USERNAME:-root} --password ${NEBULA_PASSWORD:-nebula} \
           --eval "USE dapr_state; MATCH (v:state) WHERE id(v) == '$test_key' RETURN v.state.data, v.state.etag, v.state.last_modified;" 2>/dev/null)
         
         if echo "$fetch_result" | grep -q "$initial_etag"; then
@@ -1299,7 +1299,7 @@ test_nebula_schema() {
         print_info "Testing ETag-based update (optimistic concurrency control)..."
         local new_timestamp=$((test_timestamp + 1))
         if docker run --rm --network ${DAPR_PLUGABBLE_NETWORK_NAME:-dapr-pluggable-net} vesoft/nebula-console:v3-nightly \
-          --addr nebula-graphd --port ${NEBULA_PORT:-9669} --user ${NEBULA_USERNAME:-root} --password ${NEBULA_PASSWORD:-nebula} \
+          --addr nebula-graphd --port ${NEBULA_PORT} --user ${NEBULA_USERNAME:-root} --password ${NEBULA_PASSWORD:-nebula} \
           --eval "USE dapr_state; UPDATE VERTEX '$test_key' SET state.data = 'updated-data', state.etag = '$updated_etag', state.last_modified = $new_timestamp;" >/dev/null 2>&1; then
             print_success "✓ ETag-based update successful"
         else
@@ -1310,7 +1310,7 @@ test_nebula_schema() {
         # Test 4: Verify updated ETag
         print_info "Testing updated ETag verification..."
         local updated_result=$(docker run --rm --network ${DAPR_PLUGABBLE_NETWORK_NAME:-dapr-pluggable-net} vesoft/nebula-console:v3-nightly \
-          --addr nebula-graphd --port ${NEBULA_PORT:-9669} --user ${NEBULA_USERNAME:-root} --password ${NEBULA_PASSWORD:-nebula} \
+          --addr nebula-graphd --port ${NEBULA_PORT} --user ${NEBULA_USERNAME:-root} --password ${NEBULA_PASSWORD:-nebula} \
           --eval "USE dapr_state; MATCH (v:state) WHERE id(v) == '$test_key' RETURN v.state.etag;" 2>/dev/null)
         
         if echo "$updated_result" | grep -q "$updated_etag"; then
@@ -1325,7 +1325,7 @@ test_nebula_schema() {
         # Test 5: Timestamp ordering
         print_info "Testing timestamp ordering functionality..."
         local timestamp_result=$(docker run --rm --network ${DAPR_PLUGABBLE_NETWORK_NAME:-dapr-pluggable-net} vesoft/nebula-console:v3-nightly \
-          --addr nebula-graphd --port ${NEBULA_PORT:-9669} --user ${NEBULA_USERNAME:-root} --password ${NEBULA_PASSWORD:-nebula} \
+          --addr nebula-graphd --port ${NEBULA_PORT} --user ${NEBULA_USERNAME:-root} --password ${NEBULA_PASSWORD:-nebula} \
           --eval "USE dapr_state; MATCH (v:state) WHERE id(v) == '$test_key' RETURN v.state.last_modified;" 2>/dev/null)
         
         if echo "$timestamp_result" | grep -q "$new_timestamp"; then
@@ -1340,7 +1340,7 @@ test_nebula_schema() {
         # Clean up test data
         print_info "Cleaning up ETag test data..."
         docker run --rm --network ${DAPR_PLUGABBLE_NETWORK_NAME:-dapr-pluggable-net} vesoft/nebula-console:v3-nightly \
-          --addr nebula-graphd --port ${NEBULA_PORT:-9669} --user ${NEBULA_USERNAME:-root} --password ${NEBULA_PASSWORD:-nebula} \
+          --addr nebula-graphd --port ${NEBULA_PORT} --user ${NEBULA_USERNAME:-root} --password ${NEBULA_PASSWORD:-nebula} \
           --eval "USE dapr_state; DELETE VERTEX '$test_key';" >/dev/null 2>&1
         
         print_success "🎉 All ETag functionality tests passed!"
@@ -1657,13 +1657,13 @@ main() {
     echo -e "  • NebulaGraph Cluster: nebula-graphd:9669"
     echo -e "  • Redis Pub/Sub: redis-pubsub:6379 (host port: $REDIS_HOST_PORT)"
     echo -e "  • ScyllaDB State Store: scylladb-node1:9042"
-    echo -e "  • NebulaGraph Studio: http://localhost:${NEBULA_STUDIO_PORT:-7001}"
-    echo -e "  • ScyllaDB Manager: http://localhost:${SCYLLA_MANAGER_WEB_PORT:-7004}"
+    echo -e "  • NebulaGraph Studio: http://localhost:${NEBULA_STUDIO_PORT}"
+    echo -e "  • ScyllaDB Manager: http://localhost:${SCYLLA_MANAGER_WEB_PORT}"
     
     echo -e "\n${BLUE}Dapr Runtime Services:${NC}"
-    echo -e "  • Placement: localhost:${DAPR_PLACEMENT_PORT:-50090}"
-    echo -e "  • Zipkin Tracing: http://localhost:${DAPR_ZIPKIN_PORT:-9411}"
-    echo -e "  • Scheduler: localhost:${DAPR_SCHEDULER_PORT:-50091}"
+    echo -e "  • Placement: localhost:${DAPR_PLACEMENT_PORT}"
+    echo -e "  • Zipkin Tracing: http://localhost:${DAPR_ZIPKIN_PORT}"
+    echo -e "  • Scheduler: localhost:${DAPR_SCHEDULER_PORT}"
     
     echo -e "\n${BLUE}Dapr Components Available:${NC}"
     echo -e "  • State Store: nebulagraph-state (NebulaGraph backend)"

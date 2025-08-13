@@ -10,7 +10,7 @@ echo "============================================================"
 echo "Comprehensive HTTP API Testing (CRUD + Bulk Operations + Query API)"
 
 # Base configuration
-DAPR_HTTP_PORT=${SCYLLADB_HTTP_PORT:-3501}
+DAPR_HTTP_PORT=${SCYLLADB_HTTP_PORT}
 DAPR_PLUGABBLE_NETWORK_NAME=${DAPR_PLUGABBLE_NETWORK_NAME:-dapr-pluggable-net}
 COMPONENT_NAME="scylladb-state"
 DAPR_URL="http://localhost:$DAPR_HTTP_PORT/v1.0/state/$COMPONENT_NAME"
