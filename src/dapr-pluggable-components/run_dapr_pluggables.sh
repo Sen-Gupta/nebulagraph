@@ -10,6 +10,15 @@ if [ -f "../.env" ]; then
     source ../.env
 fi
 
+# Resolve absolute path to .env relative to this script
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ENV_FILE_ABS="$(readlink -f "$SCRIPT_DIR/../.env" 2>/dev/null || python3 -c 'import os,sys;print(os.path.realpath(sys.argv[1]))' "$SCRIPT_DIR/../.env")"
+if [ ! -f "$ENV_FILE_ABS" ]; then
+    echo "ERROR: .env not found at $ENV_FILE_ABS" >&2
+    exit 1
+fi
+echo "Using .env: $ENV_FILE_ABS"
+
 # Set default values if not already set
 PLUGGABLE_COMPONENTS_HTTP_PORT=${PLUGGABLE_COMPONENTS_HTTP_PORT}
 PLUGGABLE_COMPONENTS_GRPC_PORT=${PLUGGABLE_COMPONENTS_GRPC_PORT}
@@ -112,13 +121,13 @@ start_component() {
     
     # Build with updated code changes (allows layer caching for dependencies)
     print_info "Building Docker services with latest code changes..."
-    if ! $compose_cmd --env-file ../.env build; then
+    if ! $compose_cmd --env-file "$ENV_FILE_ABS" build; then
         print_error "Failed to build Docker services"
         return 1
     fi
     print_success "Docker services built successfully"
     
-    if $compose_cmd --env-file ../.env up -d; then
+    if $compose_cmd --env-file "$ENV_FILE_ABS" up -d; then
         print_success "Dapr pluggable components started"
         
         # Wait for services to initialize
@@ -126,7 +135,7 @@ start_component() {
         sleep 10
         
         # Check if containers are running
-        if $compose_cmd --env-file ../.env ps | grep -q "Up"; then
+    if $compose_cmd --env-file "$ENV_FILE_ABS" ps | grep -q "Up"; then
             print_success "All containers are running"
         else
             print_error "Some containers failed to start"
@@ -148,7 +157,7 @@ stop_component() {
             print_error "Docker Compose is not installed or not in PATH"
             return 1
         }
-        $compose_cmd --env-file ../.env down
+    $compose_cmd --env-file "$ENV_FILE_ABS" down
         print_success "Dual Dapr pluggable components stopped"
     else
         print_error "docker-compose.yml not found in current directory"
@@ -166,7 +175,7 @@ show_status() {
             print_error "Docker Compose is not installed or not in PATH"
             return 1
         }
-        $compose_cmd --env-file ../.env ps
+    $compose_cmd --env-file "$ENV_FILE_ABS" ps
     else
         print_error "docker-compose.yml not found in current directory"
         return 1
@@ -185,10 +194,10 @@ show_logs() {
         }
         if [ -n "$1" ]; then
             # Show logs for specific service
-            $compose_cmd --env-file ../.env logs -f "$1"
+            $compose_cmd --env-file "$ENV_FILE_ABS" logs -f "$1"
         else
             # Show logs for all services
-            $compose_cmd --env-file ../.env logs -f
+            $compose_cmd --env-file "$ENV_FILE_ABS" logs -f
         fi
     else
         print_error "docker-compose.yml not found in current directory"
@@ -206,7 +215,7 @@ clean_component() {
             print_error "Docker Compose is not installed or not in PATH"
             return 1
         }
-        $compose_cmd --env-file ../.env down -v --remove-orphans
+    $compose_cmd --env-file "$ENV_FILE_ABS" down -v --remove-orphans
         print_success "Dual Dapr pluggable components cleaned"
     else
         print_error "docker-compose.yml not found in current directory"
